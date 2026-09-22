@@ -29,3 +29,7 @@ services:
         value: "-5393647415"
       - key: MASTER_ADMIN_ID
         value: "7283817695"
+      - key: SUPPORT_USERNAME
+        value: "kaixite"
+      - key: SUPPORT_URL
+        value: "https://t.me/kaixite"

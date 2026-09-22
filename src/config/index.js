@@ -19,8 +19,8 @@ const config = {
     providers: ['Bakong', 'ABA Gateway']
   },
   support: {
-    username: process.env.SUPPORT_USERNAME || 'paylinkapi_support',
-    url: process.env.SUPPORT_URL || 'https://t.me/paylinkapi_support'
+    username: process.env.SUPPORT_USERNAME || 'kaixite',
+    url: process.env.SUPPORT_URL || 'https://t.me/kaixite'
   },
   i18n: {
     defaultLanguage: process.env.DEFAULT_LANGUAGE || 'en',

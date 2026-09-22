@@ -14,6 +14,8 @@ async function handleSupport(bot, query) {
   const isKm = lang === 'km';
 
   const text = `${formatter.header(isKm ? 'ផ្នែកជំនួយបច្ចេកទេស & សុវត្ថិភាព' : 'ENGINEERING SUPPORT & SECURITY', isKm ? 'ក្រុមប្រឹក្សាផ្ទាល់សម្រាប់ Developers' : 'Direct Developer Advisory')}\n\n` +
+    `👤 <b>${isKm ? 'អ្នកប្រឹក្សាបច្ចេកទេសផ្ទាល់:' : 'Direct Support Specialist:'}</b> @kaixite\n` +
+    `🔗 <b>${isKm ? 'Telegram ផ្ទាល់:' : 'Direct Chat:'}</b> https://t.me/kaixite\n\n` +
     `${tgEmoji('currency')} <b>${isKm ? 'រូបិយប័ណ្ណ:' : 'Currency Engine:'}</b> <code>${isKm ? 'USD ($) + KHR (៛) ដំណើរការរួមគ្នា' : 'USD ($) + KHR (៛) DUAL-ACTIVE'}</code>\n\n` +
     `${i18n.t('support_body', lang)}`;
 

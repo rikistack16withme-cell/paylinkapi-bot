@@ -38,6 +38,9 @@ const inlineKeyboards = {
           makeButton(i18n.t('btn_my_orders', lang), 'nav_orders', 'orders', 'primary')
         ],
         [makeButton(i18n.t('btn_doc_pdf', lang), 'doc_download_pdf', 'docs', 'primary')],
+        [
+          { text: lang === 'km' ? '💬 ជំនួយ Support (@kaixite)' : '💬 Developer Support (@kaixite)', url: config.support.url || 'https://t.me/kaixite' }
+        ],
         [makeButton(lang === 'en' ? 'ប្តូរជាភាសាខ្មែរ (Khmer)' : 'Switch to English', 'toggle_lang_dash', null, 'success')]
       ]
     }

@@ -115,8 +115,8 @@ const translations = {
 
     // Support
     support_title: `<b>◈ ENGINEERING SUPPORT &amp; SECURITY</b>`,
-    support_body: 'Our gateway solutions architects are standing by for direct assistance.',
-    btn_contact_support: 'Contact Architect ❯',
+    support_body: 'Our lead engineering architect @kaixite is standing by for direct 1-on-1 assistance with your API integration.',
+    btn_contact_support: '💬 Chat with @kaixite ❯',
     btn_help_center: 'Architecture FAQs',
 
     // Settings
@@ -249,9 +249,9 @@ const translations = {
     btn_doc_examples: 'ឧទាហរណ៍កូដ (Code Examples)',
 
     // Support
-    support_title: `<b>◈ ផ្នែកជំនួយ &amp; SECURITY</b>`,
-    support_body: 'ក្រុមការងារបច្ចេកទេសរបស់យើងត្រៀមខ្លួនជួយអ្នកជានិច្ច។',
-    btn_contact_support: 'ទាក់ទងក្រុមបច្ចេកទេស ❯',
+    support_title: `<b>◈ ផ្នែកជំនួយបច្ចេកទេស &amp; SUPPORT</b>`,
+    support_body: 'អ្នកជំនាញបច្ចេកទេសផ្ទាល់ @kaixite ត្រៀមខ្លួនជួយសម្របសម្រួល និងដោះស្រាយបញ្ហាការតភ្ជាប់ API ជូនអ្នកជានិច្ច។',
+    btn_contact_support: '💬 ជជែកផ្ទាល់ជាមួយ @kaixite ❯',
     btn_help_center: 'សំណួរញឹកញាប់ FAQs',
 
     // Settings
