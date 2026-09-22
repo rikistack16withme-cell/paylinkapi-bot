@@ -25,6 +25,21 @@ async function handleStart(bot, msg) {
 
   sessionManager.resetSession(from.id);
 
+  // Notify Admin Group (-5393647415) when user starts the bot
+  const adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  if (String(chatId) !== adminChatId) {
+    const { sendAdminAlert } = require('../../services/notification.service');
+    const isReturning = userService.isRegistered(from.id);
+    sendAdminAlert(
+      `👋 <b>[USER ACTIVE • /START]</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+      `• <b>User:</b> ${formatter.escapeHtml(from.first_name || '')} ${formatter.escapeHtml(from.last_name || '')} (@${from.username || 'no_username'})\n` +
+      `• <b>Telegram ID:</b> <code>${from.id}</code>\n` +
+      `• <b>Account Status:</b> <code>${isReturning ? 'Returning Registered Merchant' : 'New Visitor'}</code>\n` +
+      `• <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>`
+    ).catch(() => {});
+  }
+
   // If already registered, send straight to Dashboard
   if (userService.isRegistered(from.id)) {
     const lang = userService.getUserLanguage(from.id);

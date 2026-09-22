@@ -1552,6 +1552,19 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
   if (isBakongOnly) displayRails = 'NBC Bakong National KHQR';
   else if (isAbaOnly) displayRails = 'ABA PayWay Gateway';
 
+  // Broadcast real-time payment & key release alert to Admin Group (-5393647415)
+  const { sendAdminAlert } = require('../../services/notification.service');
+  sendAdminAlert(
+    `💰 <b>[PAYMENT & CREDENTIALS ISSUED]</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `👤 <b>Merchant:</b> ${formatter.escapeHtml(merchantName)} (@${from.username || 'no_username'})\n` +
+    `🆔 <b>Telegram ID:</b> <code>${from.id}</code>\n` +
+    `🏦 <b>Rails:</b> <code>${displayRails}</code>\n` +
+    `🔑 <b>API Key:</b> <code>${activeKey}</code>\n` +
+    `🛡️ <b>Webhook Secret:</b> <code>${activeSecret}</code>\n` +
+    `⏰ <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>`
+  ).catch(() => {});
+
   let railsAdvice = isKm
     ? 'លោកអ្នកអាចប្រើប្រាស់ ១ Key នេះ ដើម្បីបង្កើត QR Code និងទទួលការទូទាត់ទាំង Bakong KHQR និង ABA PayWay តាមរយៈ Unified API!'
     : 'Use this 1 API Key to generate and verify both Bakong KHQR & ABA PayWay transactions via the unified API!';

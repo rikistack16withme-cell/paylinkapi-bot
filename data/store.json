@@ -1,5 +1,12 @@
 {
   "users": {
+    "999888777": {
+      "telegramId": "999888777",
+      "firstName": "Diagnostic",
+      "status": "ACTIVE",
+      "updatedAt": "2026-09-22T16:44:41.001Z",
+      "createdAt": "2026-09-22T16:44:41.001Z"
+    },
     "999999999": {
       "telegramId": 999999999,
       "username": "test_dev",
@@ -3865,6 +3872,42 @@
       "merchantName": "Store B - Tech Mart",
       "plan": "1m",
       "createdAt": "2026-09-22T15:32:12.785Z"
+    },
+    "key_999888777_1790095481003": {
+      "id": "key_999888777_1790095481003",
+      "telegramId": "999888777",
+      "provider": "NBC Bakong National KHQR",
+      "tier": "Production Live Rail",
+      "apiKey": "dp_live_999888777_842a167e",
+      "secret": "whsec_42c5151af00c0d55",
+      "status": "ACTIVE",
+      "isMock": true,
+      "bakongId": "diag1@aclb",
+      "merchantId": "diag1@aclb",
+      "phone": null,
+      "khrLink": null,
+      "usdLink": null,
+      "merchantName": "Diagnostic Store 1",
+      "plan": "1m",
+      "createdAt": "2026-09-22T16:44:41.004Z"
+    },
+    "key_999888777_1790095481005": {
+      "id": "key_999888777_1790095481005",
+      "telegramId": "999888777",
+      "provider": "ABA PayWay Gateway",
+      "tier": "Production Live Rail",
+      "apiKey": "dp_live_999888777_372e7d8d",
+      "secret": "whsec_81a4d8ee9618af54",
+      "status": "ACTIVE",
+      "isMock": true,
+      "bakongId": null,
+      "merchantId": null,
+      "phone": null,
+      "khrLink": null,
+      "usdLink": "https://link.payway.com.kh/ABAPAY_DIAG",
+      "merchantName": "Diagnostic Store 2",
+      "plan": "1m",
+      "createdAt": "2026-09-22T16:44:41.005Z"
     }
   },
   "sessions": {

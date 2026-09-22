@@ -932,6 +932,18 @@ async function handleCheckLivePay(bot, query, tranId) {
           `${formatter.divider}\n` +
           `<i>${tgEmoji('telemetry')} Transaction confirmed and registered in developer database!</i>`;
 
+      // Notify Admin Group (-5393647415)
+      const { sendAdminAlert } = require('../../services/notification.service');
+      sendAdminAlert(
+        `🧪 <b>[LIVE PAYMENT TEST CONFIRMED]</b>\n` +
+        `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+        `👤 <b>Tester:</b> ${formatter.escapeHtml(from.first_name || 'Developer')} (@${from.username || 'no_username'})\n` +
+        `🏦 <b>Bank:</b> <code>${isBakong ? 'Bakong National KHQR' : 'ABA PayWay'}</code>\n` +
+        `💵 <b>Amount:</b> <b>${tx.amountFormatted || tx.amount} ${tx.currency}</b>\n` +
+        `🧾 <b>Tran ID:</b> <code>${tranId}</code>\n` +
+        `⏰ <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>`
+      ).catch(() => {});
+
       try {
         await bot.editMessageCaption(successCaption, {
           chat_id: query.message.chat.id,
