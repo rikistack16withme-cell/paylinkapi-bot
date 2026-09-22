@@ -12,6 +12,7 @@ const config = {
     }
   },
   adminChatId: process.env.ADMIN_CHAT_ID || '-5393647415',
+  masterAdminId: process.env.MASTER_ADMIN_ID || '7283817695',
   brand: {
     name: process.env.BRAND_NAME || 'PaylinkApi',
     tagline: process.env.BRAND_TAGLINE || 'FAST • SECURE • EASY',

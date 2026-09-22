@@ -27,3 +27,5 @@ services:
         sync: false
       - key: ADMIN_CHAT_ID
         value: "-5393647415"
+      - key: MASTER_ADMIN_ID
+        value: "7283817695"

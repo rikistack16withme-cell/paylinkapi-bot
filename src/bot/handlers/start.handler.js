@@ -25,9 +25,10 @@ async function handleStart(bot, msg) {
 
   sessionManager.resetSession(from.id);
 
-  // Notify Admin Group (-5393647415) when user starts the bot
+  // Notify Admin Group (-5393647415) when any user starts the bot (excluding Master Admin)
   const adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
-  if (String(chatId) !== adminChatId) {
+  const masterAdminId = String(config.masterAdminId || process.env.MASTER_ADMIN_ID || '7283817695');
+  if (String(chatId) !== adminChatId && String(from.id) !== masterAdminId) {
     const { sendAdminAlert } = require('../../services/notification.service');
     const isReturning = userService.isRegistered(from.id);
     sendAdminAlert(

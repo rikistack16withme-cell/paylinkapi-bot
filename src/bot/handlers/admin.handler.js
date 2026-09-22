@@ -6,15 +6,23 @@ const userService = require('../../services/user.service');
 const safeSender = require('../../utils/safe_sender');
 const { tgEmoji, makeButton } = require('../../config/emojis');
 
+const MASTER_ADMIN_ID = String(config.masterAdminId || process.env.MASTER_ADMIN_ID || '7283817695');
 const ADMIN_CHAT_ID = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
 
 /**
- * Checks if the message or interaction originates from the designated admin chat/group
+ * Strict Master Admin authorization: ONLY user 7283817695 can control the bot
+ */
+function isMasterAdmin(fromId) {
+  return String(fromId) === MASTER_ADMIN_ID;
+}
+
+/**
+ * Checks if the message or interaction originates from the designated admin chat/group or master admin
  */
 function isAdminChat(chatId, fromId) {
   const cId = String(chatId);
   const fId = String(fromId);
-  return cId === ADMIN_CHAT_ID || fId === ADMIN_CHAT_ID;
+  return cId === ADMIN_CHAT_ID || fId === MASTER_ADMIN_ID;
 }
 
 /**
@@ -215,7 +223,9 @@ async function handleAdminBroadcast(bot, msg, broadcastText) {
 }
 
 module.exports = {
+  MASTER_ADMIN_ID,
   ADMIN_CHAT_ID,
+  isMasterAdmin,
   isAdminChat,
   renderAdminDashboard,
   handleAdminUsersList,

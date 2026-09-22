@@ -142,32 +142,53 @@ bot.on('message', async (msg) => {
       );
     }
 
-    // Admin Commands & Operations (Admin Group -5393647415)
-    const isAdmin = adminHandler.isAdminChat(chatId, msg.from.id);
+    // Admin Commands & Operations (Strictly locked to Master Admin 7283817695)
+    const isMaster = adminHandler.isMasterAdmin(msg.from.id);
 
     if (text.startsWith('/admin') || text.startsWith('/stats') || text.startsWith('/status')) {
       middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) {
+        return await bot.sendMessage(
+          chatId,
+          `⛔ <b>ACCESS DENIED • កំហុសសិទ្ធិអនុញ្ញាត</b>\n\n` +
+          `Only Master Admin (ID: <code>7283817695</code>) is authorized to control this system.\n` +
+          `មានតែម្ចាស់ Admin ម្នាក់គត់ (ID: <code>7283817695</code>) ដែលមានសិទ្ធិបញ្ជាប្រព័ន្ធនេះ។`,
+          { parse_mode: 'HTML' }
+        );
+      }
       return await adminHandler.renderAdminDashboard(bot, chatId);
     }
 
-    if (text.startsWith('/broadcast') && isAdmin) {
+    if (text.startsWith('/broadcast')) {
       middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) {
+        return await bot.sendMessage(chatId, `⛔ <b>ACCESS DENIED:</b> Only Master Admin (ID: <code>7283817695</code>) can broadcast announcements.`, { parse_mode: 'HTML' });
+      }
       const broadcastMsg = text.replace(/^\/broadcast(@\w+)?\s*/, '').trim();
       return await adminHandler.handleAdminBroadcast(bot, msg, broadcastMsg);
     }
 
-    if (text.startsWith('/users') && isAdmin) {
+    if (text.startsWith('/users')) {
       middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) {
+        return await bot.sendMessage(chatId, `⛔ <b>ACCESS DENIED:</b> Only Master Admin (ID: <code>7283817695</code>) can view user records.`, { parse_mode: 'HTML' });
+      }
       return await adminHandler.handleAdminUsersList(bot, chatId);
     }
 
-    if (text.startsWith('/keys') && isAdmin) {
+    if (text.startsWith('/keys')) {
       middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) {
+        return await bot.sendMessage(chatId, `⛔ <b>ACCESS DENIED:</b> Only Master Admin (ID: <code>7283817695</code>) can view API keys.`, { parse_mode: 'HTML' });
+      }
       return await adminHandler.handleAdminKeysList(bot, chatId);
     }
 
-    if (text.startsWith('/orders') && isAdmin) {
+    if (text.startsWith('/orders')) {
       middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) {
+        return await bot.sendMessage(chatId, `⛔ <b>ACCESS DENIED:</b> Only Master Admin (ID: <code>7283817695</code>) can view order logs.`, { parse_mode: 'HTML' });
+      }
       return await adminHandler.handleAdminOrdersList(bot, chatId);
     }
 
@@ -309,18 +330,26 @@ bot.on('callback_query', async (query) => {
       return await handleDownloadPdf(bot, query);
     }
 
-    // Admin Operations Callbacks (Admin Group -5393647415)
-    if (data === 'admin_refresh_stats') {
-      return await adminHandler.renderAdminDashboard(bot, chatId, messageId);
-    }
-    if (data === 'admin_view_users') {
-      return await adminHandler.handleAdminUsersList(bot, chatId, messageId);
-    }
-    if (data === 'admin_view_keys') {
-      return await adminHandler.handleAdminKeysList(bot, chatId, messageId);
-    }
-    if (data === 'admin_view_orders') {
-      return await adminHandler.handleAdminOrdersList(bot, chatId, messageId);
+    // Admin Operations Callbacks (Strictly locked to Master Admin 7283817695)
+    if (data && data.startsWith('admin_')) {
+      if (!adminHandler.isMasterAdmin(from.id)) {
+        return await bot.answerCallbackQuery(query.id, {
+          text: '⛔ Access Denied: Only Master Admin (ID: 7283817695) can control this bot.',
+          show_alert: true
+        });
+      }
+      if (data === 'admin_refresh_stats') {
+        return await adminHandler.renderAdminDashboard(bot, chatId, messageId);
+      }
+      if (data === 'admin_view_users') {
+        return await adminHandler.handleAdminUsersList(bot, chatId, messageId);
+      }
+      if (data === 'admin_view_keys') {
+        return await adminHandler.handleAdminKeysList(bot, chatId, messageId);
+      }
+      if (data === 'admin_view_orders') {
+        return await adminHandler.handleAdminOrdersList(bot, chatId, messageId);
+      }
     }
 
     // Route callback queries
