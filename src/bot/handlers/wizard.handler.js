@@ -1552,6 +1552,8 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
   if (isBakongOnly) displayRails = 'NBC Bakong National KHQR';
   else if (isAbaOnly) displayRails = 'ABA PayWay Gateway';
 
+  const baseUrl = tunnelService.getPublicUrl() || 'https://paylinkapi-bot.onrender.com';
+
   // Broadcast real-time payment & key release alert to Admin Group (-5393647415)
   const { sendAdminAlert } = require('../../services/notification.service');
   sendAdminAlert(
@@ -1562,6 +1564,7 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
     `🏦 <b>Rails:</b> <code>${displayRails}</code>\n` +
     `🔑 <b>API Key:</b> <code>${activeKey}</code>\n` +
     `🛡️ <b>Webhook Secret:</b> <code>${activeSecret}</code>\n` +
+    `🌐 <b>Base URL:</b> <code>${baseUrl}</code>\n` +
     `⏰ <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>`
   ).catch(() => {});
 
@@ -1591,14 +1594,24 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
     `${tgEmoji('crown')} <b>${isKm ? 'កូដសម្ងាត់ API របស់អ្នក (UNIFIED 1-KEY SYSTEM):' : 'YOUR UNIFIED 1-KEY PRODUCTION CREDENTIALS:'}</b>\n\n` +
     `${tgEmoji('keys')} <b>Production API Key:</b>\n<code>${activeKey}</code>\n\n` +
     `${tgEmoji('security')} <b>Webhook Secret:</b>\n<code>${activeSecret}</code>\n\n` +
+    `${formatter.divider}\n\n` +
+    `${tgEmoji('telemetry')} <b>${isKm ? 'របៀបតភ្ជាប់ជាមួយប្រព័ន្ធ API (HOW TO CONNECT):' : 'HOW TO CONNECT TO YOUR LIVE API:'}</b>\n\n` +
+    `🌐 <b>Base Gateway URL:</b>\n<code>${baseUrl}</code>\n\n` +
+    `📡 <b>Create Payment QR (POST):</b>\n<code>${baseUrl}/api/aba/generate-qr</code>\n\n` +
+    `🔑 <b>Request Header:</b>\n<code>Authorization: Bearer ${activeKey}</code>\n\n` +
+    `🛡️ <b>Security & Anti-DDoS:</b> <code>Rate limit 60 req/min, DDoS firewall auto-ban active</code>\n` +
     `${formatter.divider}\n` +
-    `<i>${tgEmoji('bulb')} ${railsAdvice}</i>`;
+    `<i>${tgEmoji('bulb')} ${railsAdvice}</i>\n` +
+    `<i>💬 ${isKm ? 'ត្រូវការជំនួយតភ្ជាប់កូដ? ទាក់ទង Developer Support:' : 'Need integration help? Contact Developer Support:'} @kaixite</i>`;
 
   const keyboard = {
     inline_keyboard: [
-      [makeButton(isKm ? 'តេស្តស្កេនទូទាត់ជាក់ស្តែង (Live KHQR) ❯' : 'Test Live Payment (Scan QR) ❯', 'start_live_pay_test', 'rocket', 'success')],
-      [makeButton(isKm ? 'ទាញយកសៀវភៅណែនាំ (Download PDF) ❯' : 'Download Integration Guide (PDF) ❯', 'doc_download_pdf', 'docs', 'primary')],
-      [makeButton(isKm ? 'ចូលទៅកាន់ផ្ទាំងបញ្ជា (Console) ❯' : 'Open Developer Console ❯', 'nav_dashboard', 'terminal', 'primary')]
+      [makeButton(isKm ? '📄 ទាញយកសៀវភៅណែនាំ (Download PDF) ❯' : '📄 Download Integration PDF ❯', 'doc_download_pdf', null, 'primary')],
+      [makeButton(isKm ? '🚀 តេស្តស្កេនទូទាត់ជាក់ស្តែង (Live KHQR) ❯' : '🚀 Test Live Payment (Scan QR) ❯', 'start_live_pay_test', null, 'success')],
+      [
+        { text: isKm ? '💬 ជំនួយ Support (@kaixite)' : '💬 Developer Support (@kaixite)', url: 'https://t.me/kaixite' },
+        makeButton(isKm ? '🖥️ ផ្ទាំងបញ្ជា (Console)' : '🖥️ Console', 'nav_dashboard', null, 'primary')
+      ]
     ]
   };
 

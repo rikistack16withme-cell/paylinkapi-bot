@@ -132,7 +132,7 @@ async function handleDownloadPdf(bot, query) {
     await bot.sendChatAction(chatId, 'upload_document').catch(() => {});
 
     const apiKeys = apiKeyService.getUserApiKeys(from.id);
-    const baseUrl = tunnelService.getPublicUrl() || 'http://localhost:5000';
+    const baseUrl = tunnelService.getPublicUrl() || 'https://paylinkapi-bot.onrender.com';
 
     const pdfPath = await pdfGeneratorService.generateIntegrationPdf({
       telegramId: String(from.id),
@@ -150,22 +150,27 @@ async function handleDownloadPdf(bot, query) {
       ? `📄 <b>សៀវភៅណែនាំតភ្ជាប់ DEVELOPER INTEGRATION GUIDE (PDF)</b>\n\n` +
         `• <b>Developer:</b> <code>${formatter.escapeHtml(from.first_name || 'Developer')}</code> (ID: <code>${from.id}</code>)\n` +
         `• <b>API Keys:</b> <code>${apiKeys.length} សកម្ម</code>\n` +
-        `• <b>ប្រព័ន្ធទូទាត់:</b> <code>NBC Bakong KHQR & ABA PayWay</code>\n` +
+        `• 🌐 <b>Gateway URL:</b> <code>${baseUrl}</code>\n` +
+        `• 🛡️ <b>Security:</b> <code>Anti-DDoS Firewall & Rate Limit (60 req/min) Active</code>\n` +
         `• 🤖 <b>AI Vibe Coding:</b> <code>Master Prompt លើទំព័រទី ២ (សម្រាប់ Cursor/Claude/ChatGPT)</code>\n` +
-        `• <b>ភាសាកូដ:</b> <code>Node.js, Python, PHP, cURL</code>\n\n` +
-        `<i>ឯកសារនេះមានភ្ជាប់ជាមួយ Production API Key, Webhook Secret និង AI Prompt សម្រាប់យកទៅឱ្យ AI សរសេរកូដប្រព័ន្ធទូទាត់ដោយស្វ័យប្រវត្តិ!</i>`
+        `• 💬 <b>Developer Support:</b> @kaixite\n\n` +
+        `<i>ឯកសារនេះមានភ្ជាប់ជាមួយ Live URL, API Key, Webhook Secret និង AI Prompt សម្រាប់យកទៅឱ្យ AI សរសេរកូដប្រព័ន្ធទូទាត់ភ្លាមៗ!</i>`
       : `📄 <b>OFFICIAL DEVELOPER INTEGRATION GUIDE (PDF)</b>\n\n` +
         `• <b>Developer:</b> <code>${formatter.escapeHtml(from.first_name || 'Developer')}</code> (ID: <code>${from.id}</code>)\n` +
         `• <b>API Keys:</b> <code>${apiKeys.length} Active</code>\n` +
-        `• <b>Payment Rails:</b> <code>NBC Bakong KHQR & ABA PayWay</code>\n` +
+        `• 🌐 <b>Gateway URL:</b> <code>${baseUrl}</code>\n` +
+        `• 🛡️ <b>Security:</b> <code>Anti-DDoS Firewall & Rate Limit (60 req/min) Active</code>\n` +
         `• 🤖 <b>AI Vibe Coding:</b> <code>Master Prompt included on Page 2 (for Cursor/Claude/ChatGPT)</code>\n` +
-        `• <b>Code Samples:</b> <code>Node.js, Python, PHP, cURL</code>\n\n` +
-        `<i>Personalized with your active API Key, Webhook Secret, code snippets, and a ready-to-copy AI Master Prompt for instant Vibe Coding!</i>`;
+        `• 💬 <b>Developer Support:</b> @kaixite\n\n` +
+        `<i>Personalized with your live gateway URL, active API Key, Webhook Secret, code snippets, and anti-DDoS security specifications!</i>`;
 
     const keyboard = {
       inline_keyboard: [
-        [makeButton(isKm ? '⚡ តេស្តស្កេនទូទាត់ (Test Live Pay) ❯' : '⚡ Test Purchased API Key ❯', 'start_live_pay_test', 'rocket', 'success')],
-        [makeButton(isKm ? '← ត្រឡប់ទៅផ្ទាំងបញ្ជា (Console)' : '← Back to Console', 'nav_dashboard', null, 'danger')]
+        [makeButton(isKm ? '⚡ តេស្តស្កេនទូទាត់ (Test Live Pay) ❯' : '⚡ Test Purchased API Key ❯', 'start_live_pay_test', null, 'success')],
+        [
+          { text: isKm ? '💬 ជំនួយ Support (@kaixite)' : '💬 Developer Support (@kaixite)', url: 'https://t.me/kaixite' },
+          makeButton(isKm ? '← ផ្ទាំងបញ្ជា (Console)' : '← Console', 'nav_dashboard', null, 'danger')
+        ]
       ]
     };
 

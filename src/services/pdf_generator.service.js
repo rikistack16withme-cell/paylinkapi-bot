@@ -146,7 +146,7 @@ class PdfGeneratorService {
    * Generates a clean, executive-grade Developer Integration Guide PDF
    * including an AI Vibe Coding Master Prompt for ChatGPT / Claude / Cursor / v0
    */
-  async generateIntegrationPdf({ telegramId, userName = 'Developer', apiKeys = [], baseUrl = 'http://localhost:5000' }) {
+  async generateIntegrationPdf({ telegramId, userName = 'Developer', apiKeys = [], baseUrl = 'https://paylinkapi-bot.onrender.com' }) {
     return new Promise((resolve, reject) => {
       try {
         const fileName = `PaylinkApi_Integration_Guide_${telegramId}_${Date.now()}.pdf`;
@@ -168,12 +168,16 @@ class PdfGeneratorService {
         doc.pipe(stream);
 
         const totalPages = 4;
+        const effectiveBaseUrl = (baseUrl && !baseUrl.includes('localhost'))
+          ? baseUrl.replace(/\/+$/, '')
+          : (process.env.RENDER_EXTERNAL_URL || process.env.BASE_URL || 'https://paylinkapi-bot.onrender.com').replace(/\/+$/, '');
+
         const sampleKey = (apiKeys && apiKeys[0]?.apiKey) || 'dp_live_your_api_key';
         const sampleSecret = (apiKeys && apiKeys[0]?.secret) || 'whsec_sample_secret';
         const sampleMerchant = (apiKeys && apiKeys[0]?.merchantName) || 'Merchant Store';
 
         // =========================================================================
-        // PAGE 1: CREDENTIALS, ENDPOINTS & WORKFLOW
+        // PAGE 1: CREDENTIALS, LIVE GATEWAY & QUICK WORKFLOW
         // =========================================================================
         doc.addPage();
         this.drawHeader(doc, 'PAYLINKAPI GATEWAY', 'OFFICIAL DEVELOPER INTEGRATION MANUAL', 1, totalPages, userName, telegramId);
@@ -189,7 +193,7 @@ class PdfGeneratorService {
             .fontSize(9)
             .font('Helvetica')
             .text('No active API keys found. Activate an API key from @PayLinkAPI_bot.', 55, curY + 16);
-          curY += 60;
+          curY += 58;
         } else {
           apiKeys.forEach((k, idx) => {
             const cardH = 76;
@@ -223,18 +227,25 @@ class PdfGeneratorService {
           });
         }
 
-        // --- 2. Endpoints Reference ---
-        curY = this.drawSectionHeader(doc, '2. API BASE URL & PAYMENT ENDPOINTS', curY);
+        // --- 2. Live API Gateway URL & Endpoints ---
+        curY = this.drawSectionHeader(doc, '2. LIVE API GATEWAY URL & ENDPOINTS', curY);
 
-        doc.fillColor('#475569')
-          .fontSize(8.5)
-          .font('Helvetica')
-          .text('Base URL: ', 40, curY, { continued: true })
+        // Highlight box for the Live Production URL
+        doc.roundedRect(40, curY, 515, 34, 4).fillAndStroke('#F0FDF4', '#86EFAC');
+        doc.fillColor('#15803D')
+          .fontSize(7.5)
+          .font('Helvetica-Bold')
+          .text('LIVE API GATEWAY BASE URL (HTTPS):', 50, curY + 6);
+        doc.fillColor('#0F172A')
+          .fontSize(9.5)
           .font('Courier-Bold')
-          .fillColor('#0F172A')
-          .text(`${baseUrl}`);
+          .text(effectiveBaseUrl, 50, curY + 18);
+        doc.fillColor('#166534')
+          .fontSize(7.5)
+          .font('Helvetica-Bold')
+          .text('CLOUD HOSTED & ACTIVE 24/7', 370, curY + 13, { align: 'right', width: 175 });
 
-        curY += 16;
+        curY += 42;
 
         const endpoints = [
           { method: 'POST', path: '/api/aba/generate-qr', desc: 'Create dynamic ABA/Bakong KHQR string & deeplink' },
@@ -263,15 +274,15 @@ class PdfGeneratorService {
           curY += 28;
         });
 
-        curY += 8;
+        curY += 6;
 
         // --- 3. Quick Integration Flow ---
         curY = this.drawSectionHeader(doc, '3. QUICK INTEGRATION WORKFLOW (POLLING)', curY);
 
         const steps = [
-          { num: 'STEP 1', title: 'Generate QR Code', desc: 'Send POST to /api/aba/generate-qr with amount, currency & API Key header.' },
+          { num: 'STEP 1', title: 'Generate QR Code', desc: `POST ${effectiveBaseUrl}/api/aba/generate-qr with Authorization header.` },
           { num: 'STEP 2', title: 'Customer Scans & Pays', desc: 'Display the returned qrString or image. Customer scans with ABA or Bakong.' },
-          { num: 'STEP 3', title: 'Verify Settlement', desc: 'Poll /api/aba/check-payment every 2-3s until status returns "PAID".' }
+          { num: 'STEP 3', title: 'Verify Settlement', desc: `Poll ${effectiveBaseUrl}/api/aba/check-payment every 2-3s until status is PAID.` }
         ];
 
         steps.forEach((st) => {
@@ -281,6 +292,13 @@ class PdfGeneratorService {
           doc.fillColor('#475569').fontSize(8).font('Helvetica').text(st.desc, 230, curY + 9);
           curY += 34;
         });
+
+        // Connection instruction callout box on Page 1
+        doc.roundedRect(40, curY, 515, 30, 4).fillAndStroke('#EFF6FF', '#BFDBFE');
+        doc.fillColor('#1D4ED8').fontSize(7.8).font('Helvetica-Bold')
+          .text('HOW TO CONNECT:', 50, curY + 6);
+        doc.fillColor('#334155').fontSize(7.5).font('Helvetica')
+          .text(`Use Base URL "${effectiveBaseUrl}" in your code with header "Authorization: Bearer ${sampleKey}". Enterprise rate limit (60 req/min) & DDoS auto-ban protect your API 24/7.`, 50, curY + 17, { width: 495 });
 
         this.drawFooter(doc, 1, totalPages);
 
@@ -308,21 +326,22 @@ class PdfGeneratorService {
             52, p2Y + 23, { width: 491, lineGap: 1.5 }
           );
 
-        p2Y += 52;
+        p2Y += 50;
 
         const vibePrompt = 
 `You are an expert full-stack engineer. Build a Cambodian Payment Checkout integration using PaylinkApi Gateway (NBC Bakong KHQR & ABA PayWay) with the following specifications:
 
 1. CONFIGURATION & CREDENTIALS:
-   - Base URL: "${baseUrl}"
-   - API Key: "${sampleKey}"
+   - Live Base URL: "${effectiveBaseUrl}"
+   - Production API Key: "${sampleKey}"
    - Webhook Secret: "${sampleSecret}"
    - Merchant Name: "${sampleMerchant}"
    - Authorization Header: "Bearer ${sampleKey}"
+   - Enterprise Rate Limit: 60 req/min per IP (Automated Anti-DDoS Protection active)
 
 2. STEP 1: INITIALIZE PAYMENT (GENERATE QR)
    - When customer clicks "Pay Now", send POST request:
-     POST ${baseUrl}/api/aba/generate-qr
+     POST ${effectiveBaseUrl}/api/aba/generate-qr
      Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${sampleKey}" }
      Body: { "amount": <amount>, "currency": "USD" | "KHR" }
    - Response contains:
@@ -336,7 +355,7 @@ class PdfGeneratorService {
 
 4. STEP 3: REAL-TIME PAYMENT VERIFICATION (AUTO-POLLING)
    - Set an automated 3-second interval polling:
-     POST ${baseUrl}/api/aba/check-payment
+     POST ${effectiveBaseUrl}/api/aba/check-payment
      Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${sampleKey}" }
      Body: { "transactionId": "<TRAN_ID>" }
    - If response { "status": "PAID" }:
@@ -370,7 +389,7 @@ class PdfGeneratorService {
         p3Y = this.drawSectionHeader(doc, 'A. Node.js (JavaScript / Fetch)', p3Y);
         const nodeCode = 
 `// 1. Generate QR Code
-const genRes = await fetch('${baseUrl}/api/aba/generate-qr', {
+const genRes = await fetch('${effectiveBaseUrl}/api/aba/generate-qr', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -381,7 +400,7 @@ const genRes = await fetch('${baseUrl}/api/aba/generate-qr', {
 const { qrString, transactionId } = await genRes.json();
 
 // 2. Check Payment Status (Polling every 3 seconds)
-const checkRes = await fetch('${baseUrl}/api/aba/check-payment', {
+const checkRes = await fetch('${effectiveBaseUrl}/api/aba/check-payment', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -403,12 +422,12 @@ if (result.status === 'PAID') {
 headers = { "Authorization": "Bearer ${sampleKey}" }
 
 # 1. Generate QR
-res = requests.post("${baseUrl}/api/aba/generate-qr", json={"amount": 1.00, "currency": "USD"}, headers=headers)
+res = requests.post("${effectiveBaseUrl}/api/aba/generate-qr", json={"amount": 1.00, "currency": "USD"}, headers=headers)
 data = res.json()
 tran_id = data.get("transactionId")
 
 # 2. Check Payment Status
-check = requests.post("${baseUrl}/api/aba/check-payment", json={"transactionId": tran_id}, headers=headers)
+check = requests.post("${effectiveBaseUrl}/api/aba/check-payment", json={"transactionId": tran_id}, headers=headers)
 if check.json().get("status") == "PAID":
     print("Payment Verified Successfully!")`;
         p3Y = this.drawCodeBox(doc, 'Python 3', pythonCode, p3Y, { fontSize: 7.5, lineGap: 1.8, codeColor: '#A7F3D0' });
@@ -427,25 +446,22 @@ if check.json().get("status") == "PAID":
         p4Y = this.drawSectionHeader(doc, 'C. PHP (cURL)', p4Y);
         const phpCode = 
 `<?php
-$url = "${baseUrl}/api/aba/generate-qr";
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    "Content-Type: application/json",
-    "Authorization: Bearer ${sampleKey}"
+$ch = curl_init("${effectiveBaseUrl}/api/aba/generate-qr");
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => ["Content-Type: application/json", "Authorization: Bearer ${sampleKey}"],
+    CURLOPT_POSTFIELDS => json_encode(["amount" => 1.00, "currency" => "USD"])
 ]);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(["amount" => 1.00, "currency" => "USD"]));
-$response = json_decode(curl_exec($ch), true);
+$res = json_decode(curl_exec($ch), true);
 curl_close($ch);
-
-echo "QR String: " . $response["qrString"];
+echo "QR String: " . $res["qrString"];
 ?>`;
         p4Y = this.drawCodeBox(doc, 'PHP (cURL)', phpCode, p4Y, { fontSize: 7.5, lineGap: 1.8, codeColor: '#FDE047' });
 
         // --- cURL CLI ---
         p4Y = this.drawSectionHeader(doc, 'D. cURL Command Line', p4Y);
         const curlCode = 
-`curl -X POST "${baseUrl}/api/aba/generate-qr" \\
+`curl -X POST "${effectiveBaseUrl}/api/aba/generate-qr" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${sampleKey}" \\
   -d '{"amount": 1.00, "currency": "USD"}'`;
@@ -460,29 +476,59 @@ echo "QR String: " . $response["qrString"];
           .text(
             'When a customer pays, PaylinkApi pushes an HTTP POST to your webhook endpoint.\n' +
             'Every request includes an "X-Signature" header computed via HMAC-SHA256 of the raw payload using your Webhook Secret.',
-            40, p4Y, { width: 515, lineGap: 2 }
+            40, p4Y, { width: 515, lineGap: 1.5 }
           );
 
-        p4Y += 26;
+        p4Y += 24;
 
         const webhookCode = 
 `const crypto = require('crypto');
-
 app.post('/api/webhook', express.raw({ type: 'application/json' }), (req, res) => {
-  const signature = req.headers['x-signature'];
+  const sig = req.headers['x-signature'];
   const expected = crypto.createHmac('sha256', '${sampleSecret}').update(req.body).digest('hex');
-
-  if (signature !== expected) {
-    return res.status(401).send('Invalid signature');
-  }
-
+  if (sig !== expected) return res.status(401).send('Invalid signature');
   const event = JSON.parse(req.body);
-  if (event.event === 'payment.settled') {
-    console.log('Payment Settled for Order:', event.data.orderId);
-  }
+  console.log('Payment Settled:', event.data?.orderId);
   res.status(200).send('OK');
 });`;
         p4Y = this.drawCodeBox(doc, 'Express.js Webhook', webhookCode, p4Y, { fontSize: 7.5, lineGap: 1.8, codeColor: '#67E8F9' });
+
+        // --- Enterprise Gateway Security & Anti-DDoS Architecture ---
+        p4Y = this.drawSectionHeader(doc, 'F. ENTERPRISE GATEWAY SECURITY & RATE LIMITING', p4Y);
+
+        const cardH = 74;
+        doc.roundedRect(40, p4Y, 515, cardH, 6).fillAndStroke('#F8FAFC', '#CBD5E1');
+
+        // Security header pill
+        doc.roundedRect(40, p4Y, 515, 18, 6).fill('#0F172A');
+        doc.fillColor('#38BDF8').fontSize(7.5).font('Helvetica-Bold')
+          .text('ACTIVE CLOUD PROTECTION SPECIFICATIONS', 50, p4Y + 4);
+        doc.fillColor('#10B981').fontSize(7.5).font('Helvetica-Bold')
+          .text('24/7 FIREWALL ON', 360, p4Y + 4, { align: 'right', width: 185 });
+
+        const secItemY = p4Y + 23;
+        doc.fillColor('#1E293B').fontSize(7.2).font('Helvetica-Bold')
+          .text('1. Sliding Window Rate Limiting: ', 50, secItemY, { continued: true })
+          .font('Helvetica').fillColor('#475569')
+          .text('60 req/min per IP with X-RateLimit-Limit & X-RateLimit-Remaining response headers.');
+
+        doc.fillColor('#1E293B').fontSize(7.2).font('Helvetica-Bold')
+          .text('2. Anti-DDoS Automated Firewall: ', 50, secItemY + 11, { continued: true })
+          .font('Helvetica').fillColor('#475569')
+          .text('Bursts exceeding 120 req/min trigger automatic 3-minute IP lockout (HTTP 429 Retry-After).');
+
+        doc.fillColor('#1E293B').fontSize(7.2).font('Helvetica-Bold')
+          .text('3. Payload & Buffer Protection: ', 50, secItemY + 22, { continued: true })
+          .font('Helvetica').fillColor('#475569')
+          .text('Strict 100 KB payload ceiling prevents memory exhaustion and buffer overflow exploits.');
+
+        doc.fillColor('#1E293B').fontSize(7.2).font('Helvetica-Bold')
+          .text('4. Hardened Security Headers: ', 50, secItemY + 33, { continued: true })
+          .font('Helvetica').fillColor('#475569')
+          .text('Anti-XSS, MIME sniffing prevention (nosniff), HSTS HTTPS enforcement, X-Powered-By hidden.');
+
+        doc.fillColor('#2563EB').fontSize(7.2).font('Helvetica-Bold')
+          .text('Dedicated 1-on-1 Developer Support: Telegram @kaixite (https://t.me/kaixite)', 50, secItemY + 44);
 
         this.drawFooter(doc, 4, totalPages);
 

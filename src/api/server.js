@@ -8,16 +8,26 @@ const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev, dir: path.join(__dirname, '..', '..') });
 const handle = nextApp.getRequestHandler();
 
+const { rateLimiter, securityHeaders } = require('./security');
+
 function createApiServer() {
   const app = express();
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Enable trust proxy for accurate client IP identification on Render / Cloudflare
+  app.set('trust proxy', 1);
 
-  // CORS middleware
+  // 1. Remove Express fingerprinting & attach Security Headers (Anti-XSS, No-Sniff, HSTS)
+  app.disable('x-powered-by');
+  app.use(securityHeaders);
+
+  // 2. Strict Payload Limits to prevent Memory Exhaustion & Buffer Flooding DDoS attacks
+  app.use(express.json({ limit: '100kb' }));
+  app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+
+  // 3. CORS middleware
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, language, token');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, language, token, x-api-key');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
@@ -25,11 +35,14 @@ function createApiServer() {
     next();
   });
 
-  // Serve static files from public directory
+  // 4. Anti-DDoS & Rate Limiting (60 req/min limit, 120 req/min auto-ban throttle)
+  app.use('/api', rateLimiter.middleware({ maxRequests: 60, ddosThreshold: 120 }));
+
+  // 5. Serve static files from public directory
   const publicDir = path.join(__dirname, '..', '..', 'public');
   app.use(express.static(publicDir));
 
-  // Mount API routes at /api
+  // 6. Mount API routes at /api
   app.use('/api', apiRoutes);
 
   // Delegate all web pages to Next.js

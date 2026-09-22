@@ -67,7 +67,7 @@ class TunnelService {
       return this.lastPublicUrl.replace(/\/+$/, '');
     }
 
-    return null;
+    return 'https://paylinkapi-bot.onrender.com';
   }
 
   /**
