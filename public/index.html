@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PaylinkApi — FAST • SECURE • EASY</title>
+  <meta name="description" content="Institutional payment gateway infrastructure for NBC Bakong KHQR and ABA Bank PayWay API integration.">
+  <meta property="og:title" content="DevPay Cambodia — Payment Gateway Integration">
+  <meta property="og:description" content="Production payment gateway infrastructure for NBC Bakong KHQR and ABA Bank PayWay API Integration.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/logo.png">
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Nunito+Sans:wght@400;600;700;800&family=Battambang:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body oncontextmenu="return false;" ondragstart="return false;" onselectstart="return false;">
+
+  <!-- Vanta.js 3D Interactive Animated Globe Background -->
+  <div id="vanta-bg"></div>
+
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Main App Shell -->
+  <div class="app-shell">
+    
+    <!-- Clean Minimal Navigation Header -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand-logo-mark">
+          <img src="/logo.png" alt="PaylinkApi" class="brand-logo-img">
+        </div>
+        <div class="brand-info">
+          <div class="brand-name-row">
+            <span class="brand-name">PaylinkApi</span>
+          </div>
+          <span class="brand-tagline">FAST • SECURE • EASY</span>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <span class="status-dot"></span>
+        <span class="status-text">Production Rails</span>
+      </div>
+    </header>
+
+    <!-- Clean Stepper Navigation -->
+    <nav class="stepper-nav" aria-label="Setup steps">
+      <div class="step-tab active" id="stepIndicator1">
+        <span class="step-num">1</span>
+        <span class="step-title">Merchant Setup</span>
+      </div>
+      <div class="step-divider" id="stepLine1"></div>
+      <div class="step-tab" id="stepIndicator2">
+        <span class="step-num">2</span>
+        <span class="step-title">Subscription</span>
+      </div>
+      <div class="step-divider" id="stepLine2"></div>
+      <div class="step-tab" id="stepIndicator3">
+        <span class="step-num">3</span>
+        <span class="step-title">Scan KHQR</span>
+      </div>
+    </nav>
+
+    <!-- Main Content Card -->
+    <main class="portal-card">
+
+      <!-- ================= STEP 1: MERCHANT SETUP ================= -->
+      <section id="step1Section" class="step-content active">
+        
+        <div class="section-top-row">
+          <div>
+            <h1 class="card-title">Connect Payment Gateway</h1>
+            <p class="card-desc">Configure your merchant credentials for automated USD &amp; KHR clearing.</p>
+          </div>
+          <button type="button" id="btnQuickSandbox" class="btn-sandbox-pill" title="Fill verified test credentials">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="pill-icon">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>Auto-Fill Test Account</span>
+          </button>
+        </div>
+
+        <form id="merchantForm" class="merchant-form">
+          <!-- Rail Selector with Real Bank Logos -->
+          <div class="form-group">
+            <label class="field-label">Select Payment Rail</label>
+            <div class="rail-grid">
+              
+              <!-- Dual Suite (Bakong + ABA) -->
+              <label class="rail-card" data-rail="bundle">
+                <input type="radio" name="rail" value="bundle">
+                <div class="rail-content">
+                  <div class="rail-logos-duo">
+                    <div class="logo-box-bakong">
+                      <img src="/bakong-logo.svg" alt="Bakong" class="img-logo-bakong">
+                    </div>
+                    <span class="plus-sep">+</span>
+                    <div class="logo-box-aba">
+                      <img src="/aba-logo.svg" alt="ABA Bank" class="img-logo-aba">
+                    </div>
+                  </div>
+                  <div class="rail-details">
+                    <div class="rail-title-row">
+                      <strong>Dual Suite (Bakong + ABA)</strong>
+                      <span class="pill-badge">Standard</span>
+                    </div>
+                    <span class="rail-caption">Automated dual-currency clearing for both USD ($) and KHR (៛)</span>
+                  </div>
+                  <div class="radio-indicator"></div>
+                </div>
+              </label>
+
+              <!-- ABA PayWay Direct -->
+              <label class="rail-card" data-rail="aba">
+                <input type="radio" name="rail" value="aba">
+                <div class="rail-content">
+                  <div class="rail-logo-single logo-box-aba-single">
+                    <img src="/aba-logo.svg" alt="ABA Bank" class="img-logo-aba">
+                  </div>
+                  <div class="rail-details">
+                    <div class="rail-title-row">
+                      <strong>ABA PayWay Gateway</strong>
+                    </div>
+                    <span class="rail-caption">Direct dynamic KHQR, in-app deep links, and instant webhook callbacks</span>
+                  </div>
+                  <div class="radio-indicator"></div>
+                </div>
+              </label>
+
+              <!-- Bakong KHQR -->
+              <label class="rail-card" data-rail="bakong">
+                <input type="radio" name="rail" value="bakong">
+                <div class="rail-content">
+                  <div class="rail-logo-single logo-box-bakong-single">
+                    <img src="/bakong-logo.svg" alt="Bakong" class="img-logo-bakong">
+                  </div>
+                  <div class="rail-details">
+                    <div class="rail-title-row">
+                      <strong>NBC Bakong National KHQR</strong>
+                    </div>
+                    <span class="rail-caption">EMVCo national QR standard with customizable store display name</span>
+                  </div>
+                  <div class="radio-indicator"></div>
+                </div>
+              </label>
+
+            </div>
+          </div>
+
+          <!-- Prompt Card (Visible initially before a rail choice is clicked) -->
+          <div id="railSelectPrompt" class="rail-prompt-card">
+            <div class="rail-prompt-pulse">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="rail-prompt-icon">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+            </div>
+            <div class="rail-prompt-text">
+              <strong>Select a Payment Rail Above</strong>
+              <span>Choose Dual Suite, ABA PayWay, or Bakong KHQR above to enter your merchant credentials.</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Inputs Container (Hidden until user clicks a choice) -->
+          <div id="dynamicInputsContainer" class="dynamic-inputs-container hidden">
+
+            <!-- Bakong / Clearing Account Group (Shown for bundle & bakong) -->
+            <div id="bakongFieldsGroup" class="fields-subgroup">
+              <div class="subgroup-header">
+                <img src="/bakong-logo.svg" alt="Bakong" class="subgroup-logo-bakong">
+                <span>NBC Bakong KHQR Parameters</span>
+              </div>
+              <div class="form-row-2col">
+                <div class="form-group">
+                  <label for="merchantId" class="field-label">
+                    <span>Bakong / Clearing Account ID</span>
+                    <span class="label-hint">Required</span>
+                  </label>
+                  <input type="text" id="merchantId" class="text-input" placeholder="e.g. hut_soksitchey1@aclb" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                  <label for="merchantName" class="field-label">
+                    <span>Store Display Name</span>
+                    <span class="label-hint">Bakong Tag 59</span>
+                  </label>
+                  <input type="text" id="merchantName" class="text-input" placeholder="e.g. Rikidev" autocomplete="off">
+                </div>
+              </div>
+            </div>
+
+            <!-- Merchant Phone Group -->
+            <div id="phoneFieldGroup" class="form-group">
+              <label for="phone" class="field-label">
+                <span>Merchant Phone Number</span>
+                <span class="label-hint">Contact / SMS</span>
+              </label>
+              <input type="tel" id="phone" class="text-input" placeholder="e.g. 0977416126" autocomplete="off">
+            </div>
+
+            <!-- ABA Merchant Links Group (Shown for bundle & aba) -->
+            <div id="abaLinksGroup" class="aba-links-container">
+              <div class="aba-links-header">
+                <img src="/pw-logo.svg" alt="PayWay" class="pw-logo-small">
+                <span>ABA PayWay Merchant Links</span>
+              </div>
+
+              <!-- KHR Link -->
+              <div class="form-group">
+                <label for="khrLink" class="field-label">
+                  <span>ABA Riel (KHR ៛) Payment Link</span>
+                  <span class="tag-khr">KHR Account</span>
+                </label>
+                <input type="url" id="khrLink" class="text-input font-mono" placeholder="https://link.payway.com.kh/ABAPAYk8523640S" autocomplete="off">
+                <span class="input-subtext">Created from your <strong>KHR Account</strong> in ABA Merchant App. Powers Riel transactions.</span>
+              </div>
+
+              <!-- USD Link -->
+              <div class="form-group">
+                <label for="usdLink" class="field-label">
+                  <span>ABA Dollar (USD $) Payment Link</span>
+                  <span class="tag-usd">USD Account</span>
+                </label>
+                <input type="url" id="usdLink" class="text-input font-mono" placeholder="https://link.payway.com.kh/ABAPAY86523639G" autocomplete="off">
+                <span class="input-subtext">Created from your <strong>USD Account</strong> in ABA Merchant App. Powers Dollar transactions.</span>
+              </div>
+
+              <!-- Architecture Note -->
+              <div class="info-note-box">
+                <svg viewBox="0 0 20 20" fill="currentColor" class="info-note-icon">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                <span><strong>Note:</strong> ABA PayWay merchant display names are locked to your official ABA Merchant App registration and cannot be renamed via API.</span>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="btnSubmitMerchant" class="btn-primary-action">
+              <span>Continue to Subscription Tier</span>
+              <svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon-arrow">
+                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+
+          </div>
+        </form>
+
+      </section>
+
+      <!-- ================= STEP 2: SUBSCRIPTION SELECTION ================= -->
+      <section id="step2Section" class="step-content">
+        <div class="section-top-row">
+          <div>
+            <h2 class="card-title">Select API Subscription</h2>
+            <p class="card-desc">Choose a plan to activate live automated clearing and receive your production API key.</p>
+          </div>
+        </div>
+
+        <div class="plans-container">
+          
+          <!-- 1 Week Plan: $0.10 -->
+          <div class="plan-item featured" data-plan="1w" data-price-usd="0.10" data-price-khr="400">
+            <div class="plan-top">
+              <div>
+                <span class="plan-badge-pill">TEST TIER</span>
+                <h3 class="plan-name">1 Week Pass</h3>
+                <span class="plan-period-label">7 Days Full Access</span>
+              </div>
+              <div class="plan-price-block">
+                <div class="plan-price-figure">
+                  <span class="currency">$</span>
+                  <span class="amount">0.10</span>
+                </div>
+                <span class="price-khr">≈ 400 ៛ KHR</span>
+              </div>
+            </div>
+
+            <ul class="plan-check-list">
+              <li><span class="check-dot">✓</span> Full Dual-Rail Access (Bakong + ABA)</li>
+              <li><span class="check-dot">✓</span> Live Dynamic KHQR Generation</li>
+              <li><span class="check-dot">✓</span> Automated Webhook Notifications</li>
+              <li><span class="check-dot">✓</span> 1 Production API Key Issued</li>
+            </ul>
+
+            <button type="button" class="btn-plan-select btn-primary-plan" data-plan="1w">
+              Select 1 Week Pass ($0.10)
+            </button>
+          </div>
+
+          <!-- 1 Month Plan: $1.00 -->
+          <div class="plan-item" data-plan="1m" data-price-usd="1.00" data-price-khr="4000">
+            <div class="plan-top">
+              <div>
+                <h3 class="plan-name">1 Month Pro</h3>
+                <span class="plan-period-label">30 Days Standard Access</span>
+              </div>
+              <div class="plan-price-block">
+                <div class="plan-price-figure">
+                  <span class="currency">$</span>
+                  <span class="amount">1.00</span>
+                </div>
+                <span class="price-khr">≈ 4,000 ៛ KHR</span>
+              </div>
+            </div>
+
+            <ul class="plan-check-list">
+              <li><span class="check-dot">✓</span> Everything in 1 Week Pass</li>
+              <li><span class="check-dot">✓</span> Unlimited Transaction Volume</li>
+              <li><span class="check-dot">✓</span> Priority Clearing Route</li>
+              <li><span class="check-dot">✓</span> 3 Production API Keys Issued</li>
+            </ul>
+
+            <button type="button" class="btn-plan-select" data-plan="1m">
+              Select 1 Month Pro ($1.00)
+            </button>
+          </div>
+
+          <!-- 1 Year Plan: $10.00 -->
+          <div class="plan-item vip" data-plan="1y" data-price-usd="10.00" data-price-khr="40000">
+            <div class="plan-top">
+              <div>
+                <span class="plan-badge-gold">BEST VALUE</span>
+                <h3 class="plan-name">1 Year Enterprise</h3>
+                <span class="plan-period-label">365 Days Dedicated Gateway</span>
+              </div>
+              <div class="plan-price-block">
+                <div class="plan-price-figure">
+                  <span class="currency">$</span>
+                  <span class="amount">10.00</span>
+                </div>
+                <span class="price-khr">≈ 40,000 ៛ KHR</span>
+              </div>
+            </div>
+
+            <ul class="plan-check-list">
+              <li><span class="check-dot">✓</span> Dedicated High-Throughput Rail</li>
+              <li><span class="check-dot">✓</span> Unlimited Invoices &amp; Callbacks</li>
+              <li><span class="check-dot">✓</span> 24/7 Developer Support &amp; SLA</li>
+              <li><span class="check-dot">✓</span> Unlimited Production API Keys</li>
+            </ul>
+
+            <button type="button" class="btn-plan-select" data-plan="1y">
+              Select 1 Year Enterprise ($10.00)
+            </button>
+          </div>
+
+        </div>
+
+        <div class="step-footer-actions">
+          <button type="button" id="btnBackToStep1" class="btn-back-link">
+            ← Modify Merchant Credentials
+          </button>
+        </div>
+      </section>
+
+      <!-- ================= STEP 3: SCAN & PAY LIVE ================= -->
+      <section id="step3Section" class="step-content">
+        <!-- Dual Switchers: Bank Rail (Bakong vs ABA) & Currency (USD vs KHR) -->
+        <div class="checkout-wrapper">
+          
+          <div class="pay-controls-grid">
+            <div class="pay-method-selector-wrap">
+              <div class="pay-method-header-label">1. Payment Rail (ធនាគារ)</div>
+              <div class="pay-method-toggle-group">
+                <button type="button" id="payMethodBakong" class="pay-method-tab active" data-rail="bakong">
+                  <span class="pay-rail-badge-dot red-dot"></span>
+                  <img src="/bakong-logo.svg" alt="Bakong" class="pay-tab-logo">
+                  <div class="pay-tab-info">
+                    <span class="pay-tab-name">Bakong KHQR</span>
+                    <span class="pay-tab-desc">National Red Card</span>
+                  </div>
+                </button>
+                <button type="button" id="payMethodAba" class="pay-method-tab" data-rail="aba">
+                  <span class="pay-rail-badge-dot blue-dot"></span>
+                  <img src="/aba-logo.svg" alt="ABA" class="pay-tab-logo">
+                  <div class="pay-tab-info">
+                    <span class="pay-tab-name">ABA PayWay</span>
+                    <span class="pay-tab-desc">Direct Blue Card</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div class="pay-currency-selector-wrap">
+              <div class="pay-method-header-label">2. Currency (រូបិយប័ណ្ណ)</div>
+              <div class="pay-currency-toggle-group">
+                <button type="button" id="btnCurrUsd" class="pay-currency-tab active" data-currency="USD">
+                  <span class="curr-icon">$</span>
+                  <div class="pay-tab-info">
+                    <span class="pay-tab-name">Dollar ($)</span>
+                    <span class="pay-tab-desc" id="currDescUsd">$0.10 USD</span>
+                  </div>
+                </button>
+                <button type="button" id="btnCurrKhr" class="pay-currency-tab" data-currency="KHR">
+                  <span class="curr-icon">៛</span>
+                  <div class="pay-tab-info">
+                    <span class="pay-tab-name">Khmer Riel (៛)</span>
+                    <span class="pay-tab-desc" id="currDescKhr">400 ៛ KHR</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Authentic Cambodian KHQR Card Component -->
+          <div class="khqr-card-wrapper">
+            <div id="khqrCard" class="khqr-card theme-bakong">
+              
+              <!-- KHQR Top Header Bar with official KHQR SVG Logo -->
+              <div class="khqr-card-top-bar" id="khqrTopBar">
+                <svg width="60" height="14" viewBox="0 0 60 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="khqr-header-svg">
+                  <path d="M39.006 5.19439V9.59764H34.5318C34.0729 9.59764 33.7288 9.2307 33.7288 8.80731V5.22264C33.7288 4.77103 34.1016 4.43231 34.5318 4.43231H38.1743C38.6619 4.40408 39.006 4.74278 39.006 5.19439Z" fill="white"/>
+                  <path d="M59.9717 6.97176H57.7345C57.7345 4.34676 55.5548 2.20159 52.8875 2.20159C50.7651 2.20159 48.9008 3.55645 48.2699 5.53225C48.1265 6.01209 48.0404 6.49192 48.0404 6.97176V13.9718H47.9831C46.7785 13.9718 45.8033 13.0121 45.8033 11.8266V6.97176H45.832C45.832 5.05241 46.6351 3.21773 48.0691 1.89112C49.3884 0.677406 51.1093 0 52.9162 0C56.8168 0 59.9717 3.13305 59.9717 6.97176Z" fill="white"/>
+                  <path d="M59.9999 13.9718L56.845 14L56.0706 13.2379L54.3497 11.5444L51.9692 9.20166H55.1241L59.9999 13.9718Z" fill="white"/>
+                  <path d="M39.7517 11.7702H33.0117C32.1799 11.7702 31.5203 11.121 31.5203 10.3024V3.66936C31.5203 2.85081 32.1799 2.20159 33.0117 2.20159H39.7517C40.5834 2.20159 41.2431 2.85081 41.2431 3.66936V10.3024L43.4802 12.504V2.14515C43.4802 0.959671 42.505 0 41.3005 0H31.4629C30.2583 0 29.2832 0.959671 29.2832 2.14515V11.8266C29.2832 13.0121 30.2583 13.9718 31.4629 13.9718H41.9888L39.7517 11.7702Z" fill="white"/>
+                  <path d="M12.3614 14H9.20656L2.60996 7.47984V14H0V0H2.60996V6.2379L8.94843 0H12.046L5.16255 6.71772L12.3614 14Z" fill="white"/>
+                  <path d="M24.1492 0H26.7018V14H24.1492V7.93145H16.8643V14H14.3117V0H16.8643V5.84273H24.1492V0Z" fill="white"/>
+                </svg>
+              </div>
+
+              <!-- Triangle Cutout Notch -->
+              <div class="khqr-triangle-row">
+                <div id="khqrTriangle" class="khqr-triangle red-triangle"></div>
+              </div>
+
+              <!-- Dashed Line Separator with Merchant Name and Amount -->
+              <div class="dashed-line khqr-info-header">
+                <div class="khqr-merchant-label" id="khqrMerchantName">CHTOPUP</div>
+                <div class="khqr-amount-row">
+                  <span id="khqrAmount" class="khqr-amount-num">0.10</span>
+                  <span id="khqrCurrency" class="khqr-currency-label">USD</span>
+                </div>
+              </div>
+
+              <!-- QR Viewport with Translucent Watermark -->
+              <div class="khqr-qr-stage">
+                <img src="https://checkout.payway.com.kh/images/usd-khqr-logo.svg" class="khqr-watermark-logo" alt="KHQR Watermark" />
+                <div class="khqr-qr-container" id="qrCodeContainer">
+                  <div id="qrLoadingState" class="qr-spinner-wrap">
+                    <div class="clean-spinner"></div>
+                    <span id="qrLoadingText">Generating Live KHQR...</span>
+                  </div>
+                  <img id="liveQrImage" class="qr-code-img hidden" alt="Authentic KHQR Code">
+                  
+                  <div id="qrOverlayStatus" class="qr-success-overlay hidden">
+                    <div class="qr-success-content">
+                      <div class="success-check-circle">✓</div>
+                      <strong>Payment Received</strong>
+                      <small>Issuing production API credentials...</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card Footer Subtext -->
+              <div class="khqr-card-footer">
+                <p id="khqrFooterText">Scan with ABA Mobile, or other Mobile Banking App supporting KHQR</p>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Transaction Summary -->
+          <div class="summary-table">
+            <div class="summary-row">
+              <span class="summary-label">Plan</span>
+              <span id="checkoutPlanLabel" class="summary-val">1 Week ($0.10)</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Selected Rail</span>
+              <span id="checkoutRailBadge" class="status-pill rail-pill-bakong">
+                <span class="dot-blink red-blink"></span>
+                <span id="checkoutRailText">NBC Bakong KHQR</span>
+              </span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Transaction ID</span>
+              <span id="checkoutTranId" class="summary-val font-mono">Generating...</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Status</span>
+              <span id="checkoutStatusBadge" class="status-pill pending">
+                <span class="dot-blink"></span>
+                <span>Awaiting Scan in Banking App</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Real-Time Automated Clearing Radar -->
+          <div class="checkout-realtime-monitor">
+            <div class="realtime-radar-ring">
+              <span class="radar-core"></span>
+            </div>
+            <div class="realtime-radar-content">
+              <strong>Automated Instant Clearing Active</strong>
+              <span>Listening for banking app scan. Verification and API Key delivery happen automatically without clicking.</span>
+            </div>
+          </div>
+
+          <div class="checkout-button-group">
+            <a id="linkWebCheckout" href="#" target="_blank" class="btn-secondary-action hidden">
+              <span>Open PayWay Web Portal ↗</span>
+            </a>
+            <button type="button" id="btnChangePlan" class="btn-back-link">
+              ← Change Plan
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= STEP 4: SUCCESS & API KEY ================= -->
+      <section id="step4Section" class="step-content">
+        <div class="success-box">
+          
+          <div class="success-shield-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="shield-svg">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <polyline points="9 12 11 14 15 10"></polyline>
+            </svg>
+          </div>
+
+          <h2 class="card-title">Payment Confirmed &amp; Active</h2>
+          <p class="card-desc">Your merchant credentials have been saved and your live API key is ready.</p>
+
+          <!-- Telegram Dispatched Banner -->
+          <div class="telegram-dispatch-banner">
+            <svg viewBox="0 0 24 24" fill="currentColor" class="tg-banner-icon">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.77-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+            </svg>
+            <span>Credentials dispatched to your Telegram chat.</span>
+          </div>
+
+          <div class="credentials-box">
+            <div class="cred-row">
+              <label>API Key (Bearer Auth)</label>
+              <div class="copy-field">
+                <code id="issuedApiKey">plk_live_...</code>
+                <button type="button" class="btn-copy-tag" onclick="copyText('issuedApiKey')">Copy</button>
+              </div>
+            </div>
+
+            <div class="cred-row">
+              <label>HMAC Webhook Secret</label>
+              <div class="copy-field">
+                <code id="issuedSecret">whsec_...</code>
+                <button type="button" class="btn-copy-tag" onclick="copyText('issuedSecret')">Copy</button>
+              </div>
+            </div>
+
+            <div class="cred-row">
+              <label>REST Gateway Endpoint</label>
+              <div class="copy-field">
+                <code id="issuedEndpoint">http://localhost:5000/api/aba/generate-qr</code>
+                <button type="button" class="btn-copy-tag" onclick="copyText('issuedEndpoint')">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" id="btnReturnToBot" class="btn-primary-action">
+            <span>Return to Telegram Console</span>
+          </button>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Clean Footer -->
+    <footer class="app-footer">
+      <p>&copy; 2026 PaylinkApi • FAST • SECURE • EASY • NBC Bakong &amp; ABA PayWay Integration</p>
+    </footer>
+
+  </div>
+
+  <!-- Confetti Celebration Canvas Overlay -->
+  <canvas id="confettiCanvas" class="confetti-canvas hidden"></canvas>
+
+  <!-- Celebration Modal when Payment Confirmed -->
+  <div id="celebrationModal" class="celebration-overlay hidden">
+    <div class="celebration-modal-card">
+      <div class="celebration-star-badge">🎉</div>
+      <div class="celebration-check-aura">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="celebration-svg">
+          <circle cx="12" cy="12" r="10" stroke="#10b981" stroke-width="2"></circle>
+          <path d="M7 12.5l3 3 7-7" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </div>
+      <h2 class="celebration-title">PAYMENT VERIFIED! THANK YOU!</h2>
+      <p class="celebration-sub">Your subscription is now active! Production API credentials have been issued and dispatched to your Telegram.</p>
+      
+      <div class="celebration-badge-pill">
+        <span class="clearing-bolt">⚡</span>
+        <span id="clearedRouteName">Cleared via NBC Bakong National KHQR</span>
+      </div>
+
+      <button type="button" id="btnViewCredentialsNow" class="btn-celebration-action">
+        <span>View Issued API Keys ❯</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Local Three.js r134 & Vanta.js Globe 3D Engine -->
+  <script src="/three.r134.min.js"></script>
+  <script src="/vanta.globe.min.js"></script>
+  <!-- Client Application Logic -->
+  <script src="/app.js"></script>
+</body>
+</html>

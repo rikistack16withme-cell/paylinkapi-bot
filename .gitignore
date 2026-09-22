@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+Bakong Bypass/node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Environment secrets (Set these in Render/Koyeb dashboard)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Executables & Binaries
+cloudflared.exe
+*.exe
+
+# Temp & Scratch testing files
+scratch/
+temp/
+*.log
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

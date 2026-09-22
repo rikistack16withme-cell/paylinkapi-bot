@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: paylinkapi
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BRAND_NAME
+        value: PaylinkApi
+      - key: BRAND_TAGLINE
+        value: FAST • SECURE • EASY
+      - key: DEFAULT_LANGUAGE
+        value: km
+      - key: DEFAULT_BAKONG_ACCOUNT
+        value: hut_soksitchey1@aclb
+      - key: DEFAULT_MERCHANT_NAME
+        value: Rikidev
+      - key: DEFAULT_ABA_USD_LINK
+        value: https://link.payway.com.kh/ABAPAY86523639G
+      - key: DEFAULT_ABA_KHR_LINK
+        value: https://link.payway.com.kh/ABAPAYk8523640S
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false

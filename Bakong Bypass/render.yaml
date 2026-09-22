@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: bakong-api
+    runtime: node
+    plan: free
+    healthCheckPath: /health
+    env:
+      - key: NODE_VERSION
+        value: "20"
+      - key: PORT
+        value: "3000"
+    buildCommand: npm install && npx playwright install-deps chrome
+    startCommand: node server.js

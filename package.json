@@ -1,0 +1,35 @@
+{
+  "name": "telegrambot_apibank",
+  "version": "1.0.0",
+  "description": "Premium Telegram Bot Board for Payment API Platform (Phase 1 Skeleton)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "build": "next build",
+    "dev": "node --watch index.js",
+    "test:bot": "node src/utils/verify_bot.js"
+  },
+  "keywords": [
+    "telegram-bot",
+    "payment-gateway",
+    "bakong",
+    "aba",
+    "saas"
+  ],
+  "author": "Kai Zen",
+  "license": "ISC",
+  "dependencies": {
+    "bakong-khqr": "^1.0.20",
+    "canvas-confetti": "^1.9.4",
+    "dotenv": "^16.4.7",
+    "express": "^5.2.1",
+    "lucide-react": "^1.46.0",
+    "next": "^16.3.5",
+    "node-telegram-bot-api": "^0.66.0",
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}
