@@ -25,3 +25,5 @@ services:
         value: https://link.payway.com.kh/ABAPAYk8523640S
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: ADMIN_CHAT_ID
+        value: "-5393647415"

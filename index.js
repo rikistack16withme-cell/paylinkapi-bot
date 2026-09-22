@@ -49,6 +49,7 @@ const formatter = require('./src/utils/formatter');
 const safeSender = require('./src/utils/safe_sender');
 const { startApiServer } = require('./src/api/server');
 const tunnelService = require('./src/services/tunnel.service');
+const adminHandler = require('./src/bot/handlers/admin.handler');
 
 if (!config.bot.token) {
   logger.error('TELEGRAM_BOT_TOKEN is missing in .env! Please configure it before starting.');
@@ -139,6 +140,35 @@ bot.on('message', async (msg) => {
         `I will instantly extract its <code>custom_emoji_id</code> and HTML tag so you can use it in your bot boards.`,
         { parse_mode: 'HTML' }
       );
+    }
+
+    // Admin Commands & Operations (Admin Group -5393647415)
+    const isAdmin = adminHandler.isAdminChat(chatId, msg.from.id);
+
+    if (text.startsWith('/admin') || text.startsWith('/stats') || text.startsWith('/status')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      return await adminHandler.renderAdminDashboard(bot, chatId);
+    }
+
+    if (text.startsWith('/broadcast') && isAdmin) {
+      middleware.logAction('COMMAND', msg.from, text);
+      const broadcastMsg = text.replace(/^\/broadcast(@\w+)?\s*/, '').trim();
+      return await adminHandler.handleAdminBroadcast(bot, msg, broadcastMsg);
+    }
+
+    if (text.startsWith('/users') && isAdmin) {
+      middleware.logAction('COMMAND', msg.from, text);
+      return await adminHandler.handleAdminUsersList(bot, chatId);
+    }
+
+    if (text.startsWith('/keys') && isAdmin) {
+      middleware.logAction('COMMAND', msg.from, text);
+      return await adminHandler.handleAdminKeysList(bot, chatId);
+    }
+
+    if (text.startsWith('/orders') && isAdmin) {
+      middleware.logAction('COMMAND', msg.from, text);
+      return await adminHandler.handleAdminOrdersList(bot, chatId);
     }
 
     // Direct Khmer translation command
@@ -277,6 +307,20 @@ bot.on('callback_query', async (query) => {
     }
     if (data === 'doc_download_pdf') {
       return await handleDownloadPdf(bot, query);
+    }
+
+    // Admin Operations Callbacks (Admin Group -5393647415)
+    if (data === 'admin_refresh_stats') {
+      return await adminHandler.renderAdminDashboard(bot, chatId, messageId);
+    }
+    if (data === 'admin_view_users') {
+      return await adminHandler.handleAdminUsersList(bot, chatId, messageId);
+    }
+    if (data === 'admin_view_keys') {
+      return await adminHandler.handleAdminKeysList(bot, chatId, messageId);
+    }
+    if (data === 'admin_view_orders') {
+      return await adminHandler.handleAdminOrdersList(bot, chatId, messageId);
     }
 
     // Route callback queries

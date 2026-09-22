@@ -71,6 +71,19 @@ async function sendPaymentSuccessNotification(telegramId, data) {
       message_effect_id: '5046509860389126442'
     });
     console.log(`[Notification Service] ✓ Sent API Key directly to Telegram user ${telegramId} with animated emojis & celebration effect! Message ID: ${res.message_id}`);
+
+    // Broadcast instant alert to Admin Group (-5393647415)
+    sendAdminAlert(
+      `💰 <b>[PAYMENT & KEY ISSUED ALERT]</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+      `👤 <b>Merchant ID:</b> <code>${telegramId}</code>\n` +
+      `📦 <b>Subscription:</b> <code>${planName}</code>\n` +
+      `💵 <b>Amount Cleared:</b> <code>${amountStr}</code>\n` +
+      `🧾 <b>Tran ID:</b> <code>${data.tranId}</code>\n` +
+      `🔑 <b>API Key:</b> <code>${data.apiKey}</code>\n` +
+      `⏰ <b>Time:</b> <code>${new Date().toISOString()}</code>`
+    ).catch(() => {});
+
     return res;
   } catch (err) {
     console.error(`[Notification Service] ❌ Failed to send Telegram message to ${telegramId}:`, err.message);
@@ -78,6 +91,24 @@ async function sendPaymentSuccessNotification(telegramId, data) {
   }
 }
 
+/**
+ * Dispatches real-time telemetry or event alert directly to the Admin Group (-5393647415)
+ */
+async function sendAdminAlert(text, options = {}) {
+  const adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  if (!adminChatId) return;
+
+  try {
+    return await notifier.sendMessage(adminChatId, text, {
+      parse_mode: 'HTML',
+      ...options
+    });
+  } catch (err) {
+    console.warn(`[Admin Alert to ${adminChatId} Failed]:`, err.message);
+  }
+}
+
 module.exports = {
-  sendPaymentSuccessNotification
+  sendPaymentSuccessNotification,
+  sendAdminAlert
 };
