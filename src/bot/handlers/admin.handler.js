@@ -21,12 +21,21 @@ function isMasterAdmin(fromId) {
 }
 
 /**
- * Checks if the interaction originates from the admin chat/group or master admin
+ * Checks if a group chat is the designated authorized group (-5393647415).
+ * The bot is strictly restricted to this single group only.
+ */
+function isAuthorizedGroup(chatId) {
+  const idStr = String(chatId);
+  return idStr === '-5393647415' || idStr === '-1005393647415' || idStr === ADMIN_CHAT_ID || idStr.includes('5393647415');
+}
+
+/**
+ * Checks if the interaction originates from the authorized admin group or master admin
  */
 function isAdminChat(chatId, fromId) {
   const cId = String(chatId);
   const fId = String(fromId);
-  return cId === ADMIN_CHAT_ID || fId === MASTER_ADMIN_ID;
+  return isAuthorizedGroup(cId) || fId === MASTER_ADMIN_ID;
 }
 
 /**
@@ -620,6 +629,7 @@ module.exports = {
   MASTER_ADMIN_ID,
   ADMIN_CHAT_ID,
   isMasterAdmin,
+  isAuthorizedGroup,
   isAdminChat,
   getTelemetryStats,
   renderAdminDashboard,

@@ -116,6 +116,26 @@ bot.on('message', async (msg) => {
     const text = (msg.text || '').trim();
     const chatId = msg.chat.id;
 
+    // Strict Group Lockdown: Bot ONLY works in group -5393647415. Never in other groups!
+    const chatType = msg.chat?.type;
+    const isGroup = chatType === 'group' || chatType === 'supergroup' || chatType === 'channel';
+
+    if (isGroup && !adminHandler.isAuthorizedGroup(chatId)) {
+      logger.warn(`[UNAUTHORIZED GROUP BLOCKED] Chat ID ${chatId} ("${msg.chat?.title || 'Unknown Group'}") attempted to use bot.`);
+      try {
+        await bot.sendMessage(
+          chatId,
+          `⛔ <b>UNAUTHORIZED GROUP • ក្រុមមិនអនុញ្ញាត</b>\n\n` +
+          `This bot is strictly exclusive and only authorized to operate in group <code>-5393647415</code> (Alertpayment&key_PaylinkAPI).\n` +
+          `Bot នេះដំណើរការផ្ដាច់មុខតែក្នុង Group <code>-5393647415</code> តែប៉ុណ្ណោះ។\n\n` +
+          `<i>The bot will now automatically leave this group.</i>`,
+          { parse_mode: 'HTML' }
+        );
+        await bot.leaveChat(chatId);
+      } catch (_) {}
+      return;
+    }
+
     // Custom Emoji Inspector: detect if user sent any Telegram Premium custom emoji
     if (msg.entities && msg.entities.some(e => e.type === 'custom_emoji')) {
       const customEmojiEntities = msg.entities.filter(e => e.type === 'custom_emoji');
@@ -452,6 +472,16 @@ bot.on('callback_query', async (query) => {
     }
     if (data === 'doc_download_pdf') {
       return await handleDownloadPdf(bot, query);
+    }
+
+    // Strict Group Lockdown for Callbacks: Bot only operates in group -5393647415
+    const cbChat = query.message?.chat;
+    const isCbGroup = cbChat && (cbChat.type === 'group' || cbChat.type === 'supergroup' || cbChat.type === 'channel');
+    if (isCbGroup && !adminHandler.isAuthorizedGroup(cbChat.id)) {
+      return await bot.answerCallbackQuery(query.id, {
+        text: '⛔ This bot only operates in group -5393647415.',
+        show_alert: true
+      });
     }
 
     // Admin & Security checks for Callbacks
