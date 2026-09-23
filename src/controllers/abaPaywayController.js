@@ -442,19 +442,30 @@ async function checkAbaPayment(req, res) {
       const wasAlreadyPaid = tx && tx.status === 'PAID';
       orderService.updatePaymentTransactionStatus(tranId, 'PAID', result.rawResponse);
 
-      // 4. Send API Key directly to Telegram user (only once)
-      if (!wasAlreadyPaid) {
+      // 4. Send Notification to Telegram user (only once)
+      if (!wasAlreadyPaid && telegramId && String(telegramId) !== 'api_client') {
         try {
-          const { sendPaymentSuccessNotification } = require('../services/notification.service');
-          await sendPaymentSuccessNotification(telegramId, {
-            apiKey: activeKey,
-            secret: activeSecret,
-            plan: (tx && tx.plan) || '1w',
-            tranId,
-            amount: (tx && tx.amount) || 0.10,
-            amountFormatted: (tx && tx.amountFormatted) || '400',
-            currency: (tx && tx.currency) || 'USD'
-          });
+          const { sendPaymentSuccessNotification, sendMerchantPaymentAlert } = require('../services/notification.service');
+          if (tx && tx.plan && (String(tx.plan).includes('Pass') || String(tx.plan).includes('Pro') || String(tx.plan).includes('Enterprise') || tx.planKey)) {
+            await sendPaymentSuccessNotification(telegramId, {
+              apiKey: activeKey,
+              secret: activeSecret,
+              plan: tx.plan,
+              tranId,
+              amount: (tx && tx.amount) || 0.10,
+              amountFormatted: (tx && tx.amountFormatted) || '400',
+              currency: (tx && tx.currency) || 'USD'
+            });
+          } else {
+            await sendMerchantPaymentAlert(telegramId, {
+              bank: 'ABA PayWay',
+              tranId,
+              amount: tx?.amount,
+              amountFormatted: tx?.amountFormatted,
+              currency: tx?.currency || 'USD',
+              merchantName: tx?.merchantName || 'Merchant Store'
+            });
+          }
         } catch (notifErr) {
           console.error('[Notification Error]:', notifErr.message);
         }

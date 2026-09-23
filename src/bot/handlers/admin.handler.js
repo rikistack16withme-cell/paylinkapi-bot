@@ -10,14 +10,23 @@ const safeSender = require('../../utils/safe_sender');
 const formatter = require('../../utils/formatter');
 const { tgEmoji, makeButton } = require('../../config/emojis');
 
-const MASTER_ADMIN_ID = String(config.masterAdminId || process.env.MASTER_ADMIN_ID || '7283817695');
+const MASTER_ADMIN_IDS = ['7283817695', '8665505824', '866558524'];
+if (config.masterAdminId && !MASTER_ADMIN_IDS.includes(String(config.masterAdminId))) {
+  MASTER_ADMIN_IDS.push(String(config.masterAdminId));
+}
+if (process.env.MASTER_ADMIN_ID && !MASTER_ADMIN_IDS.includes(String(process.env.MASTER_ADMIN_ID))) {
+  MASTER_ADMIN_IDS.push(String(process.env.MASTER_ADMIN_ID));
+}
+
+const MASTER_ADMIN_ID = MASTER_ADMIN_IDS[0];
 const ADMIN_CHAT_ID = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
 
 /**
- * Strict Master Admin authorization: ONLY user 7283817695 can control the bot
+ * Master Admin authorization: checks whether sender is an authorized master admin
  */
 function isMasterAdmin(fromId) {
-  return String(fromId) === MASTER_ADMIN_ID;
+  if (!fromId) return false;
+  return MASTER_ADMIN_IDS.includes(String(fromId));
 }
 
 /**
@@ -498,6 +507,72 @@ async function handleAdminRevokeKey(bot, chatId, keyId) {
 }
 
 /**
+ * Manually expires an API key for live testing
+ */
+async function handleAdminExpireKey(bot, chatId, keyIdOrApiKey) {
+  if (!keyIdOrApiKey) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/expire &lt;apiKey_or_keyId&gt;</code>`, { parse_mode: 'HTML' });
+  }
+
+  const keyData = apiKeyService.getKeyById(keyIdOrApiKey);
+  if (!keyData) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ Could not find API Key: <code>${formatter.escapeHtml(keyIdOrApiKey)}</code>`, { parse_mode: 'HTML' });
+  }
+
+  keyData.status = 'EXPIRED';
+  keyData.expiresAt = new Date(Date.now() - 3600000).toISOString();
+  keyData.expiryWarningSent = true;
+  keyData.expiredNoticeSent = true;
+  db.saveApiKey(keyData);
+
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `🔴 <b>API Key Expired Successfully:</b>\n` +
+    `• Key: <code>${keyData.apiKey}</code>\n` +
+    `• Merchant: <code>${formatter.escapeHtml(keyData.merchantName || 'Store')}</code>\n` +
+    `• Status: <b>EXPIRED</b>\n` +
+    `• Expired At: <code>${keyData.expiresAt}</code>\n\n` +
+    `<i>All payment requests using this key will now return HTTP 403 API_KEY_EXPIRED.</i>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Manually reactivates an API key
+ */
+async function handleAdminReactivateKey(bot, chatId, keyIdOrApiKey, days = 7) {
+  if (!keyIdOrApiKey) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/reactivate &lt;apiKey_or_keyId&gt; [days]</code>`, { parse_mode: 'HTML' });
+  }
+
+  const keyData = apiKeyService.getKeyById(keyIdOrApiKey);
+  if (!keyData) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ Could not find API Key: <code>${formatter.escapeHtml(keyIdOrApiKey)}</code>`, { parse_mode: 'HTML' });
+  }
+
+  const durationDays = parseInt(days, 10) || keyData.durationDays || 7;
+  keyData.status = 'ACTIVE';
+  keyData.durationDays = durationDays;
+  keyData.expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+  keyData.expiryWarningSent = false;
+  keyData.expiredNoticeSent = false;
+  db.saveApiKey(keyData);
+
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `🟢 <b>API Key Reactivated Successfully:</b>\n` +
+    `• Key: <code>${keyData.apiKey}</code>\n` +
+    `• Merchant: <code>${formatter.escapeHtml(keyData.merchantName || 'Store')}</code>\n` +
+    `• Status: <b>ACTIVE</b>\n` +
+    `• New Expiry: <code>${keyData.expiresAt}</code>\n` +
+    `• Duration: <b>${durationDays} Days</b>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
  * Manually marks a pending transaction as PAID and issues receipt + key to user
  */
 async function handleAdminMarkPaid(bot, chatId, tranId) {
@@ -833,6 +908,8 @@ module.exports = {
   handleAdminUnban,
   handleAdminAddKey,
   handleAdminRevokeKey,
+  handleAdminExpireKey,
+  handleAdminReactivateKey,
   handleAdminMarkPaid,
   handleAdminUserLookup,
   handleAdminProfileLink,

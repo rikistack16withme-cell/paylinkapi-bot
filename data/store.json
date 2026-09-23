@@ -10,12 +10,28 @@
       "lastActive": "2026-09-23T05:04:24.258Z",
       "updatedAt": "2026-09-23T05:04:24.258Z"
     },
+    "8665505824": {
+      "telegramId": "8665505824",
+      "username": "",
+      "firstName": "Vuth",
+      "lastName": "",
+      "status": "ACTIVE",
+      "approved": true,
+      "createdAt": "2026-09-23T11:30:46.000Z",
+      "lastActive": "2026-09-23T12:01:00.000Z",
+      "updatedAt": "2026-09-23T12:01:00.000Z",
+      "subscription": {
+        "status": "EXPIRED",
+        "plan": "1w"
+      }
+    },
     "7283817695": {
       "telegramId": 7283817695,
       "username": "kaixite",
       "firstName": "Kai",
       "lastName": "Zen",
       "status": "ACTIVE",
+      "approved": true,
       "settings": {
         "language": "en",
         "notifications": true
@@ -38,6 +54,28 @@
   },
   "orders": {},
   "apiKeys": {
+    "key_8665505824": {
+      "id": "key_8665505824",
+      "isMock": false,
+      "createdAt": "2026-09-23T11:30:46.000Z",
+      "telegramId": "8665505824",
+      "provider": "Bakong + ABA Dual Suite",
+      "tier": "Production Live Rail",
+      "apiKey": "plk_live_8665505824_8817b0a1",
+      "secret": "whsec_08d2a2fbd5afc8f2",
+      "status": "EXPIRED",
+      "khrLink": null,
+      "usdLink": null,
+      "merchantName": "Vuth",
+      "bakongId": "ryjinn@aclb",
+      "merchantId": "ryjinn@aclb",
+      "phone": "0977416126",
+      "plan": "1w",
+      "durationDays": 7,
+      "expiresAt": "2026-09-20T00:00:00.000Z",
+      "expiryWarningSent": true,
+      "expiredNoticeSent": true
+    },
     "key_7283817695": {
       "id": "key_7283817695",
       "telegramId": "7283817695",

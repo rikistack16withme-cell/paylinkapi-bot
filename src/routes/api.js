@@ -5,6 +5,7 @@ const { generateBakongKhqrCore, generateUniversalDeeplink, DEFAULT_BAKONG_ACCOUN
 const apiKeyService = require('../services/apikey.service');
 const orderService = require('../services/order.service');
 const userService = require('../services/user.service');
+const db = require('../database');
 const QRCode = require('qrcode');
 
 const router = express.Router();
@@ -192,6 +193,76 @@ router.get(['/keys/status', '/keys/expiry'], (req, res) => {
       formatted: countdown.text
     },
     renewUrl: 'https://t.me/PayLinkAPI_bot'
+  });
+});
+
+// 0.3 Admin Key Expiration Tool (for instant testing of expiry behavior)
+router.all('/admin/expire-key', (req, res) => {
+  let apiKey = req.query.api_key || req.query.apiKey || req.body?.apiKey || req.body?.api_key;
+  if (!apiKey && req.headers['authorization']) {
+    const auth = req.headers['authorization'];
+    if (auth.startsWith('Bearer ')) apiKey = auth.slice(7).trim();
+  }
+  if (!apiKey) {
+    return res.status(400).json({ success: false, error: 'MISSING_API_KEY', message: 'Provide apiKey in query or body.' });
+  }
+
+  const keyData = apiKeyService.getKeyById(apiKey);
+  if (!keyData) {
+    return res.status(404).json({ success: false, error: 'KEY_NOT_FOUND', message: 'Key does not exist.' });
+  }
+
+  keyData.status = 'EXPIRED';
+  keyData.expiresAt = new Date(Date.now() - 3600000).toISOString(); // 1 hour in the past
+  keyData.expiryWarningSent = true;
+  keyData.expiredNoticeSent = true;
+  db.saveApiKey(keyData);
+
+  return res.json({
+    success: true,
+    message: `API Key ${keyData.apiKey} is now marked EXPIRED. All payment requests using this key will return HTTP 403 API_KEY_EXPIRED.`,
+    key: {
+      id: keyData.id,
+      apiKey: keyData.apiKey,
+      merchantName: keyData.merchantName,
+      status: keyData.status,
+      expiresAt: keyData.expiresAt
+    }
+  });
+});
+
+// 0.4 Admin Key Reactivation Tool
+router.all('/admin/reactivate-key', (req, res) => {
+  let apiKey = req.query.api_key || req.query.apiKey || req.body?.apiKey || req.body?.api_key;
+  if (!apiKey && req.headers['authorization']) {
+    const auth = req.headers['authorization'];
+    if (auth.startsWith('Bearer ')) apiKey = auth.slice(7).trim();
+  }
+  if (!apiKey) {
+    return res.status(400).json({ success: false, error: 'MISSING_API_KEY', message: 'Provide apiKey in query or body.' });
+  }
+
+  const keyData = apiKeyService.getKeyById(apiKey);
+  if (!keyData) {
+    return res.status(404).json({ success: false, error: 'KEY_NOT_FOUND', message: 'Key does not exist.' });
+  }
+
+  const durationDays = keyData.durationDays || 7;
+  keyData.status = 'ACTIVE';
+  keyData.expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+  keyData.expiryWarningSent = false;
+  keyData.expiredNoticeSent = false;
+  db.saveApiKey(keyData);
+
+  return res.json({
+    success: true,
+    message: `API Key ${keyData.apiKey} has been reactivated.`,
+    key: {
+      id: keyData.id,
+      apiKey: keyData.apiKey,
+      status: keyData.status,
+      expiresAt: keyData.expiresAt
+    }
   });
 });
 
@@ -543,8 +614,22 @@ router.all(['/payment/check', '/payment/check/:tranId'], authenticateApiKey, asy
 
       const bakongRes = await queryBakongByMd5(searchMd5);
       if (bakongRes && (bakongRes.status === 'SUCCESS' || bakongRes.responseCode === 0)) {
+        const wasAlreadyPaid = tx && tx.status === 'PAID';
         if (tranId) {
           orderService.updatePaymentTransactionStatus(tranId, 'PAID', bakongRes.data || bakongRes);
+        }
+        if (!wasAlreadyPaid && tx && tx.telegramId && String(tx.telegramId) !== 'api_client') {
+          try {
+            const { sendMerchantPaymentAlert } = require('../services/notification.service');
+            sendMerchantPaymentAlert(tx.telegramId, {
+              bank: 'Bakong National KHQR',
+              tranId: tranId || searchMd5,
+              amount: tx.amount,
+              amountFormatted: tx.amountFormatted,
+              currency: tx.currency || 'USD',
+              merchantName: tx.merchantName || 'Merchant Store'
+            }).catch(() => {});
+          } catch (_) {}
         }
         return res.json({
           success: true,
@@ -571,8 +656,22 @@ router.all(['/payment/check', '/payment/check/:tranId'], authenticateApiKey, asy
 
       const abaRes = await checkAbaPaymentCore(tx.details);
       if (abaRes && abaRes.status === 'PAID') {
+        const wasAlreadyPaid = tx && tx.status === 'PAID';
         if (tranId) {
           orderService.updatePaymentTransactionStatus(tranId, 'PAID', abaRes.rawResponse);
+        }
+        if (!wasAlreadyPaid && tx && tx.telegramId && String(tx.telegramId) !== 'api_client') {
+          try {
+            const { sendMerchantPaymentAlert } = require('../services/notification.service');
+            sendMerchantPaymentAlert(tx.telegramId, {
+              bank: 'ABA PayWay',
+              tranId,
+              amount: tx.amount,
+              amountFormatted: tx.amountFormatted,
+              currency: tx.currency || 'USD',
+              merchantName: tx.merchantName || 'Merchant Store'
+            }).catch(() => {});
+          } catch (_) {}
         }
         return res.json({
           success: true,

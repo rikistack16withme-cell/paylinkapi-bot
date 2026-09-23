@@ -61,8 +61,8 @@ async function sendPaymentSuccessNotification(telegramId, data) {
     `<code>${data.secret}</code>\n` +
     `<code>─────────────────────────────</code>\n\n` +
     `${animServer} <b>PRODUCTION REST GATEWAY ENDPOINTS:</b>\n` +
-    `• <b>ABA QR Generator:</b>\n  <code>POST http://localhost:5000/api/aba/generate-qr</code>\n` +
-    `• <b>Payment Status Check:</b>\n  <code>POST http://localhost:5000/api/aba/check-payment</code>\n\n` +
+    `• <b>ABA QR Generator:</b>\n  <code>POST ${process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com'}/api/aba/generate-qr</code>\n` +
+    `• <b>Payment Status Check:</b>\n  <code>POST ${process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com'}/api/aba/check-payment</code>\n\n` +
     `<i>${animBulb} ${isKm ? 'ទិន្នន័យគណនីរបស់អ្នកត្រូវបានរក្សាទុកដោយសុវត្ថិភាព។ លោកអ្នកអាចប្រើប្រាស់ API Key នេះក្នុងការភ្ជាប់ប្រព័ន្ធទូទាត់បានភ្លាមៗ!' : 'Your merchant data is saved and your live API key is ready for immediate integration!'}</i>`;
 
   const keyboard = {
@@ -105,6 +105,51 @@ async function sendPaymentSuccessNotification(telegramId, data) {
 }
 
 /**
+ * Sends real-time payment settlement alert directly to the merchant's Telegram chat
+ * whenever a payment is received via API QR code.
+ */
+async function sendMerchantPaymentAlert(telegramId, data = {}) {
+  if (!telegramId || String(telegramId) === 'api_client') return;
+
+  const lang = userService.getUserLanguage(telegramId) || 'km';
+  const isKm = lang === 'km';
+
+  const amountStr = data.amountFormatted || (data.amount ? `${data.amount} ${data.currency || 'USD'}` : '$1.00 USD');
+  const bank = data.bank || 'National KHQR & ABA PayWay';
+  const tranId = data.tranId || data.transactionId || 'N/A';
+  const merchantName = data.merchantName || 'Merchant Store';
+
+  const text =
+    `💰 <b>${isKm ? 'ទទួលបានប្រាក់ទូទាត់ជោគជ័យ' : 'PAYMENT RECEIVED • SETTLED'}</b> ${tgEmoji('brand')}\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
+    `• ${tgEmoji('clearing')} <b>${isKm ? 'ប្រព័ន្ធទូទាត់:' : 'Payment Rail:'}</b> <code>${bank}</code>\n` +
+    `• ${tgEmoji('brand')} <b>${isKm ? 'ហាង Merchant:' : 'Store Name:'}</b> <code>${formatter.escapeHtml(merchantName)}</code>\n` +
+    `• ${tgEmoji('currency')} <b>${isKm ? 'ចំនួនទឹកប្រាក់:' : 'Amount Cleared:'}</b> <b>${amountStr}</b>\n` +
+    `• ${tgEmoji('verified')} <b>${isKm ? 'ស្ថានភាព:' : 'Status:'}</b> <b>[ PAID &amp; SETTLED ]</b> ${tgEmoji('active')}\n` +
+    `• ${tgEmoji('receipt')} <b>Transaction ID:</b> <code>${tranId}</code>\n` +
+    `• ⏰ <b>${isKm ? 'កាលបរិច្ឆេទ:' : 'Timestamp:'}</b> <code>${new Date().toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' })} (GMT+7)</code>\n\n` +
+    `${formatter.divider}\n` +
+    `<i>${tgEmoji('bulb')} ${isKm ? 'ការទូទាត់នេះត្រូវបានផ្ទៀងផ្ទាត់ដោយស្វ័យប្រវត្តិតាមរយៈ PaylinkApi Gateway។' : 'This transaction was settled via your PaylinkApi payment gateway.'}</i>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [makeButton(isKm ? '📊 ផ្ទាំងគ្រប់គ្រង Dashboard' : '📊 View Dashboard', 'nav_dashboard', 'operator', 'primary')],
+      [makeButton(isKm ? '📦 មើលការកម្ម៉ង់ Orders' : '📦 View Orders', 'nav_orders', 'orders', 'primary')]
+    ]
+  };
+
+  try {
+    return await notifier.sendMessage(telegramId, text, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+      message_effect_id: '5046509860389126442'
+    });
+  } catch (err) {
+    console.warn(`[Merchant Payment Alert Error]: Could not send alert to ${telegramId}:`, err.message);
+  }
+}
+
+/**
  * Dispatches real-time telemetry or event alert directly to the active Admin Group
  */
 async function sendAdminAlert(text, options = {}) {
@@ -129,5 +174,6 @@ async function sendAdminAlert(text, options = {}) {
 
 module.exports = {
   sendPaymentSuccessNotification,
+  sendMerchantPaymentAlert,
   sendAdminAlert
 };

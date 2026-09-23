@@ -298,7 +298,7 @@ class PdfGeneratorService {
         doc.fillColor('#1D4ED8').fontSize(7.8).font('Helvetica-Bold')
           .text('HOW TO CONNECT:', 50, curY + 6);
         doc.fillColor('#334155').fontSize(7.5).font('Helvetica')
-          .text(`Use Base URL "${effectiveBaseUrl}" in your code with header "Authorization: Bearer ${sampleKey}". Enterprise rate limit (60 req/min) & DDoS auto-ban protect your API 24/7.`, 50, curY + 17, { width: 495 });
+          .text(`Use Base URL "${effectiveBaseUrl}" in your code with header "Authorization: Bearer ${sampleKey}". Instant Telegram settlement alerts, enterprise rate limit (60 req/min) & DDoS auto-ban protect your API 24/7.`, 50, curY + 17, { width: 495 });
 
         this.drawFooter(doc, 1, totalPages);
 
@@ -353,15 +353,16 @@ class PdfGeneratorService {
      b) Formatted price ($ USD and KHR), Merchant Name, and Transaction ID.
      c) Mobile Deep Link button: <a href="deeplink">Pay via Banking App</a>.
 
-4. STEP 3: REAL-TIME PAYMENT VERIFICATION (AUTO-POLLING)
+4. STEP 3: REAL-TIME PAYMENT VERIFICATION & TELEGRAM SETTLEMENT ALERTS
    - Set an automated 3-second interval polling:
      POST ${effectiveBaseUrl}/api/aba/check-payment
      Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${sampleKey}" }
      Body: { "transactionId": "<TRAN_ID>" }
    - If response { "status": "PAID" }:
-     - Clear the polling interval.
-     - Show congratulations checkmark animation.
-     - Update order state to "PAID" and deliver goods.
+     a) Clear the polling interval.
+     b) Show congratulations checkmark animation.
+     c) Update order state to "PAID" and deliver goods.
+     d) PaylinkApi automatically delivers an instant transaction alert directly to your Telegram Bot (@PayLinkAPI_bot) with amount, customer info, and timestamp!
    - If { "status": "PENDING" }, keep checking until 5-minute timeout.
 
 5. STEP 4: OPTIONAL WEBHOOK LISTENER (BACKEND)
@@ -370,8 +371,8 @@ class PdfGeneratorService {
      if (req.headers['x-signature'] === expected) { /* fulfill order */ }`;
 
         p2Y = this.drawCodeBox(doc, 'AI VIBE PROMPT (COPY & PASTE)', vibePrompt, p2Y, {
-          fontSize: 7.2,
-          lineGap: 1.6,
+          fontSize: 7.0,
+          lineGap: 1.5,
           codeColor: '#67E8F9'
         });
 

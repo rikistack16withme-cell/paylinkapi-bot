@@ -59,6 +59,8 @@ const tunnelService = require('./src/services/tunnel.service');
 const adminHandler = require('./src/bot/handlers/admin.handler');
 const db = require('./src/database');
 const expiryCheckerService = require('./src/services/expiry_checker.service');
+const accessGateService = require('./src/services/access_gate.service');
+const floodControl = require('./src/utils/flood_control');
 
 if (!config.bot.token) {
   logger.error('TELEGRAM_BOT_TOKEN is missing in .env! Please configure it before starting.');
@@ -152,10 +154,30 @@ bot.on('message', async (msg) => {
     const chatType = msg.chat?.type;
     const isGroup = chatType === 'group' || chatType === 'supergroup' || chatType === 'channel';
 
+    // 0. Bot Flood Control & Anti-DDoS rate limiter
+    const floodCheck = floodControl.check(msg.from.id);
+    if (!floodCheck.allowed) {
+      if (floodCheck.reason === 'FLOOD_BAN') {
+        if (floodCheck.isNewBan) {
+          const { sendAdminAlert } = require('./src/services/notification.service');
+          sendAdminAlert(
+            `🚨 <b>[BOT FLOOD ATTACK MITIGATED]</b>\n` +
+            `User <code>${msg.from.id}</code> (@${msg.from.username || 'unknown'}) was auto-banned for 5 minutes (>35 actions/min).`
+          ).catch(() => {});
+        }
+        return await bot.sendMessage(
+          chatId,
+          `🚨 <b>FLOOD PROTECTION TRIGGERED</b>\n\nToo many requests. Your account has been temporarily throttled for ${floodCheck.remainingSec}s to prevent denial-of-service.`,
+          { parse_mode: 'HTML' }
+        );
+      }
+      return; // Soft drop rapid bursts
+    }
+
     // Normalize command if sent in group with @bot mention (e.g. /admin@PaylinkApi_bot -> /admin)
     const cmdText = text.replace(/^(\/\w+)@\w+/, '$1');
 
-    // Admin & Master Authorization Check (Strictly locked to Master Admin 7283817695)
+    // Admin & Master Authorization Check (Strictly locked to Master Admins)
     const isMaster = adminHandler.isMasterAdmin(msg.from.id);
 
     // If Master Admin operates in ANY group chat, automatically bind & authorize this group!
@@ -241,6 +263,15 @@ bot.on('message', async (msg) => {
         `💬 Urgent support: @kaixite`,
         { parse_mode: 'HTML' }
       );
+    }
+
+    // 2.1 Private Mode / Admin Access Gate Check (Direct messages only)
+    if (!isGroup && !isMaster) {
+      const isApproved = accessGateService.isAccessApproved(msg.from.id, isMaster);
+      if (!isApproved) {
+        const lang = userService.getUserLanguage(msg.from.id) || 'km';
+        return await accessGateService.renderRestrictedAccess(bot, chatId, msg.from, lang);
+      }
     }
 
     // 3. Reply-to-DM Bridge: If Master Admin replies to a forwarded user message in Admin Group, deliver as DM to user!
@@ -341,6 +372,38 @@ bot.on('message', async (msg) => {
       if (!isMaster) return;
       const keyId = cmdText.split(/\s+/)[1];
       return await adminHandler.handleAdminRevokeKey(bot, chatId, keyId);
+    }
+
+    if (cmdText.startsWith('/expire')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const keyId = cmdText.split(/\s+/)[1];
+      return await adminHandler.handleAdminExpireKey(bot, chatId, keyId);
+    }
+
+    if (cmdText.startsWith('/reactivate')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const parts = cmdText.split(/\s+/).slice(1);
+      const keyId = parts[0];
+      const days = parts[1] || 7;
+      return await adminHandler.handleAdminReactivateKey(bot, chatId, keyId, days);
+    }
+
+    if (cmdText.startsWith('/gate')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const arg = (cmdText.split(/\s+/)[1] || '').toLowerCase();
+      if (arg === 'off') {
+        db.setSetting('admin_gate_enabled', false);
+        return await bot.sendMessage(chatId, '🔓 <b>Admin Access Gate DISABLED (Public Mode)</b>', { parse_mode: 'HTML' });
+      } else if (arg === 'on') {
+        db.setSetting('admin_gate_enabled', true);
+        return await bot.sendMessage(chatId, '🔒 <b>Admin Access Gate ENABLED (Private Approval Mode)</b>', { parse_mode: 'HTML' });
+      } else {
+        const current = db.getSetting('admin_gate_enabled', true);
+        return await bot.sendMessage(chatId, `🔒 <b>Admin Access Gate Status:</b> <code>${current ? 'ENABLED (Private Mode)' : 'DISABLED (Public Mode)'}</code>\n\nUse <code>/gate on</code> or <code>/gate off</code> to toggle.`, { parse_mode: 'HTML' });
+      }
     }
 
     if (cmdText.startsWith('/markpaid')) {
@@ -521,10 +584,42 @@ bot.on('callback_query', async (query) => {
     const chatId = query.message?.chat?.id;
     const messageId = query.message?.message_id;
 
+    // 0. Flood control on button taps
+    const floodCheck = floodControl.check(from?.id);
+    if (!floodCheck.allowed) {
+      return await bot.answerCallbackQuery(query.id, {
+        text: '⚠️ Please wait a moment (ចុចញាប់ពេក)...',
+        show_alert: false
+      }).catch(() => {});
+    }
+
     middleware.logAction('CALLBACK_QUERY', from, data);
 
     // Always acknowledge callback query to dismiss loader in Telegram client
     await bot.answerCallbackQuery(query.id).catch(() => {});
+
+    // Access Gate Request & Admin Approval callbacks
+    if (data === 'gate_request_access') {
+      return await accessGateService.handleRequestAccess(bot, query);
+    }
+    if (data && data.startsWith('gate_approve_')) {
+      const targetId = data.replace('gate_approve_', '');
+      return await accessGateService.handleAdminApprove(bot, query, targetId);
+    }
+    if (data && data.startsWith('gate_reject_')) {
+      const targetId = data.replace('gate_reject_', '');
+      return await accessGateService.handleAdminReject(bot, query, targetId);
+    }
+
+    // Access Gate check for other buttons (if not master admin)
+    const isMasterQuery = adminHandler.isMasterAdmin(from?.id);
+    const isGroupQuery = query.message?.chat?.type === 'group' || query.message?.chat?.type === 'supergroup';
+    if (!isGroupQuery && !isMasterQuery && !accessGateService.isAccessApproved(from?.id, isMasterQuery)) {
+      if (data !== 'settings_toggle_lang') {
+        const lang = userService.getUserLanguage(from?.id) || 'km';
+        return await accessGateService.renderRestrictedAccess(bot, chatId, from, lang);
+      }
+    }
 
     // Live Payment Status Verification: chk_pay_<tranId> or chk_aba_<tranId>
     if (data && (data.startsWith('chk_pay_') || data.startsWith('chk_aba_'))) {
