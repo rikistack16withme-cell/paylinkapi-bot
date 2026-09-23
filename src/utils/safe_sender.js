@@ -79,6 +79,10 @@ const safeSender = {
           ...options
         });
       } catch (err) {
+        if (err.message && err.message.includes('message is not modified')) {
+          // Message already has identical content and markup; ignore safely
+          return;
+        }
         // If editing fails (e.g. previous message was a photo or cannot be edited),
         // delete the old message so the chat NEVER stacks multiple step messages!
         await bot.deleteMessage(chatId, messageId).catch(() => {});

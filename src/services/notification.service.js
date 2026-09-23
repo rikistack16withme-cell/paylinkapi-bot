@@ -71,7 +71,7 @@ async function sendPaymentSuccessNotification(telegramId, data) {
         makeButton(isKm ? '📊 ផ្ទាំងគ្រប់គ្រង Dashboard' : '📊 View Dashboard', 'nav_dashboard', 'operator', 'primary')
       ],
       [
-        makeButton(isKm ? '🔑 មើលកូនសោ API Keys' : '🔑 View API Keys', 'nav_apikeys', 'keys', 'success'),
+        makeButton(isKm ? '🔑 មើលកូនសោ API Keys' : '🔑 View API Keys', 'nav_api_keys', 'keys', 'success'),
         makeButton(isKm ? '📚 ឯកសារបច្ចេកទេស Docs' : '📚 Developer Docs', 'nav_docs', 'docs', 'primary')
       ]
     ]

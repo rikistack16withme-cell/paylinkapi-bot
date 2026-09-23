@@ -747,6 +747,7 @@ bot.on('callback_query', async (query) => {
 
       // Navigation: API Keys
       case 'nav_api_keys':
+      case 'nav_apikeys':
         return await handleApiKeys(bot, query);
 
       // How to Connect API Key / Integration Guide Viewer
@@ -806,9 +807,13 @@ bot.on('callback_query', async (query) => {
 
       default:
         logger.warn(`Unknown callback_data received: ${data}`);
+        await bot.answerCallbackQuery(query.id, { text: '✓ Updated' }).catch(() => {});
     }
   } catch (err) {
     logger.error('Error handling callback_query:', err);
+    try {
+      await bot.answerCallbackQuery(query.id, { text: '⚠️ Please try again.' }).catch(() => {});
+    } catch (_) {}
   }
 });
 
