@@ -115,25 +115,47 @@ bot.on('message', async (msg) => {
     if (!msg.from) return;
     const text = (msg.text || '').trim();
     const chatId = msg.chat.id;
-
-    // Strict Group Lockdown: Bot ONLY works in group -5393647415. Never in other groups!
     const chatType = msg.chat?.type;
     const isGroup = chatType === 'group' || chatType === 'supergroup' || chatType === 'channel';
 
-    if (isGroup && !adminHandler.isAuthorizedGroup(chatId)) {
-      logger.warn(`[UNAUTHORIZED GROUP BLOCKED] Chat ID ${chatId} ("${msg.chat?.title || 'Unknown Group'}") attempted to use bot.`);
+    // Normalize command if sent in group with @bot mention (e.g. /admin@PaylinkApi_bot -> /admin)
+    const cmdText = text.replace(/^(\/\w+)@\w+/, '$1');
+
+    // Admin & Master Authorization Check (Strictly locked to Master Admin 7283817695)
+    const isMaster = adminHandler.isMasterAdmin(msg.from.id);
+
+    // If Master Admin operates in ANY group chat, automatically bind & authorize this group!
+    if (isGroup && isMaster) {
+      adminHandler.bindAdminGroup(chatId, msg.chat?.title);
+    }
+
+    // Strict Group Lockdown:
+    // If it is a group and NOT authorized (and sender is not master admin):
+    if (isGroup && !isMaster && !adminHandler.isAuthorizedGroup(chatId)) {
+      logger.warn(`[UNAUTHORIZED GROUP] Non-admin user ${msg.from.id} attempted to trigger bot in group ${chatId}. Silently leaving group.`);
       try {
-        await bot.sendMessage(
-          chatId,
-          `⛔ <b>UNAUTHORIZED GROUP • ក្រុមមិនអនុញ្ញាត</b>\n\n` +
-          `This bot is strictly exclusive and only authorized to operate in group <code>-5393647415</code> (Alertpayment&key_PaylinkAPI).\n` +
-          `Bot នេះដំណើរការផ្ដាច់មុខតែក្នុង Group <code>-5393647415</code> តែប៉ុណ្ណោះ។\n\n` +
-          `<i>The bot will now automatically leave this group.</i>`,
-          { parse_mode: 'HTML' }
-        );
         await bot.leaveChat(chatId);
       } catch (_) {}
       return;
+    }
+
+    // If bot was added to a group as a new chat member:
+    if (msg.new_chat_members && msg.new_chat_members.some(u => u.is_bot)) {
+      if (isMaster) {
+        adminHandler.bindAdminGroup(chatId, msg.chat?.title);
+        return await bot.sendMessage(
+          chatId,
+          `🛡️ <b>PayLinkAPI Master Admin Gateway Connected</b>\n\n` +
+          `Master Administrator (<code>7283817695</code>) recognized.\n` +
+          `Type <code>/admin</code> to open the Master Control Dashboard.`,
+          { parse_mode: 'HTML' }
+        );
+      } else if (!adminHandler.isAuthorizedGroup(chatId)) {
+        try {
+          await bot.leaveChat(chatId);
+        } catch (_) {}
+        return;
+      }
     }
 
     // Custom Emoji Inspector: detect if user sent any Telegram Premium custom emoji
@@ -153,7 +175,7 @@ bot.on('message', async (msg) => {
     }
 
     // /getemoji info command
-    if (text.startsWith('/getemoji')) {
+    if (cmdText.startsWith('/getemoji')) {
       return await bot.sendMessage(
         chatId,
         `💎 <b>Telegram Premium Custom Emoji Guide:</b>\n\n` +
@@ -162,9 +184,6 @@ bot.on('message', async (msg) => {
         { parse_mode: 'HTML' }
       );
     }
-
-    // Admin & System Security Checks (Locked to Master Admin 7283817695)
-    const isMaster = adminHandler.isMasterAdmin(msg.from.id);
 
     // 1. Suspension check for banned users
     if (userService.isBanned(msg.from.id) && !isMaster) {
@@ -190,8 +209,8 @@ bot.on('message', async (msg) => {
       );
     }
 
-    if (text.startsWith('/admin') || text.startsWith('/stats') || text.startsWith('/status')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/admin') || cmdText.startsWith('/stats') || cmdText.startsWith('/status')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) {
         return await bot.sendMessage(
           chatId,
@@ -204,132 +223,132 @@ bot.on('message', async (msg) => {
       return await adminHandler.renderAdminDashboard(bot, chatId);
     }
 
-    if (text.startsWith('/adminhelp') || text.startsWith('/help_admin')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/adminhelp') || cmdText.startsWith('/help_admin')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
       return await adminHandler.renderAdminCommandsList(bot, chatId);
     }
 
-    if (text.startsWith('/activate')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/activate')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const parts = text.split(/\s+/).slice(1);
+      const parts = cmdText.split(/\s+/).slice(1);
       const targetId = parts[0];
       const days = parts[1] || 365;
       const plan = parts.slice(2).join(' ') || 'VIP Pro License';
       return await adminHandler.handleAdminManualActivate(bot, chatId, targetId, plan, days);
     }
 
-    if (text.startsWith('/deactivate')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/deactivate')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const targetId = text.split(/\s+/)[1];
+      const targetId = cmdText.split(/\s+/)[1];
       return await adminHandler.handleAdminManualDeactivate(bot, chatId, targetId);
     }
 
-    if (text.startsWith('/ban')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/ban')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const targetId = text.split(/\s+/)[1];
+      const targetId = cmdText.split(/\s+/)[1];
       return await adminHandler.handleAdminBan(bot, chatId, targetId);
     }
 
-    if (text.startsWith('/unbanip')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/unbanip')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const ip = text.split(/\s+/)[1];
+      const ip = cmdText.split(/\s+/)[1];
       return await adminHandler.handleAdminUnbanIp(bot, chatId, ip);
     }
 
-    if (text.startsWith('/unban')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/unban')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const targetId = text.split(/\s+/)[1];
+      const targetId = cmdText.split(/\s+/)[1];
       return await adminHandler.handleAdminUnban(bot, chatId, targetId);
     }
 
-    if (text.startsWith('/addkey')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/addkey')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const parts = text.split(/\s+/).slice(1);
+      const parts = cmdText.split(/\s+/).slice(1);
       const targetId = parts[0];
       const storeName = parts.slice(1).join(' ') || 'Merchant Store';
       return await adminHandler.handleAdminAddKey(bot, chatId, targetId, storeName);
     }
 
-    if (text.startsWith('/revokekey')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/revokekey')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const keyId = text.split(/\s+/)[1];
+      const keyId = cmdText.split(/\s+/)[1];
       return await adminHandler.handleAdminRevokeKey(bot, chatId, keyId);
     }
 
-    if (text.startsWith('/markpaid')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/markpaid')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const tranId = text.split(/\s+/)[1];
+      const tranId = cmdText.split(/\s+/)[1];
       return await adminHandler.handleAdminMarkPaid(bot, chatId, tranId);
     }
 
-    if (text.startsWith('/user')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/user')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const queryStr = text.split(/\s+/)[1];
+      const queryStr = cmdText.split(/\s+/)[1];
       return await adminHandler.handleAdminUserLookup(bot, chatId, queryStr);
     }
 
-    if (text.startsWith('/dm')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/dm')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const parts = text.split(/\s+/).slice(1);
+      const parts = cmdText.split(/\s+/).slice(1);
       const targetId = parts[0];
       const dmMsg = parts.slice(1).join(' ');
       return await adminHandler.handleAdminDm(bot, chatId, targetId, dmMsg);
     }
 
-    if (text.startsWith('/maint') || text.startsWith('/maintenance')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/maint') || cmdText.startsWith('/maintenance')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
-      const arg = (text.split(/\s+/)[1] || '').toLowerCase();
+      const arg = (cmdText.split(/\s+/)[1] || '').toLowerCase();
       let force = null;
       if (arg === 'on' || arg === '1' || arg === 'enable') force = true;
       if (arg === 'off' || arg === '0' || arg === 'disable') force = false;
       return await adminHandler.handleAdminToggleMaintenance(bot, chatId, null, force);
     }
 
-    if (text.startsWith('/backup') || text.startsWith('/export')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/backup') || cmdText.startsWith('/export')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
       return await adminHandler.handleAdminExportBackup(bot, chatId);
     }
 
-    if (text.startsWith('/broadcast')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/broadcast')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) {
         return await bot.sendMessage(chatId, `⛔ <b>ACCESS DENIED:</b> Only Master Admin (ID: <code>7283817695</code>) can broadcast announcements.`, { parse_mode: 'HTML' });
       }
-      const broadcastMsg = text.replace(/^\/broadcast(@\w+)?\s*/, '').trim();
+      const broadcastMsg = cmdText.replace(/^\/broadcast(@\w+)?\s*/, '').trim();
       return await adminHandler.handleAdminBroadcast(bot, msg, broadcastMsg);
     }
 
-    if (text.startsWith('/users')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/users')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) {
         return await bot.sendMessage(chatId, `⛔ <b>ACCESS DENIED:</b> Only Master Admin (ID: <code>7283817695</code>) can view user records.`, { parse_mode: 'HTML' });
       }
       return await adminHandler.handleAdminUsersList(bot, chatId);
     }
 
-    if (text.startsWith('/keys')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/keys')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) {
         return await bot.sendMessage(chatId, `⛔ <b>ACCESS DENIED:</b> Only Master Admin (ID: <code>7283817695</code>) can view API keys.`, { parse_mode: 'HTML' });
       }
       return await adminHandler.handleAdminKeysList(bot, chatId);
     }
 
-    if (text.startsWith('/orders')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/orders')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) {
         return await bot.sendMessage(chatId, `⛔ <b>ACCESS DENIED:</b> Only Master Admin (ID: <code>7283817695</code>) can view order logs.`, { parse_mode: 'HTML' });
       }
@@ -337,8 +356,8 @@ bot.on('message', async (msg) => {
     }
 
     // Direct Khmer translation command
-    if (text.startsWith('/khmer') || text.startsWith('/km')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/khmer') || cmdText.startsWith('/km')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       userService.setUserLanguage(msg.from.id, 'km');
       const confirmText = `${formatter.header('ភាសាខ្មែរត្រូវបានជ្រើសរើស')}\n\n` +
         `✅ ភាសាត្រូវបានប្តូរទៅជា <b>ភាសាខ្មែរ (Khmer)</b> ដោយជោគជ័យ។\n` +
@@ -348,8 +367,8 @@ bot.on('message', async (msg) => {
     }
 
     // Direct English translation command
-    if (text.startsWith('/english') || text.startsWith('/en')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/english') || cmdText.startsWith('/en')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       userService.setUserLanguage(msg.from.id, 'en');
       const confirmText = `${formatter.header('LANGUAGE SET TO ENGLISH')}\n\n` +
         `✅ Language has been successfully switched to <b>English</b>.\n` +
@@ -359,8 +378,8 @@ bot.on('message', async (msg) => {
     }
 
     // Quick Language toggle command
-    if (text.startsWith('/lang') || text.startsWith('/language') || text.startsWith('/translate')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/lang') || cmdText.startsWith('/language') || cmdText.startsWith('/translate')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       const nextLang = userService.toggleLanguage(msg.from.id);
       const isKm = nextLang === 'km';
       const confirmText = `${formatter.header(isKm ? 'ភាសាខ្មែរត្រូវបានជ្រើសរើស' : 'LANGUAGE UPDATED')}\n\n` +
@@ -370,8 +389,8 @@ bot.on('message', async (msg) => {
     }
 
     // /connect or /guide command (How to connect integration key)
-    if (text.startsWith('/connect') || text.startsWith('/integration') || text.startsWith('/guide')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/connect') || cmdText.startsWith('/integration') || cmdText.startsWith('/guide')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       const lang = userService.getUserLanguage(msg.from.id);
       const { text: connText, reply_markup } = renderConnectionViewer(lang, 'nodejs', msg.from.id);
       return await safeSender.sendMessage(bot, chatId, connText, {
@@ -381,13 +400,13 @@ bot.on('message', async (msg) => {
     }
 
     // /portal, /register, /web command (Directly drops the payment API portal URL)
-    if (text.startsWith('/portal') || text.startsWith('/register') || text.startsWith('/web') || text.startsWith('/getapi')) {
-      middleware.logAction('COMMAND', msg.from, text);
+    if (cmdText.startsWith('/portal') || cmdText.startsWith('/register') || cmdText.startsWith('/web') || cmdText.startsWith('/getapi')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
       return await handleGetPaymentApi(bot, { message: msg, from: msg.from });
     }
 
     // /start command
-    if (text.startsWith('/start')) {
+    if (cmdText.startsWith('/start')) {
       middleware.logAction('COMMAND', msg.from, '/start');
       return await handleStart(bot, msg);
     }
@@ -474,18 +493,24 @@ bot.on('callback_query', async (query) => {
       return await handleDownloadPdf(bot, query);
     }
 
-    // Strict Group Lockdown for Callbacks: Bot only operates in group -5393647415
+    // Strict Group Lockdown for Callbacks
     const cbChat = query.message?.chat;
     const isCbGroup = cbChat && (cbChat.type === 'group' || cbChat.type === 'supergroup' || cbChat.type === 'channel');
-    if (isCbGroup && !adminHandler.isAuthorizedGroup(cbChat.id)) {
+    const isMasterCb = adminHandler.isMasterAdmin(from.id);
+
+    // If Master Admin interacts in a group, automatically bind and authorize this group
+    if (isCbGroup && isMasterCb) {
+      adminHandler.bindAdminGroup(cbChat.id, cbChat.title);
+    }
+
+    if (isCbGroup && !isMasterCb && !adminHandler.isAuthorizedGroup(cbChat.id)) {
       return await bot.answerCallbackQuery(query.id, {
-        text: '⛔ This bot only operates in group -5393647415.',
+        text: '⛔ Access restricted to system administrator.',
         show_alert: true
       });
     }
 
     // Admin & Security checks for Callbacks
-    const isMasterCb = adminHandler.isMasterAdmin(from.id);
     if (userService.isBanned(from.id) && !isMasterCb) {
       return await bot.answerCallbackQuery(query.id, {
         text: '🚫 Your account has been suspended by system administrator.',

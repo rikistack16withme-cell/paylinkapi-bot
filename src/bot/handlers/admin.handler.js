@@ -21,11 +21,46 @@ function isMasterAdmin(fromId) {
 }
 
 /**
- * Checks if a group chat is the designated authorized group (-5393647415).
- * The bot is strictly restricted to this single group only.
+ * Dynamically binds or updates the active authorized admin group.
+ * Whenever Master Admin operates in a group, it is automatically authorized.
+ */
+function bindAdminGroup(chatId, groupTitle = '') {
+  if (!chatId) return;
+  const idStr = String(chatId);
+  try {
+    const current = db.getSetting('admin_group_id');
+    if (current !== idStr) {
+      db.setSetting('admin_group_id', idStr);
+      if (groupTitle) db.setSetting('admin_group_title', groupTitle);
+      console.log(`[Admin Handler] Successfully bound active admin group to ${idStr} (${groupTitle || 'Admin Group'})`);
+    }
+  } catch (err) {
+    console.error('[Admin Handler] Error saving admin group:', err.message);
+  }
+}
+
+/**
+ * Retrieves the currently active designated admin group ID
+ */
+function getAdminChatId() {
+  try {
+    return String(db.getSetting('admin_group_id') || config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  } catch (_) {
+    return String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  }
+}
+
+/**
+ * Checks if a group chat is authorized.
+ * Dynamic database setting is checked first, followed by default configurations.
  */
 function isAuthorizedGroup(chatId) {
+  if (!chatId) return false;
   const idStr = String(chatId);
+  try {
+    const bound = String(db.getSetting('admin_group_id') || '');
+    if (bound && idStr === bound) return true;
+  } catch (_) {}
   return idStr === '-5393647415' || idStr === '-1005393647415' || idStr === ADMIN_CHAT_ID || idStr.includes('5393647415');
 }
 
@@ -629,6 +664,8 @@ module.exports = {
   MASTER_ADMIN_ID,
   ADMIN_CHAT_ID,
   isMasterAdmin,
+  bindAdminGroup,
+  getAdminChatId,
   isAuthorizedGroup,
   isAdminChat,
   getTelemetryStats,

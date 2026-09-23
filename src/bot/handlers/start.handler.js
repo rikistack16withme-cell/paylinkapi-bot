@@ -22,13 +22,28 @@ async function renderWelcome(bot, chatId, messageId, from) {
 async function handleStart(bot, msg) {
   const chatId = msg.chat.id;
   const from = msg.from;
+  const isGroup = msg.chat?.type === 'group' || msg.chat?.type === 'supergroup';
+  const masterAdminId = String(config.masterAdminId || process.env.MASTER_ADMIN_ID || '7283817695');
+  const isMaster = String(from.id) === masterAdminId;
+
+  // If Master Admin sends /start in group chat, open Admin Control Center directly
+  if (isGroup && isMaster) {
+    const adminHandler = require('./admin.handler');
+    return await adminHandler.renderAdminDashboard(bot, chatId);
+  }
 
   sessionManager.resetSession(from.id);
 
-  // Notify Admin Group (-5393647415) when any user starts the bot (excluding Master Admin)
-  const adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
-  const masterAdminId = String(config.masterAdminId || process.env.MASTER_ADMIN_ID || '7283817695');
-  if (String(chatId) !== adminChatId && String(from.id) !== masterAdminId) {
+  // Notify Admin Group when any user starts the bot (excluding Master Admin)
+  let adminChatId;
+  try {
+    const db = require('../../database');
+    adminChatId = String(db.getSetting('admin_group_id') || config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  } catch (_) {
+    adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  }
+
+  if (String(chatId) !== adminChatId && !isMaster) {
     const { sendAdminAlert } = require('../../services/notification.service');
     const isReturning = userService.isRegistered(from.id);
     sendAdminAlert(

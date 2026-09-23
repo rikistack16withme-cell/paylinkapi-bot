@@ -92,10 +92,16 @@ async function sendPaymentSuccessNotification(telegramId, data) {
 }
 
 /**
- * Dispatches real-time telemetry or event alert directly to the Admin Group (-5393647415)
+ * Dispatches real-time telemetry or event alert directly to the active Admin Group
  */
 async function sendAdminAlert(text, options = {}) {
-  const adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  let adminChatId;
+  try {
+    const db = require('../database');
+    adminChatId = String(db.getSetting('admin_group_id') || config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  } catch (_) {
+    adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+  }
   if (!adminChatId) return;
 
   try {
@@ -104,7 +110,7 @@ async function sendAdminAlert(text, options = {}) {
       ...options
     });
   } catch (err) {
-    console.warn(`[Admin Alert to ${adminChatId} Failed]:`, err.message);
+    console.warn(`[Admin Alert Failed]:`, err.message);
   }
 }
 
