@@ -210,6 +210,32 @@ bot.on('message', async (msg) => {
       );
     }
 
+    // 3. Reply-to-DM Bridge: If Master Admin replies to a forwarded user message in Admin Group, deliver as DM to user!
+    if (isGroup && isMaster && msg.reply_to_message && text && !cmdText.startsWith('/')) {
+      const replyTo = msg.reply_to_message;
+      const targetUserId = replyTo.forward_from?.id || (replyTo.entities && replyTo.entities.find(e => e.type === 'text_mention')?.user?.id);
+      if (targetUserId && String(targetUserId) !== String(msg.from.id)) {
+        try {
+          await bot.sendMessage(
+            targetUserId,
+            `📩 <b>MESSAGE FROM SYSTEM ADMINISTRATOR:</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n${text}\n\n<i>💬 Reply here to respond to administrator.</i>`,
+            { parse_mode: 'HTML' }
+          );
+          return await bot.sendMessage(
+            chatId,
+            `✅ <b>Reply delivered to user <code>${targetUserId}</code>.</b>`,
+            { parse_mode: 'HTML', reply_to_message_id: msg.message_id }
+          );
+        } catch (dmErr) {
+          return await bot.sendMessage(
+            chatId,
+            `⚠️ <b>Failed to deliver reply:</b> ${dmErr.message}`,
+            { parse_mode: 'HTML', reply_to_message_id: msg.message_id }
+          );
+        }
+      }
+    }
+
     if (cmdText.startsWith('/admin') || cmdText.startsWith('/stats') || cmdText.startsWith('/status')) {
       middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) {
@@ -435,6 +461,19 @@ bot.on('message', async (msg) => {
 
     // Default response for unhandled text messages
     logger.debug(`Unhandled user message from ${msg.from.id}: ${text}`);
+
+    // If visitor or merchant sent a direct message in private chat, bridge it to Admin Group
+    if (!isGroup && !isMaster && text) {
+      let adminChatId;
+      try {
+        adminChatId = String(db.getSetting('admin_group_id') || config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+      } catch (_) {
+        adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
+      }
+      if (adminChatId) {
+        bot.forwardMessage(adminChatId, chatId, msg.message_id).catch(() => {});
+      }
+    }
   } catch (err) {
     logger.error('Error handling message:', err);
   }

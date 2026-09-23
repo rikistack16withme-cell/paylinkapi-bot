@@ -8,10 +8,14 @@ const safeSender = require('../../utils/safe_sender');
 
 async function renderWelcome(bot, chatId, messageId, from) {
   const lang = userService.getUserLanguage(from.id) || config.i18n.defaultLanguage;
-  const welcomeText = `${i18n.t('welcome_title', lang, { brand: formatter.escapeHtml(config.brand.name) })}\n\n` +
+  let welcomeText = `${i18n.t('welcome_title', lang, { brand: formatter.escapeHtml(config.brand.name) })}\n\n` +
     `${i18n.t('welcome_tagline', lang)}\n\n` +
     `${i18n.t('welcome_telemetry', lang)}\n\n` +
     `${formatter.italic(i18n.t('welcome_features', lang))}`;
+
+  if (!from.username) {
+    welcomeText += `\n\n💡 <i>Tip: You don't have a Telegram @username set. Setting one in Telegram Settings helps merchants and support connect with you directly!</i>`;
+  }
 
   return await safeSender.replaceOrSend(bot, chatId, messageId, welcomeText, {
     parse_mode: 'HTML',
@@ -53,28 +57,43 @@ async function handleStart(bot, msg) {
       ? `<a href="https://t.me/${from.username}">@${from.username}</a>`
       : `<i>No @username</i>`;
 
+    const profileLink = from.username
+      ? `<a href="https://t.me/${from.username}">👤 Open @${from.username}</a>`
+      : `<a href="tg://user?id=${from.id}">👤 View Profile (Mobile)</a>`;
+
     sendAdminAlert(
       `👋 <b>[USER ACTIVE • /START]</b>\n` +
       `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
       `• <b>User:</b> ${userMention}\n` +
       `• <b>Username:</b> ${usernameDisplay}\n` +
       `• <b>Telegram ID:</b> <code>${from.id}</code>\n` +
-      `• <b>Direct Links:</b> <a href="tg://user?id=${from.id}">👤 View Profile</a> | <a href="tg://openmessage?user_id=${from.id}">💬 Open Chat</a>\n` +
+      `• <b>Direct Profile:</b> ${profileLink}\n` +
       `• <b>Account Status:</b> <code>${isReturning ? 'Returning Registered Merchant' : 'New Visitor'}</code>\n` +
-      `• <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>`,
+      `• <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>\n\n` +
+      `<i>💡 Tip: Click the forwarded message header below to open this user's profile directly on Telegram Desktop.</i>`,
       {
         disable_web_page_preview: true,
         link_preview_options: { is_disabled: true }
       }
     ).catch(() => {});
+
+    // Forward the user's /start message directly to the admin group!
+    // Telegram natively renders "Forwarded from <User>", making their profile 100% clickable on Telegram Desktop!
+    if (!isGroup && msg.message_id) {
+      bot.forwardMessage(adminChatId, chatId, msg.message_id).catch(() => {});
+    }
   }
 
   // If already registered, send straight to Dashboard
   if (userService.isRegistered(from.id)) {
     const lang = userService.getUserLanguage(from.id);
     const firstName = formatter.escapeHtml(from.first_name || (lang === 'km' ? 'អ្នកអភិវឌ្ឍន៍' : 'Developer'));
-    const text = `${formatter.telemetryCard(firstName, from.id, lang)}\n\n` +
+    let text = `${formatter.telemetryCard(firstName, from.id, lang)}\n\n` +
       `${i18n.t('dash_subtitle', lang)}`;
+
+    if (!from.username) {
+      text += `\n\n💡 <i>Tip: Set a Telegram @username in settings so administrators and customers can contact you directly!</i>`;
+    }
 
     return safeSender.sendMessage(bot, chatId, text, {
       parse_mode: 'HTML',

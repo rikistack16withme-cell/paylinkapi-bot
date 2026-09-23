@@ -193,7 +193,7 @@ async function handleAdminUsersList(bot, chatId, messageId = null) {
       text += `<b>${i + 1}. ${userMention}</b>\n` +
         `• <b>Username:</b> ${usernameDisplay}\n` +
         `• <b>Telegram ID:</b> <code>${u.telegramId}</code>\n` +
-        `• <b>Profile Link:</b> <a href="tg://user?id=${u.telegramId}">👤 View Profile</a>\n` +
+        `• <b>Profile Link:</b> ${u.username ? `<a href="https://t.me/${u.username}">https://t.me/${u.username}</a>` : `<a href="tg://user?id=${u.telegramId}">👤 View Profile (Mobile)</a>`}\n` +
         (u.merchantName ? `• <b>Store:</b> <code>${formatter.escapeHtml(u.merchantName)}</code>\n` : '') +
         `• <b>Status:</b> <code>${badge}</code>\n` +
         `• <b>Direct DM:</b> <code>/dm ${u.telegramId} Hello</code>\n` +
@@ -564,13 +564,17 @@ async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
   const isSub = user.subscription?.status === 'ACTIVE' || user.status === 'ACTIVE';
   const badge = isBanned ? '🚫 BANNED' : (isSub ? '✅ ACTIVE' : '⏳ PENDING');
 
+  const profileDisplay = user.username
+    ? `<a href="https://t.me/${user.username}">https://t.me/${user.username}</a>`
+    : `<a href="tg://user?id=${user.telegramId}">👤 View Profile (Mobile)</a>`;
+
   const text =
     `👤 <b>USER PROFILE: ${userMention}</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
     `• <b>Full Name:</b> ${formatter.escapeHtml(fullName)}\n` +
     `• <b>Username:</b> ${usernameDisplay}\n` +
     `• <b>Telegram ID:</b> <code>${user.telegramId}</code>\n` +
-    `• <b>Direct Profile:</b> <a href="tg://user?id=${user.telegramId}">👤 View Profile</a>\n` +
+    `• <b>Direct Profile:</b> ${profileDisplay}\n` +
     `• <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || 'Not Set')}</code>\n` +
     `• <b>Account Status:</b> <code>${badge}</code>\n` +
     `• <b>Subscription:</b> <code>${user.subscription?.status || 'INACTIVE'}</code> (Plan: <code>${user.subscription?.plan || 'None'}</code>)\n` +
@@ -583,19 +587,25 @@ async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
     `• <code>/addkey ${user.telegramId} StoreName</code>\n` +
     `• <code>/${isBanned ? 'unban' : 'ban'} ${user.telegramId}</code>`;
 
+  const keyboardRows = [];
+  if (user.username) {
+    keyboardRows.push([
+      { text: `💬 Chat with @${user.username}`, url: `https://t.me/${user.username}` }
+    ]);
+  }
+  keyboardRows.push([
+    makeButton('⚡ Activate 1 Year', `admin_act_1y_${user.telegramId}`, 'success', 'primary'),
+    makeButton('🔑 Issue API Key', `admin_gen_key_${user.telegramId}`, 'keys', 'primary')
+  ]);
+  keyboardRows.push([
+    makeButton(isBanned ? '✅ Unban User' : '🚫 Ban User', `admin_toggle_ban_${user.telegramId}`, 'refresh', isBanned ? 'success' : 'danger')
+  ]);
+  keyboardRows.push([
+    makeButton('« Back to Members List', 'admin_view_users', 'arrow_left', 'secondary')
+  ]);
+
   const keyboard = {
-    inline_keyboard: [
-      [
-        makeButton('⚡ Activate 1 Year', `admin_act_1y_${user.telegramId}`, 'success', 'primary'),
-        makeButton('🔑 Issue API Key', `admin_gen_key_${user.telegramId}`, 'keys', 'primary')
-      ],
-      [
-        makeButton(isBanned ? '✅ Unban User' : '🚫 Ban User', `admin_toggle_ban_${user.telegramId}`, 'refresh', isBanned ? 'success' : 'danger')
-      ],
-      [
-        makeButton('« Back to Members List', 'admin_view_users', 'arrow_left', 'secondary')
-      ]
-    ]
+    inline_keyboard: keyboardRows
   };
 
   return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
@@ -614,25 +624,49 @@ async function handleAdminDm(bot, chatId, targetId, dmText) {
     return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/dm &lt;telegramId&gt; &lt;your message&gt;</code>`, { parse_mode: 'HTML' });
   }
 
+  const cleanId = String(targetId).replace('@', '').trim();
+  const allUsers = db.getAllUsers();
+  const targetUser = allUsers.find(u => String(u.telegramId) === cleanId || (u.username && u.username.toLowerCase() === cleanId.toLowerCase()));
+  const resolvedId = targetUser ? String(targetUser.telegramId) : cleanId;
+
   try {
     await bot.sendMessage(
-      targetId,
+      resolvedId,
       `📩 <b>MESSAGE FROM SYSTEM ADMINISTRATOR:</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n${dmText}\n\n<i>💬 Reply to support: @kaixite</i>`,
       { parse_mode: 'HTML' }
     );
-    return safeSender.sendMessage(bot, chatId, `✅ <b>Message delivered successfully to user ${targetId}.</b>`, { parse_mode: 'HTML' });
+    return safeSender.sendMessage(bot, chatId, `✅ <b>Message delivered successfully to user <code>${resolvedId}</code>.</b>`, { parse_mode: 'HTML' });
   } catch (err) {
     const isChatNotFound = err.message && err.message.includes('chat not found');
-    const tip = isChatNotFound
-      ? `\n\n💡 <i>User has not started private chat with the bot yet.</i>\n` +
-        `👉 <b>Direct Profile Links to Contact User:</b>\n` +
-        `• 1️⃣ <a href="tg://user?id=${targetId}">👤 Open Profile (Telegram App)</a>\n` +
-        `• 2️⃣ <a href="tg://openmessage?user_id=${targetId}">💬 Open Direct Chat (Telegram App)</a>`
-      : '';
+    const isBlocked = err.message && err.message.includes('blocked');
+
+    // Suggest closest match if ID was not found in DB
+    let suggestion = '';
+    if (!targetUser) {
+      const closeMatches = allUsers.filter(u => {
+        const uid = String(u.telegramId);
+        return uid.startsWith(cleanId.substring(0, 4)) || (cleanId.length >= 6 && uid.includes(cleanId.substring(0, 5)));
+      });
+      if (closeMatches.length > 0) {
+        suggestion = `\n\n🔍 <b>Did you mean:</b> <code>/dm ${closeMatches[0].telegramId} ${dmText}</code> (${formatter.escapeHtml([closeMatches[0].firstName, closeMatches[0].lastName].filter(Boolean).join(' '))})`;
+      }
+    }
+
+    let contactTips = '';
+    if (targetUser && targetUser.username) {
+      contactTips = `\n\n👉 <b>Direct Profile:</b> <a href="https://t.me/${targetUser.username}">https://t.me/${targetUser.username}</a>`;
+    } else {
+      contactTips = `\n\n👉 <b>Mobile Direct Profile:</b> <a href="tg://user?id=${resolvedId}">👤 Open Profile (Tap on Phone)</a>\n<i>(💡 Note for Telegram Desktop: Click the user's forwarded message in this group to open their profile directly)</i>`;
+    }
+
+    const causeText = isChatNotFound
+      ? `User <code>${resolvedId}</code> has not started a private chat with the bot yet. Telegram strictly requires users to press START in private chat before a bot can message them.`
+      : (isBlocked ? `User <code>${resolvedId}</code> has blocked or paused the bot.` : err.message);
+
     return safeSender.sendMessage(
       bot,
       chatId,
-      `⚠️ <b>Failed to send DM to <code>${targetId}</code>:</b> ${err.message}${tip}`,
+      `⚠️ <b>Failed to send DM to <code>${resolvedId}</code>:</b>\n• <i>${causeText}</i>${suggestion}${contactTips}`,
       { parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }
     );
   }
@@ -647,25 +681,43 @@ async function handleAdminProfileLink(bot, chatId, targetId) {
   }
 
   const cleanId = String(targetId).replace('@', '').trim();
-  const user = db.getUser(cleanId);
-  const name = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : `User ${cleanId}`;
-  const usernamePart = user && user.username ? `\n• <b>Public Username:</b> <a href="https://t.me/${user.username}">@${user.username}</a>` : '';
+  const allUsers = db.getAllUsers();
+  const user = allUsers.find(u => String(u.telegramId) === cleanId || (u.username && u.username.toLowerCase() === cleanId.toLowerCase()));
+  const actualId = user ? String(user.telegramId) : cleanId;
+  const name = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : `User ${actualId}`;
+
+  let linkSection = '';
+  const inlineButtons = [];
+
+  if (user && user.username) {
+    linkSection =
+      `• <b>Public Username:</b> <a href="https://t.me/${user.username}">@${user.username}</a>\n` +
+      `• <b>Universal Profile Link:</b> <a href="https://t.me/${user.username}">https://t.me/${user.username}</a>\n\n` +
+      `<i>Works 100% on Telegram Desktop, Mobile, and Web!</i>`;
+    inlineButtons.push([{ text: `💬 Open @${user.username} Profile`, url: `https://t.me/${user.username}` }]);
+  } else {
+    linkSection =
+      `• <b>Username:</b> <i>No @username set by user</i>\n` +
+      `• <b>Mobile App Link:</b> <a href="tg://user?id=${actualId}">👤 Open Profile (Tap on Phone)</a>\n\n` +
+      `💡 <b>How to view on Telegram Desktop:</b>\n` +
+      `Because this user has no public @username, Telegram Desktop cannot resolve numeric ID deep links for strangers.\n` +
+      `👉 <b>Solution:</b> Click on their name in any message forwarded from them (such as their /start alert above), or open on Telegram Mobile!`;
+  }
 
   const text =
     `🔗 <b>TELEGRAM PROFILE DIRECT LINKS:</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `• <b>Target User:</b> <a href="tg://user?id=${cleanId}"><b>${formatter.escapeHtml(name)}</b></a>\n` +
-    `• <b>Telegram ID:</b> <code>${cleanId}</code>` +
-    usernamePart + `\n\n` +
-    `👇 <b>CLICK BELOW TO OPEN PROFILE:</b>\n` +
-    `1️⃣ <a href="tg://user?id=${cleanId}">👤 <b>Open User Profile (Telegram App)</b></a>\n` +
-    `2️⃣ <a href="tg://openmessage?user_id=${cleanId}">💬 <b>Open Direct Chat (Telegram App)</b></a>\n\n` +
-    `<i>Tap the blue links above on your mobile phone or desktop to view this user's profile directly.</i>`;
+    `• <b>Target User:</b> <a href="tg://user?id=${actualId}"><b>${formatter.escapeHtml(name)}</b></a>\n` +
+    `• <b>Telegram ID:</b> <code>${actualId}</code>\n` +
+    linkSection;
+
+  const reply_markup = inlineButtons.length > 0 ? { inline_keyboard: inlineButtons } : undefined;
 
   return await safeSender.sendMessage(bot, chatId, text, {
     parse_mode: 'HTML',
     disable_web_page_preview: true,
-    link_preview_options: { is_disabled: true }
+    link_preview_options: { is_disabled: true },
+    reply_markup
   });
 }
 
