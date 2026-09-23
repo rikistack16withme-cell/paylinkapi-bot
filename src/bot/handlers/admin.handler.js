@@ -170,21 +170,27 @@ async function renderAdminDashboard(bot, chatId, messageId = null) {
  */
 async function handleAdminUsersList(bot, chatId, messageId = null) {
   const users = db.getAllUsers();
-  const recent = users.slice(-12).reverse();
+  const recent = users.slice(-20).reverse();
 
-  let text = `👥 <b>REGISTERED MERCHANTS (Latest ${recent.length} of ${users.length}):</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n`;
+  let text = `👥 <b>MEMBERS & MERCHANTS LIST (Total: ${users.length}):</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n`;
 
   if (recent.length === 0) {
-    text += `<i>No registered merchants found yet.</i>`;
+    text += `<i>No users found in database yet.</i>`;
   } else {
     recent.forEach((u, i) => {
       const isSub = u.subscription?.status === 'ACTIVE' || u.status === 'ACTIVE';
       const isBan = u.status === 'BANNED';
       const badge = isBan ? '🚫 BANNED' : (isSub ? '✅ ACTIVE' : '⏳ PENDING');
 
-      text += `<b>${i + 1}. ${formatter.escapeHtml(u.firstName || 'Merchant')}</b> (@${u.username || 'none'})\n` +
+      const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Telegram User';
+      const usernameDisplay = u.username
+        ? `@${u.username} (<a href="https://t.me/${u.username}">Open Chat</a>)`
+        : `<i>No @username</i> (<a href="tg://user?id=${u.telegramId}">Direct Profile</a>)`;
+
+      text += `<b>${i + 1}. ${formatter.escapeHtml(fullName)}</b>\n` +
+        `• <b>Username:</b> ${usernameDisplay}\n` +
         `• <b>Telegram ID:</b> <code>${u.telegramId}</code>\n` +
-        `• <b>Store:</b> <code>${formatter.escapeHtml(u.merchantName || 'Store')}</code>\n` +
+        (u.merchantName ? `• <b>Store:</b> <code>${formatter.escapeHtml(u.merchantName)}</code>\n` : '') +
         `• <b>Status:</b> <code>${badge}</code>\n` +
         `• <b>Quick Control:</b> <code>/activate ${u.telegramId}</code> | <code>/ban ${u.telegramId}</code>\n\n`;
     });
@@ -531,12 +537,17 @@ async function handleAdminUserLookup(bot, chatId, queryStr) {
   const userKeys = db.getUserApiKeys(user.telegramId);
   const userOrders = db.getUserOrders(user.telegramId);
 
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Telegram User';
+  const usernameDisplay = user.username
+    ? `@${user.username} (<a href="https://t.me/${user.username}">Open Chat</a>)`
+    : `<i>No @username</i> (<a href="tg://user?id=${user.telegramId}">Direct Profile</a>)`;
+
   const text =
-    `👤 <b>MERCHANT PROFILE: ${formatter.escapeHtml(user.firstName || 'Merchant')}</b>\n` +
+    `👤 <b>USER PROFILE: ${formatter.escapeHtml(fullName)}</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
     `• <b>Telegram ID:</b> <code>${user.telegramId}</code>\n` +
-    `• <b>Username:</b> @${user.username || 'none'}\n` +
-    `• <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || 'Store')}</code>\n` +
+    `• <b>Username:</b> ${usernameDisplay}\n` +
+    `• <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || 'Not Registered')}</code>\n` +
     `• <b>Account Status:</b> <code>${user.status || 'ACTIVE'}</code>\n` +
     `• <b>Subscription:</b> <code>${user.subscription?.status || 'INACTIVE'}</code> (Plan: <code>${user.subscription?.plan || 'None'}</code>)\n` +
     `• <b>Registered Date:</b> <code>${user.createdAt || 'N/A'}</code>\n` +

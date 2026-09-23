@@ -32,6 +32,7 @@ async function handleStart(bot, msg) {
     return await adminHandler.renderAdminDashboard(bot, chatId);
   }
 
+  userService.trackUser(from);
   sessionManager.resetSession(from.id);
 
   // Notify Admin Group when any user starts the bot (excluding Master Admin)

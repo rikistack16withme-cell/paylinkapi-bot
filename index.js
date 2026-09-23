@@ -113,6 +113,7 @@ bot.setMyCommands([
 bot.on('message', async (msg) => {
   try {
     if (!msg.from) return;
+    userService.trackUser(msg.from);
     const text = (msg.text || '').trim();
     const chatId = msg.chat.id;
     const chatType = msg.chat?.type;
@@ -437,6 +438,7 @@ bot.on('callback_query', async (query) => {
   try {
     const data = query.data;
     const from = query.from;
+    if (from) userService.trackUser(from);
     const chatId = query.message?.chat?.id;
     const messageId = query.message?.message_id;
 

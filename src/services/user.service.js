@@ -11,27 +11,46 @@ class UserService {
     return Boolean(user && user.status === 'ACTIVE');
   }
 
-  registerUser(from) {
-    const telegramId = from.id;
+  /**
+   * Automatically captures and updates user profile data whenever they interact with the bot
+   */
+  trackUser(from) {
+    if (!from || !from.id) return null;
+    const telegramId = String(from.id);
     const existing = db.getUser(telegramId);
-    if (existing) {
-      return existing;
-    }
+    const username = from.username || existing?.username || '';
+    const firstName = from.first_name || existing?.firstName || '';
+    const lastName = from.last_name || existing?.lastName || '';
 
-    const newUser = {
+    const userData = {
       telegramId,
-      username: from.username || '',
-      firstName: from.first_name || '',
-      lastName: from.last_name || '',
-      status: 'ACTIVE',
-      settings: {
+      username,
+      firstName,
+      lastName,
+      status: existing?.status || 'ACTIVE',
+      settings: existing?.settings || {
         language: config.i18n.defaultLanguage,
         notifications: true
       },
-      createdAt: new Date().toISOString()
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      lastActive: new Date().toISOString(),
+      ...(existing || {})
     };
 
-    return db.saveUser(newUser);
+    userData.username = username;
+    userData.firstName = firstName;
+    userData.lastName = lastName;
+    userData.lastActive = new Date().toISOString();
+
+    return db.saveUser(userData);
+  }
+
+  registerUser(from) {
+    return this.trackUser(from);
+  }
+
+  deleteUser(telegramId) {
+    return db.deleteUser(telegramId);
   }
 
   getUserLanguage(telegramId) {

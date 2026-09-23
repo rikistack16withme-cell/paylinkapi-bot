@@ -78,6 +78,17 @@ class Database {
     return this.data.users[id];
   }
 
+  deleteUser(telegramId) {
+    this.reload();
+    const id = String(telegramId);
+    if (this.data.users && this.data.users[id]) {
+      delete this.data.users[id];
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
   updateUserSettings(telegramId, settings) {
     const user = this.getUser(telegramId);
     if (!user) return null;
