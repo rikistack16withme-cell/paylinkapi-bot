@@ -298,6 +298,13 @@ bot.on('message', async (msg) => {
       return await adminHandler.handleAdminUserLookup(bot, chatId, queryStr);
     }
 
+    if (cmdText.startsWith('/link') || cmdText.startsWith('/pf') || cmdText.startsWith('/profile')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const targetId = cmdText.split(/\s+/)[1];
+      return await adminHandler.handleAdminProfileLink(bot, chatId, targetId);
+    }
+
     if (cmdText.startsWith('/dm')) {
       middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;

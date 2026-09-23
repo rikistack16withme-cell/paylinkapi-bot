@@ -622,8 +622,51 @@ async function handleAdminDm(bot, chatId, targetId, dmText) {
     );
     return safeSender.sendMessage(bot, chatId, `✅ <b>Message delivered successfully to user ${targetId}.</b>`, { parse_mode: 'HTML' });
   } catch (err) {
-    return safeSender.sendMessage(bot, chatId, `⚠️ Failed to send DM to ${targetId}: ${err.message}`, { parse_mode: 'HTML' });
+    const isChatNotFound = err.message && err.message.includes('chat not found');
+    const tip = isChatNotFound
+      ? `\n\n💡 <i>User has not started private chat with the bot yet.</i>\n` +
+        `👉 <b>Direct Profile Links to Contact User:</b>\n` +
+        `• 1️⃣ <a href="tg://user?id=${targetId}">👤 Open Profile (Telegram App)</a>\n` +
+        `• 2️⃣ <a href="tg://openmessage?user_id=${targetId}">💬 Open Direct Chat (Telegram App)</a>`
+      : '';
+    return safeSender.sendMessage(
+      bot,
+      chatId,
+      `⚠️ <b>Failed to send DM to <code>${targetId}</code>:</b> ${err.message}${tip}`,
+      { parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }
+    );
   }
+}
+
+/**
+ * Converts any Telegram Chat ID / User ID into direct clickable profile links
+ */
+async function handleAdminProfileLink(bot, chatId, targetId) {
+  if (!targetId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/link &lt;telegramId&gt;</code> (or <code>/pf &lt;telegramId&gt;</code>)`, { parse_mode: 'HTML' });
+  }
+
+  const cleanId = String(targetId).replace('@', '').trim();
+  const user = db.getUser(cleanId);
+  const name = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : `User ${cleanId}`;
+  const usernamePart = user && user.username ? `\n• <b>Public Username:</b> <a href="https://t.me/${user.username}">@${user.username}</a>` : '';
+
+  const text =
+    `🔗 <b>TELEGRAM PROFILE DIRECT LINKS:</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `• <b>Target User:</b> <a href="tg://user?id=${cleanId}"><b>${formatter.escapeHtml(name)}</b></a>\n` +
+    `• <b>Telegram ID:</b> <code>${cleanId}</code>` +
+    usernamePart + `\n\n` +
+    `👇 <b>CLICK BELOW TO OPEN PROFILE:</b>\n` +
+    `1️⃣ <a href="tg://user?id=${cleanId}">👤 <b>Open User Profile (Telegram App)</b></a>\n` +
+    `2️⃣ <a href="tg://openmessage?user_id=${cleanId}">💬 <b>Open Direct Chat (Telegram App)</b></a>\n\n` +
+    `<i>Tap the blue links above on your mobile phone or desktop to view this user's profile directly.</i>`;
+
+  return await safeSender.sendMessage(bot, chatId, text, {
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    link_preview_options: { is_disabled: true }
+  });
 }
 
 /**
@@ -691,7 +734,8 @@ async function renderAdminCommandsList(bot, chatId, messageId = null) {
     `• <code>/activate &lt;id&gt; [days]</code> - Manually activate subscription\n` +
     `• <code>/deactivate &lt;id&gt;</code> - Deactivate subscription\n` +
     `• <code>/ban &lt;id&gt;</code> | <code>/unban &lt;id&gt;</code> - Ban / Unban user\n` +
-    `• <code>/dm &lt;id&gt; &lt;text&gt;</code> - Send direct message to user\n\n` +
+    `• <code>/dm &lt;id&gt; &lt;text&gt;</code> - Send direct message to user\n` +
+    `• <code>/link &lt;id&gt;</code> - Convert Chat ID to direct profile links\n\n` +
     `🔑 <b>API KEYS & TRANSACTIONS:</b>\n` +
     `• <code>/keys</code> - List active API keys\n` +
     `• <code>/addkey &lt;id&gt; [StoreName]</code> - Provision production key\n` +
@@ -739,6 +783,7 @@ module.exports = {
   handleAdminRevokeKey,
   handleAdminMarkPaid,
   handleAdminUserLookup,
+  handleAdminProfileLink,
   handleAdminDm,
   handleAdminUnbanIp,
   handleAdminBroadcast,

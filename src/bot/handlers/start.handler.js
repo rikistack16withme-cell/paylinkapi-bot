@@ -47,13 +47,25 @@ async function handleStart(bot, msg) {
   if (String(chatId) !== adminChatId && !isMaster) {
     const { sendAdminAlert } = require('../../services/notification.service');
     const isReturning = userService.isRegistered(from.id);
+    const fullName = [from.first_name, from.last_name].filter(Boolean).join(' ') || 'Visitor';
+    const userMention = `<a href="tg://user?id=${from.id}"><b>${formatter.escapeHtml(fullName)}</b></a>`;
+    const usernameDisplay = from.username
+      ? `<a href="https://t.me/${from.username}">@${from.username}</a>`
+      : `<i>No @username</i>`;
+
     sendAdminAlert(
       `👋 <b>[USER ACTIVE • /START]</b>\n` +
       `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-      `• <b>User:</b> ${formatter.escapeHtml(from.first_name || '')} ${formatter.escapeHtml(from.last_name || '')} (@${from.username || 'no_username'})\n` +
+      `• <b>User:</b> ${userMention}\n` +
+      `• <b>Username:</b> ${usernameDisplay}\n` +
       `• <b>Telegram ID:</b> <code>${from.id}</code>\n` +
+      `• <b>Direct Links:</b> <a href="tg://user?id=${from.id}">👤 View Profile</a> | <a href="tg://openmessage?user_id=${from.id}">💬 Open Chat</a>\n` +
       `• <b>Account Status:</b> <code>${isReturning ? 'Returning Registered Merchant' : 'New Visitor'}</code>\n` +
-      `• <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>`
+      `• <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>`,
+      {
+        disable_web_page_preview: true,
+        link_preview_options: { is_disabled: true }
+      }
     ).catch(() => {});
   }
 
