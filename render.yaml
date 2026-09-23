@@ -11,6 +11,8 @@ services:
         value: production
       - key: NODE_OPTIONS
         value: "--dns-result-order=ipv4first"
+      - key: WEBHOOK_URL
+        value: https://paylinkapi-bot.onrender.com
       - key: BRAND_NAME
         value: PaylinkApi
       - key: BRAND_TAGLINE

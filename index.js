@@ -101,6 +101,8 @@ logger.info(`Starting ${config.brand.name} Telegram Bot Engine...`);
 const isCloudHosted = Boolean(
   process.env.WEBHOOK_URL ||
   process.env.RENDER_EXTERNAL_URL ||
+  process.env.RENDER === 'true' ||
+  process.env.RENDER ||
   process.env.KOYEB_PUBLIC_DOMAIN ||
   process.env.RAILWAY_PUBLIC_DOMAIN
 );
