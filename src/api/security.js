@@ -37,6 +37,27 @@ class RateLimiter {
     }
   }
 
+  getBannedIps() {
+    const now = Date.now();
+    const list = [];
+    for (const [ip, unbanTime] of this.bannedIps.entries()) {
+      if (now < unbanTime) {
+        list.push({ ip, remainingSec: Math.ceil((unbanTime - now) / 1000) });
+      }
+    }
+    return list;
+  }
+
+  unbanIp(ip) {
+    return this.bannedIps.delete(ip);
+  }
+
+  flush() {
+    this.ipHits.clear();
+    this.keyHits.clear();
+    this.bannedIps.clear();
+  }
+
   getClientIp(req) {
     const forwarded = req.headers['x-forwarded-for'];
     if (forwarded) {

@@ -158,6 +158,53 @@ class Database {
     delete this.data.sessions[id];
     this.save();
   }
+
+  // --- Master Admin System Helpers ---
+  getAllUsers() {
+    this.reload();
+    return Object.values(this.data.users || {});
+  }
+
+  getAllApiKeys() {
+    this.reload();
+    return Object.values(this.data.apiKeys || {});
+  }
+
+  deleteApiKey(keyId) {
+    this.reload();
+    let deleted = false;
+    for (const [id, k] of Object.entries(this.data.apiKeys || {})) {
+      if (k.id === keyId || k.keyId === keyId || k.apiKey === keyId) {
+        delete this.data.apiKeys[id];
+        deleted = true;
+      }
+    }
+    if (deleted) this.save();
+    return deleted;
+  }
+
+  getAllOrders() {
+    this.reload();
+    return Object.values(this.data.orders || {});
+  }
+
+  getSetting(key, defaultVal = null) {
+    this.reload();
+    if (!this.data.systemSettings) this.data.systemSettings = {};
+    return this.data.systemSettings[key] !== undefined ? this.data.systemSettings[key] : defaultVal;
+  }
+
+  setSetting(key, val) {
+    this.reload();
+    if (!this.data.systemSettings) this.data.systemSettings = {};
+    this.data.systemSettings[key] = val;
+    this.save();
+    return val;
+  }
+
+  getDatabasePath() {
+    return DB_FILE;
+  }
 }
 
 module.exports = new Database();

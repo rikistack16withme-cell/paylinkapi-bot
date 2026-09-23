@@ -196,6 +196,32 @@ class ApiKeyService {
 
     return { valid: false };
   }
+
+  // --- Master Admin API Key Management ---
+  getAllApiKeys() {
+    return db.getAllApiKeys();
+  }
+
+  revokeApiKey(keyIdOrKey) {
+    return db.deleteApiKey(keyIdOrKey);
+  }
+
+  generateManualKey(telegramId, { merchantName = 'Admin Store', provider = 'NBC Bakong KHQR & ABA PayWay Dual Rail' } = {}) {
+    const tId = String(telegramId);
+    const keyData = {
+      id: `key_${tId}_${Date.now()}`,
+      telegramId: tId,
+      provider,
+      tier: 'Master Admin VIP Rail',
+      apiKey: `plk_live_${tId}_${crypto.randomBytes(4).toString('hex')}`,
+      secret: `whsec_${crypto.randomBytes(8).toString('hex')}`,
+      status: 'ACTIVE',
+      isMock: false,
+      merchantName,
+      createdAt: new Date().toISOString()
+    };
+    return db.saveApiKey(keyData);
+  }
 }
 
 module.exports = new ApiKeyService();

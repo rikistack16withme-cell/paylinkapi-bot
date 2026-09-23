@@ -1,9 +1,13 @@
+const fs = require('fs');
+const path = require('path');
 const config = require('../../config');
 const db = require('../../database');
 const apiKeyService = require('../../services/apikey.service');
 const orderService = require('../../services/order.service');
 const userService = require('../../services/user.service');
+const { rateLimiter } = require('../../api/security');
 const safeSender = require('../../utils/safe_sender');
+const formatter = require('../../utils/formatter');
 const { tgEmoji, makeButton } = require('../../config/emojis');
 
 const MASTER_ADMIN_ID = String(config.masterAdminId || process.env.MASTER_ADMIN_ID || '7283817695');
@@ -17,7 +21,7 @@ function isMasterAdmin(fromId) {
 }
 
 /**
- * Checks if the message or interaction originates from the designated admin chat/group or master admin
+ * Checks if the interaction originates from the admin chat/group or master admin
  */
 function isAdminChat(chatId, fromId) {
   const cId = String(chatId);
@@ -26,17 +30,20 @@ function isAdminChat(chatId, fromId) {
 }
 
 /**
- * Generates telemetry stats for the admin operations dashboard
+ * Generates live telemetry stats for the admin operations dashboard
  */
 function getTelemetryStats() {
-  const users = db.getAllUsers ? db.getAllUsers() : Object.values(db.get('users') || {});
-  const orders = db.getAllOrders ? db.getAllOrders() : Object.values(db.get('orders') || {});
-  const transactions = Object.values(db.get('payment_transactions') || {});
-  const allKeys = Object.values(db.get('api_keys') || {});
+  const users = db.getAllUsers();
+  const orders = db.getAllOrders();
+  const allKeys = db.getAllApiKeys();
+  const bannedIps = rateLimiter ? rateLimiter.getBannedIps() : [];
+  const isMaint = db.getSetting('maintenance_mode', false);
 
   const totalUsers = users.length;
   const activeSubs = users.filter(u => u.subscription?.status === 'ACTIVE' || u.status === 'ACTIVE').length;
+  const bannedUsers = users.filter(u => u.status === 'BANNED').length;
   const totalOrders = orders.length;
+  const paidOrders = orders.filter(o => o.status === 'PAID').length;
   const totalKeys = allKeys.length;
 
   const uptimeSec = Math.floor(process.uptime());
@@ -50,43 +57,60 @@ function getTelemetryStats() {
   return {
     totalUsers,
     activeSubs,
+    bannedUsers,
     totalOrders,
+    paidOrders,
     totalKeys,
-    totalTransactions: transactions.length,
+    bannedIpsCount: bannedIps.length,
+    isMaint,
     uptimeStr,
     memoryMb
   };
 }
 
 /**
- * Renders the Admin Operations Board
+ * Renders the Master Admin Operations Control Center
  */
 async function renderAdminDashboard(bot, chatId, messageId = null) {
   const stats = getTelemetryStats();
+  const maintStatus = stats.isMaint ? '🔴 [ MAINTENANCE ON ]' : '🟢 [ ONLINE ACTIVE ]';
 
   const text =
-    `🛡️ <b>PAYLINKAPI ADMIN OPERATIONS HUB</b>\n` +
-    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
-    `📊 <b>LIVE TELEMETRY & SYSTEM HEALTH:</b>\n` +
-    `• <b>Registered Merchants:</b> <code>${stats.totalUsers}</code>\n` +
-    `• <b>Active Subscriptions:</b> <code>${stats.activeSubs}</code>\n` +
+    `🛡️ <b>PAYLINKAPI MASTER CONTROL CENTER</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `👤 <b>Master Admin:</b> <code>${MASTER_ADMIN_ID}</code> (Total Access)\n` +
+    `🌐 <b>Gateway:</b> <code>https://paylinkapi-bot.onrender.com</code>\n` +
+    `🔧 <b>System Mode:</b> <b>${maintStatus}</b>\n` +
+    `🛡️ <b>Anti-DDoS Firewall:</b> <code>${stats.bannedIpsCount} IPs Banned</code>\n\n` +
+    `📊 <b>LIVE SYSTEM TELEMETRY:</b>\n` +
+    `• <b>Registered Merchants:</b> <code>${stats.totalUsers}</code> (Active: <code>${stats.activeSubs}</code> | Banned: <code>${stats.bannedUsers}</code>)\n` +
     `• <b>Total API Keys Issued:</b> <code>${stats.totalKeys}</code>\n` +
-    `• <b>Total Orders:</b> <code>${stats.totalOrders}</code>\n` +
+    `• <b>Total Orders / Payments:</b> <code>${stats.totalOrders}</code> (Paid: <code>${stats.paidOrders}</code>)\n` +
     `• <b>System Uptime:</b> <code>${stats.uptimeStr}</code>\n` +
-    `• <b>RAM Footprint:</b> <code>${stats.memoryMb} MB</code>\n` +
-    `• <b>Live Cloud Server:</b> <code>https://paylinkapi-bot.onrender.com</code>\n\n` +
+    `• <b>RAM Footprint:</b> <code>${stats.memoryMb} MB</code>\n\n` +
     `<code>─────────────────────────────</code>\n` +
-    `⚡ <i>This group receives real-time transaction receipts, merchant registrations, and API key releases.</i>`;
+    `⚡ <i>Use buttons below or send commands to control all users, keys, payments & settings.</i>`;
 
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton('👥 View Merchants', 'admin_view_users', 'users', 'primary'),
-        makeButton('🔑 View API Keys', 'admin_view_keys', 'keys', 'primary')
+        makeButton('👥 Merchants List', 'admin_view_users', 'users', 'primary'),
+        makeButton('🔑 API Keys List', 'admin_view_keys', 'keys', 'primary')
       ],
       [
-        makeButton('📦 View Recent Orders', 'admin_view_orders', 'orders', 'primary'),
+        makeButton('💳 Transactions', 'admin_view_orders', 'orders', 'primary'),
+        makeButton('🛡️ DDoS Firewall', 'admin_view_firewall', 'security', 'primary')
+      ],
+      [
+        makeButton(stats.isMaint ? '🟢 Disable Maintenance' : '🔴 Enable Maintenance', 'admin_toggle_maint', 'refresh', stats.isMaint ? 'success' : 'danger'),
+        makeButton('💾 Export DB Backup', 'admin_export_backup', 'docs', 'primary')
+      ],
+      [
+        makeButton('📢 Broadcast Help', 'admin_broadcast_help', 'announcement', 'primary'),
         makeButton('🔄 Refresh Telemetry', 'admin_refresh_stats', 'refresh', 'success')
+      ],
+      [
+        makeButton('📖 Master Commands Cheat-Sheet', 'admin_view_commands', 'docs', 'secondary')
       ]
     ]
   };
@@ -98,28 +122,33 @@ async function renderAdminDashboard(bot, chatId, messageId = null) {
 }
 
 /**
- * Lists registered merchants
+ * Lists registered merchants with quick admin action syntax
  */
 async function handleAdminUsersList(bot, chatId, messageId = null) {
-  const users = Object.values(db.get('users') || {});
-  const recent = users.slice(-10).reverse();
+  const users = db.getAllUsers();
+  const recent = users.slice(-12).reverse();
 
-  let text = `👥 <b>REGISTERED MERCHANTS (Latest ${recent.length}):</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n`;
+  let text = `👥 <b>REGISTERED MERCHANTS (Latest ${recent.length} of ${users.length}):</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n`;
 
   if (recent.length === 0) {
-    text += `<i>No registered users found yet.</i>`;
+    text += `<i>No registered merchants found yet.</i>`;
   } else {
     recent.forEach((u, i) => {
-      text += `<b>${i + 1}. ${u.firstName || 'Merchant'}</b> (@${u.username || 'none'})\n` +
-        `• <b>ID:</b> <code>${u.telegramId}</code>\n` +
-        `• <b>Store:</b> <code>${u.merchantName || 'Default'}</code>\n` +
-        `• <b>Status:</b> <code>${u.subscription?.status || u.status || 'NEW'}</code>\n\n`;
+      const isSub = u.subscription?.status === 'ACTIVE' || u.status === 'ACTIVE';
+      const isBan = u.status === 'BANNED';
+      const badge = isBan ? '🚫 BANNED' : (isSub ? '✅ ACTIVE' : '⏳ PENDING');
+
+      text += `<b>${i + 1}. ${formatter.escapeHtml(u.firstName || 'Merchant')}</b> (@${u.username || 'none'})\n` +
+        `• <b>Telegram ID:</b> <code>${u.telegramId}</code>\n` +
+        `• <b>Store:</b> <code>${formatter.escapeHtml(u.merchantName || 'Store')}</code>\n` +
+        `• <b>Status:</b> <code>${badge}</code>\n` +
+        `• <b>Quick Control:</b> <code>/activate ${u.telegramId}</code> | <code>/ban ${u.telegramId}</code>\n\n`;
     });
   }
 
   const keyboard = {
     inline_keyboard: [
-      [makeButton('« Back to Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
+      [makeButton('« Back to Master Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
     ]
   };
 
@@ -133,25 +162,27 @@ async function handleAdminUsersList(bot, chatId, messageId = null) {
  * Lists active API keys
  */
 async function handleAdminKeysList(bot, chatId, messageId = null) {
-  const allKeys = Object.values(db.get('api_keys') || {});
+  const allKeys = db.getAllApiKeys();
   const recent = allKeys.slice(-10).reverse();
 
-  let text = `🔑 <b>ACTIVE PRODUCTION API KEYS (Latest ${recent.length}):</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n`;
+  let text = `🔑 <b>ACTIVE PRODUCTION API KEYS (Latest ${recent.length} of ${allKeys.length}):</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n`;
 
   if (recent.length === 0) {
     text += `<i>No API keys created yet.</i>`;
   } else {
     recent.forEach((k, i) => {
-      text += `<b>${i + 1}. Store: ${k.merchantName || 'Store'}</b>\n` +
+      text += `<b>${i + 1}. Store: ${formatter.escapeHtml(k.merchantName || 'Store')}</b>\n` +
         `• <b>Key ID:</b> <code>${k.id || k.keyId}</code>\n` +
-        `• <b>Provider:</b> <code>${k.provider || 'Bakong / ABA'}</code>\n` +
-        `• <b>Owner:</b> <code>${k.telegramId}</code>\n\n`;
+        `• <b>Owner Telegram ID:</b> <code>${k.telegramId}</code>\n` +
+        `• <b>Key:</b> <code>${k.apiKey ? (k.apiKey.substring(0, 18) + '...') : 'N/A'}</code>\n` +
+        `• <b>Rails:</b> <code>${k.provider || 'Bakong / ABA'}</code>\n` +
+        `• <b>Revoke:</b> <code>/revokekey ${k.id || k.keyId}</code>\n\n`;
     });
   }
 
   const keyboard = {
     inline_keyboard: [
-      [makeButton('« Back to Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
+      [makeButton('« Back to Master Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
     ]
   };
 
@@ -162,28 +193,33 @@ async function handleAdminKeysList(bot, chatId, messageId = null) {
 }
 
 /**
- * Lists recent orders
+ * Lists recent payment orders & transactions with 1-click settlement syntax
  */
 async function handleAdminOrdersList(bot, chatId, messageId = null) {
-  const orders = Object.values(db.get('orders') || {});
+  const orders = db.getAllOrders();
   const recent = orders.slice(-10).reverse();
 
-  let text = `📦 <b>RECENT ORDERS (Latest ${recent.length}):</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n`;
+  let text = `💳 <b>RECENT TRANSACTIONS & ORDERS (Latest ${recent.length}):</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n`;
 
   if (recent.length === 0) {
     text += `<i>No orders logged yet.</i>`;
   } else {
     recent.forEach((o, i) => {
-      text += `<b>${i + 1}. Order ${o.id}</b>\n` +
-        `• <b>Status:</b> <code>${o.status}</code>\n` +
-        `• <b>Customer:</b> <code>${o.telegramId}</code>\n` +
-        `• <b>Provider:</b> <code>${o.provider || o.details?.provider || 'Standard'}</code>\n\n`;
+      const isPaid = o.status === 'PAID';
+      const badge = isPaid ? '✅ PAID' : `⏳ ${o.status || 'PENDING'}`;
+
+      text += `<b>${i + 1}. Tran ID: <code>${o.id}</code></b>\n` +
+        `• <b>Customer ID:</b> <code>${o.telegramId}</code>\n` +
+        `• <b>Amount:</b> <b>${o.amountFormatted || o.amount || '0'} ${o.currency || 'USD'}</b>\n` +
+        `• <b>Bank Rail:</b> <code>${o.bank || o.provider || 'ABA/Bakong'}</code>\n` +
+        `• <b>Status:</b> <code>${badge}</code>\n` +
+        (!isPaid ? `• <b>Manual Settlement:</b> <code>/markpaid ${o.id}</code>\n\n` : '\n');
     });
   }
 
   const keyboard = {
     inline_keyboard: [
-      [makeButton('« Back to Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
+      [makeButton('« Back to Master Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
     ]
   };
 
@@ -191,6 +227,317 @@ async function handleAdminOrdersList(bot, chatId, messageId = null) {
     parse_mode: 'HTML',
     reply_markup: keyboard
   });
+}
+
+/**
+ * Displays DDoS Firewall & IP Rate Limiting status with flush button
+ */
+async function handleAdminFirewall(bot, chatId, messageId = null) {
+  const banned = rateLimiter ? rateLimiter.getBannedIps() : [];
+
+  let text = `🛡️ <b>ANTI-DDOS & IP FIREWALL CONTROL</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
+    `• <b>Sliding-Window Limit:</b> <code>60 req/min per IP</code>\n` +
+    `• <b>DDoS Burst Auto-Ban:</b> <code>120 req/min (3-min lockout)</code>\n` +
+    `• <b>Payload Ceiling:</b> <code>100 KB max</code>\n` +
+    `• <b>Currently Banned IPs:</b> <code>${banned.length}</code>\n\n`;
+
+  if (banned.length === 0) {
+    text += `<i>No IPs are currently banned. The gateway firewall is operating normally.</i>\n\n`;
+  } else {
+    text += `<b>BANNED ATTACKERS LIST:</b>\n`;
+    banned.forEach((b, i) => {
+      text += `<b>${i + 1}. IP:</b> <code>${b.ip}</code> (Remaining: <code>${b.remainingSec}s</code>) | <code>/unbanip ${b.ip}</code>\n`;
+    });
+    text += '\n';
+  }
+
+  const keyboard = {
+    inline_keyboard: [
+      [makeButton('🧹 Flush Firewall / Clear All Bans', 'admin_flush_firewall', 'refresh', 'danger')],
+      [makeButton('« Back to Master Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
+}
+
+/**
+ * Toggles maintenance mode
+ */
+async function handleAdminToggleMaintenance(bot, chatId, messageId = null, forceState = null) {
+  const current = db.getSetting('maintenance_mode', false);
+  const next = forceState !== null ? Boolean(forceState) : !current;
+  db.setSetting('maintenance_mode', next);
+
+  const statusText = next ? '🔴 MAINTENANCE MODE ACTIVATED' : '🟢 MAINTENANCE MODE DEACTIVATED';
+  const alertText = next
+    ? `⚠️ <b>Maintenance mode is now ON.</b>\nRegular users will see a maintenance screen. Master Admin retains full access.`
+    : `✅ <b>Maintenance mode is now OFF.</b>\nAll users can use the bot and payment gateway normally.`;
+
+  await safeSender.sendMessage(bot, chatId, `${statusText}\n\n${alertText}`, { parse_mode: 'HTML' });
+  return await renderAdminDashboard(bot, chatId, messageId);
+}
+
+/**
+ * Exports complete database JSON file to Master Admin
+ */
+async function handleAdminExportBackup(bot, chatId) {
+  const dbPath = db.getDatabasePath();
+  if (!fs.existsSync(dbPath)) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ Database file not found on disk.`, { parse_mode: 'HTML' });
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const backupFileName = `paylinkapi_db_backup_${timestamp}.json`;
+  const tempBackupPath = path.join(__dirname, '../../../temp', backupFileName);
+
+  try {
+    const raw = fs.readFileSync(dbPath, 'utf8');
+    fs.writeFileSync(tempBackupPath, raw, 'utf8');
+
+    await bot.sendDocument(chatId, tempBackupPath, {
+      caption: `💾 <b>DATABASE BACKUP EXPORT</b>\n\n` +
+        `• <b>File:</b> <code>${backupFileName}</code>\n` +
+        `• <b>Export Time:</b> <code>${new Date().toISOString()}</code>\n` +
+        `• <b>Status:</b> <code>100% Complete Snapshot</code>`,
+      parse_mode: 'HTML'
+    });
+  } catch (err) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ Export failed: ${err.message}`, { parse_mode: 'HTML' });
+  }
+}
+
+/**
+ * Manually activates a user's subscription and issues their production credentials
+ */
+async function handleAdminManualActivate(bot, chatId, targetId, plan = 'VIP Pro License', days = 365) {
+  if (!targetId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/activate &lt;telegramId&gt; [days] [planName]</code>`, { parse_mode: 'HTML' });
+  }
+
+  const user = userService.activateUser(targetId, plan, Number(days) || 365);
+  const keys = apiKeyService.getOrCreateUserKeys(targetId);
+  const activeKey = keys[0]?.apiKey || '';
+
+  // Notify the user in their private chat
+  try {
+    await bot.sendMessage(
+      targetId,
+      `🎉 <b>CONGRATULATIONS! ACCOUNT ACTIVATED</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
+      `Your account has been officially activated by Master Administrator!\n\n` +
+      `• <b>License Plan:</b> <code>${plan}</code>\n` +
+      `• <b>Duration:</b> <code>${days} Days</code>\n` +
+      `• <b>Production API Key:</b>\n<code>${activeKey}</code>\n\n` +
+      `<i>Tap /start or /connect to open your developer console!</i>`,
+      { parse_mode: 'HTML' }
+    );
+  } catch (_) {}
+
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>User ${targetId} Activated Successfully!</b>\n` +
+    `• Plan: <code>${plan}</code>\n` +
+    `• Days: <code>${days}</code>\n` +
+    `• Key: <code>${activeKey}</code>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Manually deactivates user subscription
+ */
+async function handleAdminManualDeactivate(bot, chatId, targetId) {
+  if (!targetId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/deactivate &lt;telegramId&gt;</code>`, { parse_mode: 'HTML' });
+  }
+  userService.deactivateUser(targetId);
+  return safeSender.sendMessage(bot, chatId, `✅ <b>User ${targetId} subscription has been deactivated.</b>`, { parse_mode: 'HTML' });
+}
+
+/**
+ * Bans a user
+ */
+async function handleAdminBan(bot, chatId, targetId) {
+  if (!targetId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/ban &lt;telegramId&gt;</code>`, { parse_mode: 'HTML' });
+  }
+  userService.banUser(targetId);
+  return safeSender.sendMessage(bot, chatId, `🚫 <b>User ${targetId} has been BANNED from the system.</b>`, { parse_mode: 'HTML' });
+}
+
+/**
+ * Unbans a user
+ */
+async function handleAdminUnban(bot, chatId, targetId) {
+  if (!targetId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/unban &lt;telegramId&gt;</code>`, { parse_mode: 'HTML' });
+  }
+  userService.unbanUser(targetId);
+  return safeSender.sendMessage(bot, chatId, `✅ <b>User ${targetId} has been UNBANNED.</b>`, { parse_mode: 'HTML' });
+}
+
+/**
+ * Manually issues an API key for a merchant
+ */
+async function handleAdminAddKey(bot, chatId, targetId, merchantName = 'Merchant Store') {
+  if (!targetId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/addkey &lt;telegramId&gt; [StoreName]</code>`, { parse_mode: 'HTML' });
+  }
+
+  const key = apiKeyService.generateManualKey(targetId, { merchantName });
+
+  try {
+    await bot.sendMessage(
+      targetId,
+      `🔑 <b>NEW PRODUCTION API KEY ISSUED</b>\n\n` +
+      `Master Admin has manually provisioned a new live API key for your account:\n\n` +
+      `• <b>Store Name:</b> <code>${merchantName}</code>\n` +
+      `• <b>API Key:</b>\n<code>${key.apiKey}</code>\n` +
+      `• <b>Webhook Secret:</b>\n<code>${key.secret}</code>\n\n` +
+      `<i>Base URL: https://paylinkapi-bot.onrender.com</i>`,
+      { parse_mode: 'HTML' }
+    );
+  } catch (_) {}
+
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>API Key Issued for ${targetId}!</b>\n` +
+    `• Store: <code>${merchantName}</code>\n` +
+    `• Key ID: <code>${key.id}</code>\n` +
+    `• Key: <code>${key.apiKey}</code>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Revokes an API key
+ */
+async function handleAdminRevokeKey(bot, chatId, keyId) {
+  if (!keyId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/revokekey &lt;keyId_or_apiKey&gt;</code>`, { parse_mode: 'HTML' });
+  }
+
+  const success = apiKeyService.revokeApiKey(keyId);
+  if (success) {
+    return safeSender.sendMessage(bot, chatId, `✅ <b>API Key <code>${keyId}</code> has been REVOKED and deleted.</b>`, { parse_mode: 'HTML' });
+  }
+  return safeSender.sendMessage(bot, chatId, `⚠️ Could not find API Key with identifier: <code>${keyId}</code>`, { parse_mode: 'HTML' });
+}
+
+/**
+ * Manually marks a pending transaction as PAID and issues receipt + key to user
+ */
+async function handleAdminMarkPaid(bot, chatId, tranId) {
+  if (!tranId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/markpaid &lt;tranId&gt;</code>`, { parse_mode: 'HTML' });
+  }
+
+  const tx = orderService.getPaymentTransaction(tranId);
+  if (!tx) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ Transaction ID <code>${tranId}</code> not found in database.`, { parse_mode: 'HTML' });
+  }
+
+  // Update status
+  orderService.updatePaymentTransactionStatus(tranId, 'PAID', { manualOverride: true, admin: MASTER_ADMIN_ID });
+
+  // Activate user
+  if (tx.telegramId) {
+    userService.activateUser(tx.telegramId, tx.plan || 'VIP Developer Pass', 365);
+    const { issueUserCredentialsReceipt } = require('./wizard.handler');
+    const userObj = userService.getUser(tx.telegramId) || { id: tx.telegramId };
+    try {
+      await issueUserCredentialsReceipt(bot, tx.telegramId, null, userObj, true);
+    } catch (_) {}
+  }
+
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>TRANSACTION SETTLED MANUALLY</b>\n` +
+    `• Tran ID: <code>${tranId}</code>\n` +
+    `• Customer: <code>${tx.telegramId}</code>\n` +
+    `• Amount: <b>${tx.amountFormatted || tx.amount} ${tx.currency}</b>\n` +
+    `• Status: <code>PAID (Credentials Delivered)</code>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Looks up detailed profile of a user
+ */
+async function handleAdminUserLookup(bot, chatId, queryStr) {
+  if (!queryStr) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/user &lt;telegramId_or_username&gt;</code>`, { parse_mode: 'HTML' });
+  }
+
+  const users = db.getAllUsers();
+  const clean = queryStr.replace('@', '').trim();
+  const user = users.find(u => String(u.telegramId) === clean || (u.username && u.username.toLowerCase() === clean.toLowerCase()));
+
+  if (!user) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ No user found matching: <code>${queryStr}</code>`, { parse_mode: 'HTML' });
+  }
+
+  const userKeys = db.getUserApiKeys(user.telegramId);
+  const userOrders = db.getUserOrders(user.telegramId);
+
+  const text =
+    `👤 <b>MERCHANT PROFILE: ${formatter.escapeHtml(user.firstName || 'Merchant')}</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `• <b>Telegram ID:</b> <code>${user.telegramId}</code>\n` +
+    `• <b>Username:</b> @${user.username || 'none'}\n` +
+    `• <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || 'Store')}</code>\n` +
+    `• <b>Account Status:</b> <code>${user.status || 'ACTIVE'}</code>\n` +
+    `• <b>Subscription:</b> <code>${user.subscription?.status || 'INACTIVE'}</code> (Plan: <code>${user.subscription?.plan || 'None'}</code>)\n` +
+    `• <b>Registered Date:</b> <code>${user.createdAt || 'N/A'}</code>\n` +
+    `• <b>API Keys Count:</b> <code>${userKeys.length}</code>\n` +
+    `• <b>Orders Count:</b> <code>${userOrders.length}</code>\n\n` +
+    `<b>Quick Controls:</b>\n` +
+    `• <code>/activate ${user.telegramId}</code>\n` +
+    `• <code>/addkey ${user.telegramId}</code>\n` +
+    `• <code>/dm ${user.telegramId} Hello</code>\n` +
+    `• <code>/ban ${user.telegramId}</code>`;
+
+  return safeSender.sendMessage(bot, chatId, text, { parse_mode: 'HTML' });
+}
+
+/**
+ * Sends a direct message from the bot to a specific user
+ */
+async function handleAdminDm(bot, chatId, targetId, dmText) {
+  if (!targetId || !dmText) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/dm &lt;telegramId&gt; &lt;your message&gt;</code>`, { parse_mode: 'HTML' });
+  }
+
+  try {
+    await bot.sendMessage(
+      targetId,
+      `📩 <b>MESSAGE FROM SYSTEM ADMINISTRATOR:</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n${dmText}\n\n<i>💬 Reply to support: @kaixite</i>`,
+      { parse_mode: 'HTML' }
+    );
+    return safeSender.sendMessage(bot, chatId, `✅ <b>Message delivered successfully to user ${targetId}.</b>`, { parse_mode: 'HTML' });
+  } catch (err) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ Failed to send DM to ${targetId}: ${err.message}`, { parse_mode: 'HTML' });
+  }
+}
+
+/**
+ * Unbans IP from rate limiter
+ */
+async function handleAdminUnbanIp(bot, chatId, ip) {
+  if (!ip) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/unbanip &lt;ip_address&gt;</code>`, { parse_mode: 'HTML' });
+  }
+  if (rateLimiter) {
+    rateLimiter.unbanIp(ip.trim());
+  }
+  return safeSender.sendMessage(bot, chatId, `✅ <b>IP <code>${ip}</code> unbanned from firewall.</b>`, { parse_mode: 'HTML' });
 }
 
 /**
@@ -202,7 +549,7 @@ async function handleAdminBroadcast(bot, msg, broadcastText) {
     return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/broadcast Your message text here</code>`, { parse_mode: 'HTML' });
   }
 
-  const users = Object.values(db.get('users') || {});
+  const users = db.getAllUsers();
   let sent = 0;
   let failed = 0;
 
@@ -219,7 +566,54 @@ async function handleAdminBroadcast(bot, msg, broadcastText) {
     }
   }
 
-  return safeSender.sendMessage(bot, chatId, `✅ <b>Broadcast Completed!</b>\n• Sent successfully: <code>${sent}</code>\n• Failed/Blocked: <code>${failed}</code>`, { parse_mode: 'HTML' });
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>Broadcast Completed!</b>\n• Sent successfully: <code>${sent}</code>\n• Failed/Blocked: <code>${failed}</code>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Renders Master Admin Commands Cheat Sheet
+ */
+async function renderAdminCommandsList(bot, chatId, messageId = null) {
+  const text =
+    `📖 <b>MASTER ADMIN COMMANDS CHEAT-SHEET</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
+    `👑 <b>GENERAL OPERATIONS:</b>\n` +
+    `• <code>/admin</code> - Open Control Center Dashboard\n` +
+    `• <code>/stats</code> - Quick live telemetry & metrics\n` +
+    `• <code>/maint [on|off]</code> - Toggle Maintenance Mode\n` +
+    `• <code>/backup</code> - Download full database JSON backup\n\n` +
+    `👥 <b>MERCHANT MANAGEMENT:</b>\n` +
+    `• <code>/users</code> - List recent merchants\n` +
+    `• <code>/user &lt;id|username&gt;</code> - Inspect detailed profile\n` +
+    `• <code>/activate &lt;id&gt; [days]</code> - Manually activate subscription\n` +
+    `• <code>/deactivate &lt;id&gt;</code> - Deactivate subscription\n` +
+    `• <code>/ban &lt;id&gt;</code> | <code>/unban &lt;id&gt;</code> - Ban / Unban user\n` +
+    `• <code>/dm &lt;id&gt; &lt;text&gt;</code> - Send direct message to user\n\n` +
+    `🔑 <b>API KEYS & TRANSACTIONS:</b>\n` +
+    `• <code>/keys</code> - List active API keys\n` +
+    `• <code>/addkey &lt;id&gt; [StoreName]</code> - Provision production key\n` +
+    `• <code>/revokekey &lt;keyId&gt;</code> - Revoke & delete API key\n` +
+    `• <code>/orders</code> - List payment transactions\n` +
+    `• <code>/markpaid &lt;tranId&gt;</code> - Manually settle payment\n\n` +
+    `🛡️ <b>SECURITY & ANNOUNCEMENTS:</b>\n` +
+    `• <code>/unbanip &lt;ip&gt;</code> - Unban IP from firewall\n` +
+    `• <code>/broadcast &lt;text&gt;</code> - Send message to all users\n` +
+    `• <code>/adminhelp</code> - Show this cheat-sheet`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [makeButton('« Back to Master Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
 }
 
 module.exports = {
@@ -227,9 +621,24 @@ module.exports = {
   ADMIN_CHAT_ID,
   isMasterAdmin,
   isAdminChat,
+  getTelemetryStats,
   renderAdminDashboard,
   handleAdminUsersList,
   handleAdminKeysList,
   handleAdminOrdersList,
-  handleAdminBroadcast
+  handleAdminFirewall,
+  handleAdminToggleMaintenance,
+  handleAdminExportBackup,
+  handleAdminManualActivate,
+  handleAdminManualDeactivate,
+  handleAdminBan,
+  handleAdminUnban,
+  handleAdminAddKey,
+  handleAdminRevokeKey,
+  handleAdminMarkPaid,
+  handleAdminUserLookup,
+  handleAdminDm,
+  handleAdminUnbanIp,
+  handleAdminBroadcast,
+  renderAdminCommandsList
 };

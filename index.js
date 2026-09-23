@@ -142,8 +142,32 @@ bot.on('message', async (msg) => {
       );
     }
 
-    // Admin Commands & Operations (Strictly locked to Master Admin 7283817695)
+    // Admin & System Security Checks (Locked to Master Admin 7283817695)
     const isMaster = adminHandler.isMasterAdmin(msg.from.id);
+
+    // 1. Suspension check for banned users
+    if (userService.isBanned(msg.from.id) && !isMaster) {
+      return await bot.sendMessage(
+        chatId,
+        `🚫 <b>YOUR ACCOUNT HAS BEEN SUSPENDED.</b>\n` +
+        `Access to PaylinkApi has been restricted by system administrator.\n\n` +
+        `💬 Contact support: @kaixite`,
+        { parse_mode: 'HTML' }
+      );
+    }
+
+    // 2. Global Maintenance Mode check
+    const isMaintenance = db.getSetting('maintenance_mode', false);
+    if (isMaintenance && !isMaster) {
+      return await bot.sendMessage(
+        chatId,
+        `🔧 <b>SYSTEM UNDER MAINTENANCE • ប្រព័ន្ធកំពុងថែទាំ</b>\n\n` +
+        `Our engineers are currently upgrading the PaylinkApi infrastructure.\n` +
+        `The service will be back online shortly.\n\n` +
+        `💬 Urgent support: @kaixite`,
+        { parse_mode: 'HTML' }
+      );
+    }
 
     if (text.startsWith('/admin') || text.startsWith('/stats') || text.startsWith('/status')) {
       middleware.logAction('COMMAND', msg.from, text);
@@ -157,6 +181,105 @@ bot.on('message', async (msg) => {
         );
       }
       return await adminHandler.renderAdminDashboard(bot, chatId);
+    }
+
+    if (text.startsWith('/adminhelp') || text.startsWith('/help_admin')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      return await adminHandler.renderAdminCommandsList(bot, chatId);
+    }
+
+    if (text.startsWith('/activate')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const parts = text.split(/\s+/).slice(1);
+      const targetId = parts[0];
+      const days = parts[1] || 365;
+      const plan = parts.slice(2).join(' ') || 'VIP Pro License';
+      return await adminHandler.handleAdminManualActivate(bot, chatId, targetId, plan, days);
+    }
+
+    if (text.startsWith('/deactivate')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const targetId = text.split(/\s+/)[1];
+      return await adminHandler.handleAdminManualDeactivate(bot, chatId, targetId);
+    }
+
+    if (text.startsWith('/ban')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const targetId = text.split(/\s+/)[1];
+      return await adminHandler.handleAdminBan(bot, chatId, targetId);
+    }
+
+    if (text.startsWith('/unbanip')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const ip = text.split(/\s+/)[1];
+      return await adminHandler.handleAdminUnbanIp(bot, chatId, ip);
+    }
+
+    if (text.startsWith('/unban')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const targetId = text.split(/\s+/)[1];
+      return await adminHandler.handleAdminUnban(bot, chatId, targetId);
+    }
+
+    if (text.startsWith('/addkey')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const parts = text.split(/\s+/).slice(1);
+      const targetId = parts[0];
+      const storeName = parts.slice(1).join(' ') || 'Merchant Store';
+      return await adminHandler.handleAdminAddKey(bot, chatId, targetId, storeName);
+    }
+
+    if (text.startsWith('/revokekey')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const keyId = text.split(/\s+/)[1];
+      return await adminHandler.handleAdminRevokeKey(bot, chatId, keyId);
+    }
+
+    if (text.startsWith('/markpaid')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const tranId = text.split(/\s+/)[1];
+      return await adminHandler.handleAdminMarkPaid(bot, chatId, tranId);
+    }
+
+    if (text.startsWith('/user')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const queryStr = text.split(/\s+/)[1];
+      return await adminHandler.handleAdminUserLookup(bot, chatId, queryStr);
+    }
+
+    if (text.startsWith('/dm')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const parts = text.split(/\s+/).slice(1);
+      const targetId = parts[0];
+      const dmMsg = parts.slice(1).join(' ');
+      return await adminHandler.handleAdminDm(bot, chatId, targetId, dmMsg);
+    }
+
+    if (text.startsWith('/maint') || text.startsWith('/maintenance')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      const arg = (text.split(/\s+/)[1] || '').toLowerCase();
+      let force = null;
+      if (arg === 'on' || arg === '1' || arg === 'enable') force = true;
+      if (arg === 'off' || arg === '0' || arg === 'disable') force = false;
+      return await adminHandler.handleAdminToggleMaintenance(bot, chatId, null, force);
+    }
+
+    if (text.startsWith('/backup') || text.startsWith('/export')) {
+      middleware.logAction('COMMAND', msg.from, text);
+      if (!isMaster) return;
+      return await adminHandler.handleAdminExportBackup(bot, chatId);
     }
 
     if (text.startsWith('/broadcast')) {
@@ -330,9 +453,26 @@ bot.on('callback_query', async (query) => {
       return await handleDownloadPdf(bot, query);
     }
 
+    // Admin & Security checks for Callbacks
+    const isMasterCb = adminHandler.isMasterAdmin(from.id);
+    if (userService.isBanned(from.id) && !isMasterCb) {
+      return await bot.answerCallbackQuery(query.id, {
+        text: '🚫 Your account has been suspended by system administrator.',
+        show_alert: true
+      });
+    }
+
+    const isMaintenanceCb = db.getSetting('maintenance_mode', false);
+    if (isMaintenanceCb && !isMasterCb && !(data && data.startsWith('admin_'))) {
+      return await bot.answerCallbackQuery(query.id, {
+        text: '🔧 System is currently undergoing maintenance. Please try again later.',
+        show_alert: true
+      });
+    }
+
     // Admin Operations Callbacks (Strictly locked to Master Admin 7283817695)
     if (data && data.startsWith('admin_')) {
-      if (!adminHandler.isMasterAdmin(from.id)) {
+      if (!isMasterCb) {
         return await bot.answerCallbackQuery(query.id, {
           text: '⛔ Access Denied: Only Master Admin (ID: 7283817695) can control this bot.',
           show_alert: true
@@ -349,6 +489,34 @@ bot.on('callback_query', async (query) => {
       }
       if (data === 'admin_view_orders') {
         return await adminHandler.handleAdminOrdersList(bot, chatId, messageId);
+      }
+      if (data === 'admin_view_firewall') {
+        return await adminHandler.handleAdminFirewall(bot, chatId, messageId);
+      }
+      if (data === 'admin_flush_firewall') {
+        const { rateLimiter } = require('./src/api/security');
+        if (rateLimiter) rateLimiter.flush();
+        await bot.answerCallbackQuery(query.id, { text: '🧹 Firewall Cache Cleared!', show_alert: true });
+        return await adminHandler.handleAdminFirewall(bot, chatId, messageId);
+      }
+      if (data === 'admin_toggle_maint') {
+        return await adminHandler.handleAdminToggleMaintenance(bot, chatId, messageId);
+      }
+      if (data === 'admin_export_backup') {
+        await bot.answerCallbackQuery(query.id, { text: '⏳ Generating Database Backup...' });
+        return await adminHandler.handleAdminExportBackup(bot, chatId);
+      }
+      if (data === 'admin_broadcast_help') {
+        return await bot.sendMessage(
+          chatId,
+          `📢 <b>BROADCAST & DIRECT MESSAGE GUIDE:</b>\n\n` +
+          `• <b>Global Broadcast:</b>\n<code>/broadcast Your message text here</code>\n\n` +
+          `• <b>Direct Message User:</b>\n<code>/dm &lt;telegramId&gt; Your message here</code>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+      if (data === 'admin_view_commands') {
+        return await adminHandler.renderAdminCommandsList(bot, chatId, messageId);
       }
     }
 

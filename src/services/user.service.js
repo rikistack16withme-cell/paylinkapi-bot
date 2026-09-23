@@ -77,6 +77,52 @@ class UserService {
       ...data
     });
   }
+
+  // --- Master Admin User Management ---
+  getAllUsers() {
+    return db.getAllUsers();
+  }
+
+  banUser(telegramId) {
+    return this.updateUser(telegramId, {
+      status: 'BANNED',
+      bannedAt: new Date().toISOString()
+    });
+  }
+
+  unbanUser(telegramId) {
+    return this.updateUser(telegramId, {
+      status: 'ACTIVE',
+      bannedAt: null
+    });
+  }
+
+  isBanned(telegramId) {
+    const user = this.getUser(telegramId);
+    return Boolean(user && user.status === 'BANNED');
+  }
+
+  activateUser(telegramId, plan = 'VIP Lifetime Pro Pass', days = 365) {
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    return this.updateUser(telegramId, {
+      status: 'ACTIVE',
+      subscription: {
+        status: 'ACTIVE',
+        plan,
+        activatedAt: new Date().toISOString(),
+        expiresAt
+      }
+    });
+  }
+
+  deactivateUser(telegramId) {
+    return this.updateUser(telegramId, {
+      subscription: {
+        status: 'INACTIVE',
+        deactivatedAt: new Date().toISOString()
+      }
+    });
+  }
 }
 
 module.exports = new UserService();
