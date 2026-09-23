@@ -15,8 +15,8 @@ class AccessGateService {
     const adminHandler = require('../bot/handlers/admin.handler');
     if (adminHandler.isMasterAdmin(userId)) return true;
 
-    // Check if admin gate is globally enabled (default: true)
-    const gateEnabled = db.getSetting('admin_gate_enabled', true);
+    // Check if admin gate is globally enabled (default: false - completely open for all users)
+    const gateEnabled = db.getSetting('admin_gate_enabled', false);
     if (!gateEnabled) return true;
 
     const user = userService.getUser(userId);

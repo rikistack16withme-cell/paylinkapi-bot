@@ -265,14 +265,6 @@ bot.on('message', async (msg) => {
       );
     }
 
-    // 2.1 Private Mode / Admin Access Gate Check (Direct messages only)
-    if (!isGroup && !isMaster) {
-      const isApproved = accessGateService.isAccessApproved(msg.from.id, isMaster);
-      if (!isApproved) {
-        const lang = userService.getUserLanguage(msg.from.id) || 'km';
-        return await accessGateService.renderRestrictedAccess(bot, chatId, msg.from, lang);
-      }
-    }
 
     // 3. Reply-to-DM Bridge: If Master Admin replies to a forwarded user message in Admin Group, deliver as DM to user!
     if (isGroup && isMaster && msg.reply_to_message && text && !cmdText.startsWith('/')) {
@@ -609,16 +601,6 @@ bot.on('callback_query', async (query) => {
     if (data && data.startsWith('gate_reject_')) {
       const targetId = data.replace('gate_reject_', '');
       return await accessGateService.handleAdminReject(bot, query, targetId);
-    }
-
-    // Access Gate check for other buttons (if not master admin)
-    const isMasterQuery = adminHandler.isMasterAdmin(from?.id);
-    const isGroupQuery = query.message?.chat?.type === 'group' || query.message?.chat?.type === 'supergroup';
-    if (!isGroupQuery && !isMasterQuery && !accessGateService.isAccessApproved(from?.id, isMasterQuery)) {
-      if (data !== 'settings_toggle_lang') {
-        const lang = userService.getUserLanguage(from?.id) || 'km';
-        return await accessGateService.renderRestrictedAccess(bot, chatId, from, lang);
-      }
     }
 
     // Live Payment Status Verification: chk_pay_<tranId> or chk_aba_<tranId>

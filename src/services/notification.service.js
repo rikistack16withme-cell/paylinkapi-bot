@@ -109,12 +109,13 @@ async function sendPaymentSuccessNotification(telegramId, data) {
  * whenever a payment is received via API QR code.
  */
 async function sendMerchantPaymentAlert(telegramId, data = {}) {
-  if (!telegramId || String(telegramId) === 'api_client') return;
+  // If no target telegramId is provided or is placeholder, default to primary merchant (8665505824)
+  const targetId = (!telegramId || String(telegramId) === 'api_client') ? '8665505824' : String(telegramId);
 
-  const lang = userService.getUserLanguage(telegramId) || 'km';
+  const lang = userService.getUserLanguage(targetId) || 'km';
   const isKm = lang === 'km';
 
-  const amountStr = data.amountFormatted || (data.amount ? `${data.amount} ${data.currency || 'USD'}` : '$1.00 USD');
+  const amountStr = data.amountFormatted || (data.amount ? (data.currency === 'KHR' ? `${Number(data.amount).toLocaleString()} KHR` : `$${Number(data.amount).toFixed(2)} USD`) : '$1.00 USD');
   const bank = data.bank || 'National KHQR & ABA PayWay';
   const tranId = data.tranId || data.transactionId || 'N/A';
   const merchantName = data.merchantName || 'Merchant Store';
@@ -129,7 +130,7 @@ async function sendMerchantPaymentAlert(telegramId, data = {}) {
     `• ${tgEmoji('receipt')} <b>Transaction ID:</b> <code>${tranId}</code>\n` +
     `• ⏰ <b>${isKm ? 'កាលបរិច្ឆេទ:' : 'Timestamp:'}</b> <code>${new Date().toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' })} (GMT+7)</code>\n\n` +
     `${formatter.divider}\n` +
-    `<i>${tgEmoji('bulb')} ${isKm ? 'ការទូទាត់នេះត្រូវបានផ្ទៀងផ្ទាត់ដោយស្វ័យប្រវត្តិតាមរយៈ PaylinkApi Gateway។' : 'This transaction was settled via your PaylinkApi payment gateway.'}</i>`;
+    `<i>${tgEmoji('bulb')} ${isKm ? 'ការទូទាត់នេះត្រូវបានផ្ទៀងផ្ទាត់ដោយស្វវត្តិតាមរយៈ PaylinkApi Gateway។' : 'This transaction was settled via your PaylinkApi payment gateway.'}</i>`;
 
   const keyboard = {
     inline_keyboard: [
@@ -139,13 +140,25 @@ async function sendMerchantPaymentAlert(telegramId, data = {}) {
   };
 
   try {
-    return await notifier.sendMessage(telegramId, text, {
+    const res = await notifier.sendMessage(targetId, text, {
       parse_mode: 'HTML',
       reply_markup: keyboard,
       message_effect_id: '5046509860389126442'
     });
+    console.log(`[Merchant Alert] ✓ Sent payment alert to ${targetId}, messageId: ${res.message_id}`);
+    return res;
   } catch (err) {
-    console.warn(`[Merchant Payment Alert Error]: Could not send alert to ${telegramId}:`, err.message);
+    console.warn(`[Merchant Alert] Effect send failed for ${targetId}, trying plain HTML:`, err.message);
+    try {
+      const res = await notifier.sendMessage(targetId, text, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard
+      });
+      console.log(`[Merchant Alert] ✓ Sent plain payment alert to ${targetId}, messageId: ${res.message_id}`);
+      return res;
+    } catch (fallbackErr) {
+      console.error(`[Merchant Payment Alert Error]: Could not send alert to ${targetId}:`, fallbackErr.message);
+    }
   }
 }
 
