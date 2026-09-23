@@ -50,6 +50,7 @@ const safeSender = require('./src/utils/safe_sender');
 const { startApiServer } = require('./src/api/server');
 const tunnelService = require('./src/services/tunnel.service');
 const adminHandler = require('./src/bot/handlers/admin.handler');
+const db = require('./src/database');
 
 if (!config.bot.token) {
   logger.error('TELEGRAM_BOT_TOKEN is missing in .env! Please configure it before starting.');
