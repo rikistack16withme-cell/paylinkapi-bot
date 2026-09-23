@@ -1,7 +1,14 @@
+// 0. Force IPv4 DNS resolution first to eliminate EFATAL: AggregateError on Cloud / Render / modern Node
+const dns = require('node:dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const TelegramBot = require('node-telegram-bot-api');
 const config = require('./src/config');
 const logger = require('./src/utils/logger');
 const middleware = require('./src/bot/middleware');
+const apiRoutes = require('./src/routes/api');
 
 // Handlers
 const { handleStart, renderWelcome } = require('./src/bot/handlers/start.handler');
@@ -88,25 +95,48 @@ process.on('exit', () => {
   }
 });
 
-logger.info(`Starting ${config.brand.name} Telegram Bot (Phase 2 Connected)...`);
-const bot = new TelegramBot(config.bot.token, { polling: true });
+logger.info(`Starting ${config.brand.name} Telegram Bot Engine...`);
 
-// Error handling for Telegram Polling
-bot.on('polling_error', (error) => {
-  logger.error('Telegram Polling Error:', error.message);
+// Detect deployment environment: Webhook for Cloud (Render, Koyeb, Railway, or WEBHOOK_URL) vs Polling locally
+const isCloudHosted = Boolean(
+  process.env.WEBHOOK_URL ||
+  process.env.RENDER_EXTERNAL_URL ||
+  process.env.KOYEB_PUBLIC_DOMAIN ||
+  process.env.RAILWAY_PUBLIC_DOMAIN
+);
+const forcePolling = process.env.USE_POLLING === 'true';
+const useWebhook = isCloudHosted && !forcePolling;
+
+// Create TelegramBot with forced IPv4 HTTP agent to eliminate EFATAL: AggregateError
+const bot = new TelegramBot(config.bot.token, {
+  polling: false, // Managed dynamically in startBotEngine()
+  request: {
+    agentOptions: {
+      keepAlive: true,
+      family: 4 // Force IPv4 to prevent AggregateError in dual-stack environments
+    }
+  }
 });
 
-// Configure bot command list
-bot.setMyCommands([
-  { command: 'start', description: 'Open Payment API Portal & Dashboard' },
-  { command: 'portal', description: '🌐 Drop Payment API Registration Portal URL' },
-  { command: 'connect', description: '📖 How to connect API key (របៀបតភ្ជាប់ API)' },
-  { command: 'khmer', description: '🇰🇭 ប្តូរជាភាសាខ្មែរ (Switch to Khmer)' },
-  { command: 'english', description: '🇬🇧 Switch to English' },
-  { command: 'lang', description: '🌐 Toggle language (ប្តូរភាសា)' },
-  { command: 'getemoji', description: 'Inspect custom emoji IDs sent from Telegram Premium' }
-]).catch((err) => {
-  logger.warn('Could not register bot commands with Telegram:', err.message);
+// Register bot with Express REST API so updates arriving at /api/telegram/webhook are processed
+if (apiRoutes.setTelegramBot) {
+  apiRoutes.setTelegramBot(bot);
+}
+
+// Error handling for Telegram Polling & Webhook
+bot.on('polling_error', (error) => {
+  const msg = error?.message || '';
+  if (msg.includes('409 Conflict')) {
+    logger.warn('Telegram Polling Notice: 409 Conflict (another bot instance is active or shutting down). Retrying cleanly...');
+  } else if (msg.includes('EFATAL') || msg.includes('AggregateError') || msg.includes('ETIMEDOUT') || msg.includes('ECONNRESET')) {
+    logger.warn('Telegram Network Notice: Transient connection glitch, reconnecting...');
+  } else {
+    logger.error('Telegram Polling Error:', msg);
+  }
+});
+
+bot.on('webhook_error', (error) => {
+  logger.error('Telegram Webhook Error:', error.message);
 });
 
 // 1. Text Messages & Commands
@@ -780,26 +810,95 @@ bot.on('callback_query', async (query) => {
   }
 });
 
-// Verification check on boot
-bot.getMe().then((botInfo) => {
-  logger.info(`✓ Bot successfully connected to Telegram API: @${botInfo.username} (ID: ${botInfo.id})`);
-}).catch((err) => {
-  logger.error('Failed to verify bot token with Telegram API:', err.message);
-});
+// Initialize bot execution (Webhook in Cloud / Polling locally)
+async function startBotEngine() {
+  try {
+    if (useWebhook) {
+      const publicBase = (
+        process.env.WEBHOOK_URL ||
+        process.env.RENDER_EXTERNAL_URL ||
+        (process.env.KOYEB_PUBLIC_DOMAIN ? `https://${process.env.KOYEB_PUBLIC_DOMAIN}` : '') ||
+        (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '') ||
+        'https://paylinkapi-bot.onrender.com'
+      ).replace(/\/+$/, '');
+
+      const webhookUrl = `${publicBase}/api/telegram/webhook`;
+      logger.info(`🚀 Initializing Telegram Bot in WEBHOOK mode for Cloud Deployment...`);
+      logger.info(`   Webhook Endpoint: ${webhookUrl}`);
+
+      await bot.setWebHook(webhookUrl, {
+        allowed_updates: ['message', 'callback_query']
+      });
+      logger.info(`✓ Telegram Webhook registered successfully! (Zero 409 conflicts)`);
+    } else {
+      logger.info(`🚀 Initializing Telegram Bot in POLLING mode (Local Development)...`);
+      // Delete any prior webhook before polling to avoid 409 Conflict
+      try {
+        await bot.deleteWebHook();
+      } catch (delErr) {
+        logger.warn('Could not reset webhook prior to polling:', delErr.message);
+      }
+
+      await bot.startPolling({ restart: true });
+      logger.info(`✓ Telegram Bot polling loop started.`);
+    }
+
+    // Configure bot commands
+    bot.setMyCommands([
+      { command: 'start', description: 'Open Payment API Portal & Dashboard' },
+      { command: 'portal', description: '🌐 Drop Payment API Registration Portal URL' },
+      { command: 'connect', description: '📖 How to connect API key (របៀបតភ្ជាប់ API)' },
+      { command: 'khmer', description: '🇰🇭 ប្តូរជាភាសាខ្មែរ (Switch to Khmer)' },
+      { command: 'english', description: '🇬🇧 Switch to English' },
+      { command: 'lang', description: '🌐 Toggle language (ប្តូរភាសា)' },
+      { command: 'getemoji', description: 'Inspect custom emoji IDs sent from Telegram Premium' }
+    ]).then(() => {
+      logger.info('✓ Bot commands registered with Telegram API');
+    }).catch((err) => {
+      logger.warn('Could not register bot commands with Telegram:', err.message);
+    });
+
+    // Verification check on boot
+    const botInfo = await bot.getMe();
+    logger.info(`✓ Bot successfully verified with Telegram API: @${botInfo.username} (ID: ${botInfo.id}) [Mode: ${useWebhook ? 'Webhook' : 'Polling'}]`);
+  } catch (err) {
+    if (err.message && err.message.includes('409 Conflict')) {
+      logger.warn('Telegram Notice: 409 Conflict (previous deployment instance is shutting down). Traffic will transition smoothly.');
+    } else {
+      logger.error('Failed to initialize Telegram Bot connection:', err.message);
+    }
+  }
+}
+
+startBotEngine();
 
 // Graceful shutdown handling
-process.on('SIGINT', () => {
-  logger.info('Stopping Telegram Bot polling and API Server...');
-  if (apiServer) apiServer.close();
-  bot.stopPolling().then(() => {
-    logger.info('Bot stopped cleanly.');
-    process.exit(0);
-  });
-});
+let isShuttingDown = false;
+async function gracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  logger.info(`Received ${signal}. Gracefully stopping Telegram Bot and servers...`);
 
-process.on('SIGTERM', () => {
-  if (apiServer) apiServer.close();
-  bot.stopPolling().then(() => {
+  if (bakongBypassProcess) {
+    try { bakongBypassProcess.kill(); } catch (_) {}
+  }
+
+  try {
+    if (bot.isPolling()) {
+      await bot.stopPolling();
+    }
+  } catch (_) {}
+
+  if (apiServer) {
+    apiServer.close(() => {
+      logger.info('API server closed cleanly.');
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 3000);
+  } else {
     process.exit(0);
-  });
-});
+  }
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

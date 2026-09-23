@@ -1,4 +1,9 @@
 import http from "node:http";
+import dns from "node:dns";
+
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 const PORT = process.env.PORT || 3000;
 const SITE = "https://api-bakong.nbc.gov.kh/";

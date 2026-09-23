@@ -64,6 +64,31 @@ router.get('/health', (req, res) => {
   });
 });
 
+// 0.0 Telegram Bot Webhook Gateway (Active in Cloud Deployments)
+let telegramBotInstance = null;
+function setTelegramBot(bot) {
+  telegramBotInstance = bot;
+}
+
+router.post('/telegram/webhook', (req, res) => {
+  if (telegramBotInstance && req.body) {
+    try {
+      telegramBotInstance.processUpdate(req.body);
+    } catch (err) {
+      console.error('[TELEGRAM WEBHOOK ERROR]', err.message);
+    }
+  }
+  return res.sendStatus(200);
+});
+
+router.get('/telegram/webhook', (req, res) => {
+  return res.status(200).json({
+    status: 'ok',
+    service: 'Telegram Webhook Gateway',
+    active: Boolean(telegramBotInstance)
+  });
+});
+
 // 0.1 Verify API Key Endpoint
 router.get('/keys/verify', authenticateApiKey, (req, res) => {
   if (!req.auth) {
@@ -740,4 +765,5 @@ router.post('/web/check-payment', async (req, res) => {
   }
 });
 
+router.setTelegramBot = setTelegramBot;
 module.exports = router;

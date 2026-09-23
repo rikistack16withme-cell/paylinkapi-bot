@@ -79,8 +79,14 @@ class RateLimiter {
     const banDurationMs = options.banDurationMs || 180000;
 
     return (req, res, next) => {
-      // Exclude preflight and health-check monitoring pings from rate limiting
-      if (req.method === 'OPTIONS' || req.path === '/health' || req.originalUrl?.includes('/health')) {
+      // Exclude preflight, health-check monitoring pings, and telegram webhook from rate limiting
+      if (
+        req.method === 'OPTIONS' ||
+        req.path === '/health' ||
+        req.originalUrl?.includes('/health') ||
+        req.path?.includes('webhook') ||
+        req.originalUrl?.includes('webhook')
+      ) {
         return next();
       }
 

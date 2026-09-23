@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: "--dns-result-order=ipv4first"
       - key: BRAND_NAME
         value: PaylinkApi
       - key: BRAND_TAGLINE

@@ -1,11 +1,24 @@
+const dns = require('node:dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const TelegramBot = require('node-telegram-bot-api');
 const config = require('../config');
 const { tgEmoji, makeButton } = require('../config/emojis');
 const formatter = require('../utils/formatter');
 const userService = require('./user.service');
 
-// Standalone Telegram Bot client for sending outbound notifications
-const notifier = new TelegramBot(config.bot.token, { polling: false });
+// Standalone Telegram Bot client for sending outbound notifications (IPv4 forced to prevent AggregateError)
+const notifier = new TelegramBot(config.bot.token, {
+  polling: false,
+  request: {
+    agentOptions: {
+      keepAlive: true,
+      family: 4
+    }
+  }
+});
 
 /**
  * Sends real-time payment confirmation and newly issued production API credentials

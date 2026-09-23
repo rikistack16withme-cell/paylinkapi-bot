@@ -1,3 +1,8 @@
+const dns = require('node:dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const config = require('../config');
 const db = require('../database');
 const i18n = require('../services/i18n.service');
@@ -60,7 +65,15 @@ async function verifyAll() {
 
   // 5. Telegram API Connectivity Check
   console.log('\n5. Checking Telegram Bot Token Connectivity...');
-  const bot = new TelegramBot(config.bot.token);
+  const bot = new TelegramBot(config.bot.token, {
+    polling: false,
+    request: {
+      agentOptions: {
+        keepAlive: true,
+        family: 4
+      }
+    }
+  });
   const me = await bot.getMe();
   console.log('   ✓ Bot Connected to Telegram API!');
   console.log('   • Bot ID: ' + me.id);
