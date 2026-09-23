@@ -114,7 +114,8 @@ const inlineKeyboards = {
   apiKeys: (lang = 'en') => ({
     reply_markup: {
       inline_keyboard: [
-        [makeButton(i18n.t('btn_test_live_payment', lang), 'start_live_pay_test', 'rocket', 'success')],
+        [makeButton(lang === 'km' ? '🔄 បន្តគម្រោង (Renew Subscription)' : '🔄 Renew Subscription', 'sub_back_plans', 'refresh', 'success')],
+        [makeButton(i18n.t('btn_test_live_payment', lang), 'start_live_pay_test', 'rocket', 'primary')],
         [makeButton(i18n.t('btn_doc_pdf', lang), 'doc_download_pdf', 'docs', 'primary')],
         [makeButton(i18n.t('btn_get_payment_api', lang), 'nav_get_api', 'get_api', 'primary')],
         [makeButton(i18n.t('btn_back', lang), 'nav_dashboard', null, 'danger')]

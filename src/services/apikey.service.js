@@ -1,9 +1,45 @@
 const crypto = require('node:crypto');
 const db = require('../database');
 
+const PLAN_DURATIONS = {
+  '1w': 7,
+  '1m': 30,
+  '1y': 365
+};
+
+const PLAN_TITLES = {
+  '1w': '1 Week Pass ($0.10)',
+  '1m': '1 Month Pro ($1.00)',
+  '1y': '1 Year Enterprise ($10.00)'
+};
+
+const PLAN_INFO = {
+  '1w': { days: 7, nameKm: 'កញ្ចប់សាកល្បង ១ សប្តាហ៍ ($0.10)', nameEn: '1 Week Pass ($0.10)' },
+  '1m': { days: 30, nameKm: 'កញ្ចប់អាជីវកម្ម ១ ខែ ($1.00)', nameEn: '1 Month Pro ($1.00)' },
+  '1y': { days: 365, nameKm: 'កញ្ចប់សហគ្រាស ១ ឆ្នាំ ($10.00)', nameEn: '1 Year Enterprise ($10.00)' }
+};
+
+function getDurationDays(planKey = '1w') {
+  return PLAN_DURATIONS[planKey] || 7;
+}
+
+function calculateExpiryDate(startDate = new Date(), durationDays = 7) {
+  const start = new Date(startDate);
+  const expiry = new Date(start.getTime() + durationDays * 24 * 60 * 60 * 1000);
+  return expiry.toISOString();
+}
+
 class ApiKeyService {
+  get PLAN_DURATIONS() {
+    return PLAN_DURATIONS;
+  }
+
+  getPlanTitle(planKey, lang = 'km') {
+    const info = PLAN_INFO[planKey] || PLAN_INFO['1w'];
+    return lang === 'km' ? info.nameKm : info.nameEn;
+  }
   /**
-   * Retrieves or generates real working API keys for a user
+   * Retrieves or generates real working API keys for a user with expiration tracking
    */
   getOrCreateUserKeys(telegramId) {
     const tId = String(telegramId);
@@ -12,6 +48,18 @@ class ApiKeyService {
 
     if (existing && existing.length > 0) {
       let changed = false;
+
+      // Migrate existing keys that lack expiresAt
+      if (!existing[0].expiresAt) {
+        const days = existing[0].plan === '1y' ? 365 : (existing[0].plan === '1w' ? 7 : 30);
+        existing[0].plan = existing[0].plan || '1m';
+        existing[0].durationDays = days;
+        existing[0].expiresAt = calculateExpiryDate(existing[0].createdAt || new Date(), days);
+        existing[0].expiryWarningSent = false;
+        existing[0].expiredNoticeSent = false;
+        changed = true;
+      }
+
       if (user) {
         const userProv = String(user.provider || '').toLowerCase();
         const isBakongOnly = userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual');
@@ -44,6 +92,10 @@ class ApiKeyService {
     }
 
     // Create live working key tied directly to the user's registered bank details
+    const planKey = user?.plan || '1w';
+    const durationDays = getDurationDays(planKey);
+    const now = new Date();
+
     const liveKey = {
       id: `key_${tId}`,
       telegramId: tId,
@@ -59,7 +111,12 @@ class ApiKeyService {
       khrLink: user?.khrLink || null,
       usdLink: user?.usdLink || null,
       merchantName: user?.merchantName || (user?.firstName ? `${user.firstName}'s Store` : 'Merchant Store'),
-      createdAt: new Date().toISOString()
+      plan: planKey,
+      durationDays,
+      createdAt: now.toISOString(),
+      expiresAt: calculateExpiryDate(now, durationDays),
+      expiryWarningSent: false,
+      expiredNoticeSent: false
     };
 
     const saved = db.saveApiKey(liveKey);
@@ -100,6 +157,9 @@ class ApiKeyService {
     const tId = String(telegramId);
     const user = db.getUser(tId);
     const keyIndex = db.getUserApiKeys(tId).length + 1;
+    const planKey = details.plan || '1w';
+    const durationDays = getDurationDays(planKey);
+    const now = new Date();
 
     const newKey = {
       id: `key_${tId}_${Date.now()}`,
@@ -116,12 +176,117 @@ class ApiKeyService {
       khrLink: details.khrLink || user?.khrLink || null,
       usdLink: details.usdLink || user?.usdLink || null,
       merchantName: details.merchantName || user?.merchantName || (user?.firstName ? `${user.firstName}'s Store #${keyIndex}` : `Store #${keyIndex}`),
-      plan: details.plan || '1m',
-      createdAt: new Date().toISOString()
+      plan: planKey,
+      durationDays,
+      createdAt: now.toISOString(),
+      expiresAt: calculateExpiryDate(now, durationDays),
+      expiryWarningSent: false,
+      expiredNoticeSent: false
     };
 
     const saved = db.saveApiKey(newKey);
     return saved;
+  }
+
+  /**
+   * Renews or extends an existing user's subscription
+   */
+  renewApiKeySubscription(telegramId, planKey = '1w') {
+    const tId = String(telegramId);
+    const keys = this.getUserApiKeys(tId);
+    if (!keys || keys.length === 0) return null;
+
+    const key = keys[0];
+    const durationDays = getDurationDays(planKey);
+    const now = Date.now();
+
+    // If key is currently active and not expired, extend from existing expiresAt
+    let baseDate = new Date();
+    if (key.status === 'ACTIVE' && key.expiresAt && new Date(key.expiresAt).getTime() > now) {
+      baseDate = new Date(key.expiresAt);
+    }
+
+    const newExpiry = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    key.plan = planKey;
+    key.durationDays = durationDays;
+    key.expiresAt = newExpiry.toISOString();
+    key.status = 'ACTIVE';
+    key.expiryWarningSent = false;
+    key.expiredNoticeSent = false;
+    key.renewedAt = new Date().toISOString();
+
+    db.saveApiKey(key);
+    return key;
+  }
+
+  /**
+   * Computes countdown details (remaining days, hours, minutes, expired status)
+   */
+  getExpiryCountdown(key, lang = 'km') {
+    if (!key || !key.expiresAt) {
+      return {
+        isExpired: false,
+        isExpiringSoon: false,
+        totalSeconds: Infinity,
+        days: 999,
+        hours: 0,
+        minutes: 0,
+        text: lang === 'km' ? 'សុពលភាពអចិន្ត្រៃយ៍' : 'Permanent Active'
+      };
+    }
+
+    const now = Date.now();
+    const expiryTime = new Date(key.expiresAt).getTime();
+    const diffMs = expiryTime - now;
+
+    if (diffMs <= 0 || key.status === 'EXPIRED') {
+      return {
+        isExpired: true,
+        isExpiringSoon: false,
+        totalSeconds: 0,
+        days: 0,
+        hours: 0,
+        minutes: 0,
+        text: lang === 'km' ? '🔴 ផុតកំណត់ហើយ (Expired)' : '🔴 Expired (Deactivated)'
+      };
+    }
+
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    const isExpiringSoon = diffMs <= 24 * 60 * 60 * 1000; // <= 24 hours
+
+    let formatted = '';
+    if (lang === 'km') {
+      if (days > 0) {
+        formatted = `${days} ថ្ងៃ ${hours} ម៉ោង`;
+      } else if (hours > 0) {
+        formatted = `${hours} ម៉ោង ${minutes} នាទី`;
+      } else {
+        formatted = `${minutes} នាទី`;
+      }
+    } else {
+      if (days > 0) {
+        formatted = `${days}d ${hours}h`;
+      } else if (hours > 0) {
+        formatted = `${hours}h ${minutes}m`;
+      } else {
+        formatted = `${minutes}m`;
+      }
+    }
+
+    return {
+      isExpired: false,
+      isExpiringSoon,
+      totalSeconds,
+      days,
+      hours,
+      minutes,
+      text: formatted
+    };
   }
 
   /**
@@ -133,6 +298,7 @@ class ApiKeyService {
 
   /**
    * Validates an API key for REST API authentication
+   * Strictly enforces auto-expiration and revokes expired keys
    */
   validateApiKey(apiKey) {
     if (!apiKey) return { valid: false };
@@ -166,6 +332,24 @@ class ApiKeyService {
       match = allKeys.find(k => k.apiKey === apiKey);
     }
     if (match) {
+      // 1. Strict Expiry Verification:
+      const now = Date.now();
+      const isExpired = match.status === 'EXPIRED' || (match.expiresAt && new Date(match.expiresAt).getTime() <= now);
+
+      if (isExpired) {
+        if (match.status !== 'EXPIRED') {
+          match.status = 'EXPIRED';
+          db.saveApiKey(match);
+        }
+        return {
+          valid: false,
+          expired: true,
+          expiresAt: match.expiresAt,
+          apiKey: match.apiKey,
+          error: 'API_KEY_EXPIRED: Your API Key subscription has expired. Please renew your subscription via Telegram Bot.'
+        };
+      }
+
       const user = db.getUser(match.telegramId) || {};
       const userProv = String(user.provider || match.provider || '').toLowerCase();
       const isBakongOnly = userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual');
@@ -190,7 +374,10 @@ class ApiKeyService {
         phone: resolvedPhone,
         khrLink: resolvedKhr,
         usdLink: resolvedUsd,
-        merchantName: resolvedName
+        merchantName: resolvedName,
+        expiresAt: match.expiresAt,
+        plan: match.plan || '1w',
+        planTitle: PLAN_TITLES[match.plan] || 'Subscription Plan'
       };
     }
 
@@ -206,8 +393,9 @@ class ApiKeyService {
     return db.deleteApiKey(keyIdOrKey);
   }
 
-  generateManualKey(telegramId, { merchantName = 'Admin Store', provider = 'NBC Bakong KHQR & ABA PayWay Dual Rail' } = {}) {
+  generateManualKey(telegramId, { merchantName = 'Admin Store', provider = 'NBC Bakong KHQR & ABA PayWay Dual Rail', durationDays = 365, plan = '1y' } = {}) {
     const tId = String(telegramId);
+    const now = new Date();
     const keyData = {
       id: `key_${tId}_${Date.now()}`,
       telegramId: tId,
@@ -218,7 +406,12 @@ class ApiKeyService {
       status: 'ACTIVE',
       isMock: false,
       merchantName,
-      createdAt: new Date().toISOString()
+      plan,
+      durationDays,
+      createdAt: now.toISOString(),
+      expiresAt: calculateExpiryDate(now, durationDays),
+      expiryWarningSent: false,
+      expiredNoticeSent: false
     };
     return db.saveApiKey(keyData);
   }

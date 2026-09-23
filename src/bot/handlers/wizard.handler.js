@@ -1157,7 +1157,8 @@ async function handleExecuteSubPayment(bot, query, planKey, bank, currency = 'US
         amountFormatted: result.amountFormatted, currency: curr, status: 'PENDING',
         tranId: result.tranId, clientId: result.clientId, requestTime: result.requestTime,
         token: result.token, merchantLink: result.merchantLink,
-        qrString: result.qrString, md5: result.md5, deepLink: abaDeepLink, plan: planTitle
+        qrString: result.qrString, md5: result.md5, deepLink: abaDeepLink, plan: planTitle,
+        planKey
       });
 
       // Generate card with genuine ABA KHQR payload so scanning with ABA Mobile directly opens ABA
@@ -1243,7 +1244,8 @@ async function handleExecuteSubPayment(bot, query, planKey, bank, currency = 'US
         telegramId: from.id, bank: 'BAKONG', amount,
         amountFormatted: result.amountFormatted, currency: curr, status: 'PENDING',
         tranId: result.tranId, qrString: result.qrString, md5: result.md5,
-        deepLink: nbcDeepLink, plan: planTitle
+        deepLink: nbcDeepLink, plan: planTitle,
+        planKey
       });
 
       // Generate card with genuine Bakong KHQR payload
@@ -1421,12 +1423,17 @@ function startSubscriptionAutoChecker({ bot, chatId, photoMessageId, tranId, ban
           }
         });
 
+        const tx = orderService.getPaymentTransaction(tranId) || {};
+        const planKey = tx.planKey || (tx.details && tx.details.planKey) || (tx.plan === '1 Year Enterprise' ? '1y' : (tx.plan === '1 Month Pro' ? '1m' : '1w'));
+        
+        // Renew/extend or activate API Key subscription
+        apiKeyService.renewApiKeySubscription(from.id, planKey);
+
         // Delete the waiting QR photo card
         if (photoMessageId) {
           await bot.deleteMessage(chatId, photoMessageId).catch(() => {});
         }
 
-        const tx = orderService.getPaymentTransaction(tranId) || {};
         const planTitle = tx.plan || tx.details?.plan || 'VIP Developer Pass';
 
         // 1. Send Animated Surprise Celebration Card with full-screen confetti effect!
@@ -1539,12 +1546,15 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
   const isKm = lang === 'km';
 
   const userKeys = apiKeyService.getOrCreateUserKeys(from.id);
-  const activeKey = userKeys[0]?.apiKey || '';
-  const activeSecret = userKeys[0]?.secret || 'whsec_live_default';
+  const activeKeyObj = userKeys[0] || {};
+  const activeKey = activeKeyObj.apiKey || '';
+  const activeSecret = activeKeyObj.secret || 'whsec_live_default';
+  const planTitle = apiKeyService.getPlanTitle(activeKeyObj.plan, lang);
+  const countdown = apiKeyService.getExpiryCountdown(activeKeyObj, lang);
 
   const user = userService.getUser(from.id) || {};
   const merchantName = user.merchantName || 'Rikidev';
-  const userProv = String(user.provider || activeKey?.provider || '').toLowerCase();
+  const userProv = String(user.provider || activeKeyObj?.provider || '').toLowerCase();
   const isBakongOnly = userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual');
   const isAbaOnly = userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual');
 
@@ -1586,7 +1596,10 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
     `<i>${tgEmoji('verified')} ${isKm ? 'សូមអបអរសាទរ! គណនី Developer របស់អ្នកត្រូវបានបើកដំណើរការជាផ្លូវការ' : 'Congratulations! Your developer production account is fully activated'}</i>\n\n` +
     `${formatter.divider}\n` +
     `• ${tgEmoji('operator')} <b>Developer:</b> <code>${formatter.escapeHtml(from.first_name || 'Operator')}</code> (ID: <code>${from.id}</code>)\n` +
+    `• ${tgEmoji('target')} <b>${isKm ? 'កញ្ចប់គម្រោង:' : 'Plan:'}</b> <code>${formatter.escapeHtml(planTitle)}</code>\n` +
     `• ${tgEmoji('verified')} <b>ស្ថានភាព Status:</b> <code>[ PRODUCTION ACTIVE ]</code> ${tgEmoji('active')}\n` +
+    `• ⏳ <b>${isKm ? 'សុពលភាពនៅសល់:' : 'Remaining:'}</b> <b>${formatter.escapeHtml(countdown.text)}</b>\n` +
+    `• 📅 <b>${isKm ? 'ផុតកំណត់នៅថ្ងៃ:' : 'Expires At:'}</b> <code>${(activeKeyObj.expiresAt || '').slice(0, 19).replace('T', ' ') || 'N/A'}</code>\n` +
     `• ${tgEmoji('clearing')} <b>ប្រព័ន្ធទូទាត់ Rails:</b> <code>${formatter.escapeHtml(displayRails)}</code>\n` +
     `• ${tgEmoji('brand')} <b>ឈ្មោះ Merchant:</b> <code>${formatter.escapeHtml(merchantName)}</code>\n` +
     `• ${tgEmoji('currency')} <b>Dual Engine:</b> <code>USD ($) + KHR (៛) Dual Automated</code>\n` +
@@ -1630,6 +1643,8 @@ async function handleInstantActivate(bot, query) {
   const messageId = query.message.message_id;
   const from = query.from;
 
+  apiKeyService.renewApiKeySubscription(from.id, '1w');
+
   await bot.answerCallbackQuery(query.id, {
     text: 'API Key Active!'
   }).catch(() => {});
@@ -1648,6 +1663,11 @@ async function handleConfirmRegistrationPayment(bot, query, tranId) {
     orderService.updatePaymentTransactionStatus(tranId, 'PAID', { confirmedVia: 'user_instant_button' });
   }
 
+  const tx = orderService.getPaymentTransaction(tranId) || {};
+  const planKey = tx.planKey || (tx.details && tx.details.planKey) || (tx.plan === '1 Year Enterprise' ? '1y' : (tx.plan === '1 Month Pro' ? '1m' : '1w'));
+  
+  apiKeyService.renewApiKeySubscription(from.id, planKey);
+
   await bot.answerCallbackQuery(query.id, {
     text: 'Payment Confirmed! API Key Issued.'
   }).catch(() => {});
@@ -1656,7 +1676,6 @@ async function handleConfirmRegistrationPayment(bot, query, tranId) {
     await bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
   }
 
-  const tx = orderService.getPaymentTransaction(tranId) || {};
   const planTitle = tx.plan || tx.details?.plan || 'VIP Developer Pass';
 
   await sendSubscriptionSurpriseCelebration(bot, chatId, from, planTitle);

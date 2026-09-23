@@ -58,6 +58,7 @@ const { startApiServer } = require('./src/api/server');
 const tunnelService = require('./src/services/tunnel.service');
 const adminHandler = require('./src/bot/handlers/admin.handler');
 const db = require('./src/database');
+const expiryCheckerService = require('./src/services/expiry_checker.service');
 
 if (!config.bot.token) {
   logger.error('TELEGRAM_BOT_TOKEN is missing in .env! Please configure it before starting.');
@@ -868,6 +869,9 @@ async function startBotEngine() {
     // Verification check on boot
     const botInfo = await bot.getMe();
     logger.info(`✓ Bot successfully verified with Telegram API: @${botInfo.username} (ID: ${botInfo.id}) [Mode: ${useWebhook ? 'Webhook' : 'Polling'}]`);
+
+    // Start background API Key subscription expiration checker
+    expiryCheckerService.start(bot);
   } catch (err) {
     if (err.message && err.message.includes('409 Conflict')) {
       logger.warn('Telegram Notice: 409 Conflict (previous deployment instance is shutting down). Traffic will transition smoothly.');
@@ -885,6 +889,9 @@ async function gracefulShutdown(signal) {
   if (isShuttingDown) return;
   isShuttingDown = true;
   logger.info(`Received ${signal}. Gracefully stopping Telegram Bot and servers...`);
+
+  // Stop background expiry checker
+  expiryCheckerService.stop();
 
   if (bakongBypassProcess) {
     try { bakongBypassProcess.kill(); } catch (_) {}

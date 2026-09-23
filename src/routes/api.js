@@ -37,6 +37,15 @@ function authenticateApiKey(req, res, next) {
   if (apiKey) {
     const authResult = apiKeyService.validateApiKey(apiKey);
     if (!authResult.valid) {
+      if (authResult.expired) {
+        return res.status(403).json({
+          success: false,
+          error: 'API_KEY_EXPIRED',
+          message: 'Your API Key subscription has expired. All payment services (QR generation, payment checking) are suspended. Please renew your subscription via PaylinkApi Telegram Bot to reactivate.',
+          expiredAt: authResult.expiresAt,
+          renewBotUrl: 'https://t.me/PayLinkAPI_bot'
+        });
+      }
       return res.status(401).json({
         success: false,
         error: 'Unauthorized: Invalid API Key. Please verify your active key from PaylinkApi Telegram Bot.'
@@ -102,9 +111,14 @@ router.get('/keys/verify', authenticateApiKey, (req, res) => {
       error: 'Please provide an API Key via Authorization: Bearer <key> or x-api-key header.'
     });
   }
+
+  const countdown = apiKeyService.getExpiryCountdown(req.auth.keyData, req.query.lang || 'km');
+
   return res.json({
     success: true,
     message: 'API Key is active and authorized for live payment dispatch.',
+    status: req.auth.keyData?.status || 'ACTIVE',
+    isExpired: countdown.isExpired,
     tier: req.auth.tier,
     provider: req.auth.provider,
     telegramId: req.auth.telegramId,
@@ -112,7 +126,72 @@ router.get('/keys/verify', authenticateApiKey, (req, res) => {
     merchantName: req.auth.merchantName,
     phone: req.auth.phone,
     khrLink: req.auth.khrLink,
-    usdLink: req.auth.usdLink
+    usdLink: req.auth.usdLink,
+    plan: req.auth.plan,
+    planTitle: req.auth.planTitle,
+    expiresAt: req.auth.expiresAt,
+    remaining: {
+      totalSeconds: countdown.totalSeconds === Infinity ? null : countdown.totalSeconds,
+      days: countdown.days,
+      hours: countdown.hours,
+      minutes: countdown.minutes,
+      formatted: countdown.text
+    }
+  });
+});
+
+// 0.2 Dedicated API Key Expiry & Countdown Status Endpoint
+router.get(['/keys/status', '/keys/expiry'], (req, res) => {
+  let apiKey = req.query.api_key || req.query.apiKey;
+  const authHeader = req.headers['authorization'] || '';
+  if (authHeader.startsWith('Bearer ')) {
+    apiKey = authHeader.slice(7).trim();
+  } else if (!apiKey && authHeader) {
+    apiKey = authHeader.trim();
+  }
+  if (!apiKey && req.headers['x-api-key']) {
+    apiKey = String(req.headers['x-api-key']).trim();
+  }
+
+  if (!apiKey) {
+    return res.status(400).json({
+      success: false,
+      error: 'MISSING_API_KEY',
+      message: 'Please provide an API Key via query param (?api_key=...), Authorization: Bearer <key>, or x-api-key header.'
+    });
+  }
+
+  const keyData = apiKeyService.getKeyById(apiKey);
+  if (!keyData) {
+    return res.status(404).json({
+      success: false,
+      error: 'KEY_NOT_FOUND',
+      message: 'The requested API Key does not exist in the database.'
+    });
+  }
+
+  const lang = req.headers['language'] || req.query.lang || 'km';
+  const countdown = apiKeyService.getExpiryCountdown(keyData, lang);
+
+  return res.json({
+    success: true,
+    apiKey: keyData.apiKey,
+    merchantName: keyData.merchantName,
+    provider: keyData.provider,
+    status: keyData.status,
+    isExpired: countdown.isExpired,
+    isExpiringSoon: countdown.isExpiringSoon,
+    plan: keyData.plan || '1w',
+    createdAt: keyData.createdAt,
+    expiresAt: keyData.expiresAt,
+    remaining: {
+      totalSeconds: countdown.totalSeconds === Infinity ? null : countdown.totalSeconds,
+      days: countdown.days,
+      hours: countdown.hours,
+      minutes: countdown.minutes,
+      formatted: countdown.text
+    },
+    renewUrl: 'https://t.me/PayLinkAPI_bot'
   });
 });
 

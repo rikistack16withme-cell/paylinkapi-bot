@@ -131,13 +131,24 @@ class Database {
     return Object.values(this.data.apiKeys).filter(k => String(k.telegramId) === tId);
   }
 
+  getApiKey(keyId) {
+    if (!keyId) return null;
+    let key = this.data.apiKeys[keyId];
+    if (!key) {
+      this.reload();
+      key = this.data.apiKeys[keyId];
+    }
+    return key || null;
+  }
+
   saveApiKey(keyData) {
     const keyId = keyData.id || `key_${Date.now()}`;
+    const existing = this.data.apiKeys[keyId] || {};
     this.data.apiKeys[keyId] = {
       id: keyId,
-      ...keyData,
-      isMock: true,
-      createdAt: new Date().toISOString()
+      isMock: false,
+      createdAt: existing.createdAt || new Date().toISOString(),
+      ...keyData
     };
     this.save();
     return this.data.apiKeys[keyId];
