@@ -161,6 +161,8 @@ async function renderAdminDashboard(bot, chatId, messageId = null) {
 
   return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
     parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    link_preview_options: { is_disabled: true },
     reply_markup: keyboard
   });
 }
@@ -183,27 +185,42 @@ async function handleAdminUsersList(bot, chatId, messageId = null) {
       const badge = isBan ? '🚫 BANNED' : (isSub ? '✅ ACTIVE' : '⏳ PENDING');
 
       const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Telegram User';
+      const userMention = `<a href="tg://user?id=${u.telegramId}">${formatter.escapeHtml(fullName)}</a>`;
       const usernameDisplay = u.username
-        ? `@${u.username} (<a href="https://t.me/${u.username}">Open Chat</a>)`
-        : `<i>No @username</i> (<a href="tg://user?id=${u.telegramId}">Direct Profile</a>)`;
+        ? `<a href="https://t.me/${u.username}">@${u.username}</a>`
+        : `<i>No @username</i>`;
 
-      text += `<b>${i + 1}. ${formatter.escapeHtml(fullName)}</b>\n` +
+      text += `<b>${i + 1}. ${userMention}</b>\n` +
         `• <b>Username:</b> ${usernameDisplay}\n` +
         `• <b>Telegram ID:</b> <code>${u.telegramId}</code>\n` +
+        `• <b>Profile Link:</b> <a href="tg://user?id=${u.telegramId}">👤 View Profile</a>\n` +
         (u.merchantName ? `• <b>Store:</b> <code>${formatter.escapeHtml(u.merchantName)}</code>\n` : '') +
         `• <b>Status:</b> <code>${badge}</code>\n` +
+        `• <b>Direct DM:</b> <code>/dm ${u.telegramId} Hello</code>\n` +
         `• <b>Quick Control:</b> <code>/activate ${u.telegramId}</code> | <code>/ban ${u.telegramId}</code>\n\n`;
     });
   }
 
+  // Interactive quick 1-tap user selector buttons
+  const inspectButtons = recent.slice(0, 6).map(u => {
+    const label = u.firstName || u.username || String(u.telegramId);
+    return makeButton(`👤 ${label.substring(0, 14)}`, `admin_inspect_${u.telegramId}`, 'users', 'primary');
+  });
+
+  const keyboardRows = [];
+  for (let i = 0; i < inspectButtons.length; i += 2) {
+    keyboardRows.push(inspectButtons.slice(i, i + 2));
+  }
+  keyboardRows.push([makeButton('« Back to Master Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]);
+
   const keyboard = {
-    inline_keyboard: [
-      [makeButton('« Back to Master Admin Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')]
-    ]
+    inline_keyboard: keyboardRows
   };
 
   return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
     parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    link_preview_options: { is_disabled: true },
     reply_markup: keyboard
   });
 }
@@ -521,13 +538,13 @@ async function handleAdminMarkPaid(bot, chatId, tranId) {
 /**
  * Looks up detailed profile of a user
  */
-async function handleAdminUserLookup(bot, chatId, queryStr) {
+async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
   if (!queryStr) {
     return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/user &lt;telegramId_or_username&gt;</code>`, { parse_mode: 'HTML' });
   }
 
   const users = db.getAllUsers();
-  const clean = queryStr.replace('@', '').trim();
+  const clean = String(queryStr).replace('@', '').trim();
   const user = users.find(u => String(u.telegramId) === clean || (u.username && u.username.toLowerCase() === clean.toLowerCase()));
 
   if (!user) {
@@ -538,28 +555,55 @@ async function handleAdminUserLookup(bot, chatId, queryStr) {
   const userOrders = db.getUserOrders(user.telegramId);
 
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Telegram User';
+  const userMention = `<a href="tg://user?id=${user.telegramId}">${formatter.escapeHtml(fullName)}</a>`;
   const usernameDisplay = user.username
-    ? `@${user.username} (<a href="https://t.me/${user.username}">Open Chat</a>)`
-    : `<i>No @username</i> (<a href="tg://user?id=${user.telegramId}">Direct Profile</a>)`;
+    ? `<a href="https://t.me/${user.username}">@${user.username}</a>`
+    : `<i>No @username set</i>`;
+
+  const isBanned = user.status === 'BANNED';
+  const isSub = user.subscription?.status === 'ACTIVE' || user.status === 'ACTIVE';
+  const badge = isBanned ? '🚫 BANNED' : (isSub ? '✅ ACTIVE' : '⏳ PENDING');
 
   const text =
-    `👤 <b>USER PROFILE: ${formatter.escapeHtml(fullName)}</b>\n` +
+    `👤 <b>USER PROFILE: ${userMention}</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `• <b>Telegram ID:</b> <code>${user.telegramId}</code>\n` +
+    `• <b>Full Name:</b> ${formatter.escapeHtml(fullName)}\n` +
     `• <b>Username:</b> ${usernameDisplay}\n` +
-    `• <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || 'Not Registered')}</code>\n` +
-    `• <b>Account Status:</b> <code>${user.status || 'ACTIVE'}</code>\n` +
+    `• <b>Telegram ID:</b> <code>${user.telegramId}</code>\n` +
+    `• <b>Direct Profile:</b> <a href="tg://user?id=${user.telegramId}">👤 View Profile</a>\n` +
+    `• <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || 'Not Set')}</code>\n` +
+    `• <b>Account Status:</b> <code>${badge}</code>\n` +
     `• <b>Subscription:</b> <code>${user.subscription?.status || 'INACTIVE'}</code> (Plan: <code>${user.subscription?.plan || 'None'}</code>)\n` +
     `• <b>Registered Date:</b> <code>${user.createdAt || 'N/A'}</code>\n` +
     `• <b>API Keys Count:</b> <code>${userKeys.length}</code>\n` +
     `• <b>Orders Count:</b> <code>${userOrders.length}</code>\n\n` +
-    `<b>Quick Controls:</b>\n` +
-    `• <code>/activate ${user.telegramId}</code>\n` +
-    `• <code>/addkey ${user.telegramId}</code>\n` +
+    `<b>Commands Quick-Tap:</b>\n` +
     `• <code>/dm ${user.telegramId} Hello</code>\n` +
-    `• <code>/ban ${user.telegramId}</code>`;
+    `• <code>/activate ${user.telegramId} 365</code>\n` +
+    `• <code>/addkey ${user.telegramId} StoreName</code>\n` +
+    `• <code>/${isBanned ? 'unban' : 'ban'} ${user.telegramId}</code>`;
 
-  return safeSender.sendMessage(bot, chatId, text, { parse_mode: 'HTML' });
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton('⚡ Activate 1 Year', `admin_act_1y_${user.telegramId}`, 'success', 'primary'),
+        makeButton('🔑 Issue API Key', `admin_gen_key_${user.telegramId}`, 'keys', 'primary')
+      ],
+      [
+        makeButton(isBanned ? '✅ Unban User' : '🚫 Ban User', `admin_toggle_ban_${user.telegramId}`, 'refresh', isBanned ? 'success' : 'danger')
+      ],
+      [
+        makeButton('« Back to Members List', 'admin_view_users', 'arrow_left', 'secondary')
+      ]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    link_preview_options: { is_disabled: true },
+    reply_markup: keyboard
+  });
 }
 
 /**

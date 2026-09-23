@@ -542,6 +542,30 @@ bot.on('callback_query', async (query) => {
       if (data === 'admin_view_users') {
         return await adminHandler.handleAdminUsersList(bot, chatId, messageId);
       }
+      if (data && data.startsWith('admin_inspect_')) {
+        const targetId = data.replace('admin_inspect_', '');
+        return await adminHandler.handleAdminUserLookup(bot, chatId, targetId, messageId);
+      }
+      if (data && data.startsWith('admin_act_1y_')) {
+        const targetId = data.replace('admin_act_1y_', '');
+        await adminHandler.handleAdminManualActivate(bot, chatId, targetId, 'VIP 1 Year License', 365);
+        return await adminHandler.handleAdminUserLookup(bot, chatId, targetId, messageId);
+      }
+      if (data && data.startsWith('admin_gen_key_')) {
+        const targetId = data.replace('admin_gen_key_', '');
+        await adminHandler.handleAdminAddKey(bot, chatId, targetId, 'Merchant Store');
+        return await adminHandler.handleAdminUserLookup(bot, chatId, targetId, messageId);
+      }
+      if (data && data.startsWith('admin_toggle_ban_')) {
+        const targetId = data.replace('admin_toggle_ban_', '');
+        const u = userService.getUser(targetId);
+        if (u && u.status === 'BANNED') {
+          await adminHandler.handleAdminUnban(bot, chatId, targetId);
+        } else {
+          await adminHandler.handleAdminBan(bot, chatId, targetId);
+        }
+        return await adminHandler.handleAdminUserLookup(bot, chatId, targetId, messageId);
+      }
       if (data === 'admin_view_keys') {
         return await adminHandler.handleAdminKeysList(bot, chatId, messageId);
       }
