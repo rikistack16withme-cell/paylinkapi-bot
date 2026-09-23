@@ -834,7 +834,7 @@ async function startBotEngine() {
       logger.info(`   Webhook Endpoint: ${webhookUrl}`);
 
       await bot.setWebHook(webhookUrl, {
-        allowed_updates: ['message', 'callback_query']
+        allowed_updates: JSON.stringify(['message', 'edited_message', 'callback_query'])
       });
       logger.info(`✓ Telegram Webhook registered successfully! (Zero 409 conflicts)`);
     } else {

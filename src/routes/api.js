@@ -73,6 +73,11 @@ function setTelegramBot(bot) {
 router.post('/telegram/webhook', (req, res) => {
   if (telegramBotInstance && req.body) {
     try {
+      if (req.body.callback_query) {
+        console.log(`[WEBHOOK] Button Clicked: "${req.body.callback_query.data}" from user ${req.body.callback_query.from?.id}`);
+      } else if (req.body.message) {
+        console.log(`[WEBHOOK] Message Received: "${req.body.message.text || '[media]'}" from user ${req.body.message.from?.id}`);
+      }
       telegramBotInstance.processUpdate(req.body);
     } catch (err) {
       console.error('[TELEGRAM WEBHOOK ERROR]', err.message);
