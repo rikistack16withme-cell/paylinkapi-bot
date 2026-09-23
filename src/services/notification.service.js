@@ -125,7 +125,7 @@ async function sendMerchantPaymentAlert(telegramId, data = {}) {
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
     `• ${tgEmoji('clearing')} <b>${isKm ? 'ប្រព័ន្ធទូទាត់:' : 'Payment Rail:'}</b> <code>${bank}</code>\n` +
     `• ${tgEmoji('brand')} <b>${isKm ? 'ហាង Merchant:' : 'Store Name:'}</b> <code>${formatter.escapeHtml(merchantName)}</code>\n` +
-    `• ${tgEmoji('currency')} <b>${isKm ? 'ចំនួនទឹកប្រាក់:' : 'Amount Cleared:'}</b> <b>${amountStr}</b>\n` +
+    `• 💵 <b>${isKm ? 'ចំនួនទឹកប្រាក់ដែលបានបង់ (Amount Paid):' : 'Amount Paid:'}</b> <b>${amountStr}</b>\n` +
     `• ${tgEmoji('verified')} <b>${isKm ? 'ស្ថានភាព:' : 'Status:'}</b> <b>[ PAID &amp; SETTLED ]</b> ${tgEmoji('active')}\n` +
     `• ${tgEmoji('receipt')} <b>Transaction ID:</b> <code>${tranId}</code>\n` +
     `• ⏰ <b>${isKm ? 'កាលបរិច្ឆេទ:' : 'Timestamp:'}</b> <code>${new Date().toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' })} (GMT+7)</code>\n\n` +

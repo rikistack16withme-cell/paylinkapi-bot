@@ -1564,6 +1564,12 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
 
   const baseUrl = tunnelService.getPublicUrl() || 'https://paylinkapi-bot.onrender.com';
 
+  // Determine amount paid from latest order or active plan
+  const orderService = require('../../services/order.service');
+  const userOrders = orderService.getUserOrders(from.id) || [];
+  const latestTx = userOrders.filter(o => o.status === 'PAID').sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0];
+  const paidAmount = latestTx?.amountFormatted || (latestTx?.amount ? (latestTx.currency === 'KHR' ? `${Number(latestTx.amount).toLocaleString()} ៛ KHR` : `$${Number(latestTx.amount).toFixed(2)} USD`) : (activeKeyObj.plan === '1y' ? '$10.00 USD' : (activeKeyObj.plan === '1m' ? '$1.00 USD' : '$0.10 USD')));
+
   // Broadcast real-time payment & key release alert to Admin Group (-5393647415)
   const { sendAdminAlert } = require('../../services/notification.service');
   sendAdminAlert(
@@ -1571,6 +1577,8 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
     `👤 <b>Merchant:</b> ${formatter.escapeHtml(merchantName)} (@${from.username || 'no_username'})\n` +
     `🆔 <b>Telegram ID:</b> <code>${from.id}</code>\n` +
+    `📦 <b>Subscription Plan:</b> <code>${planTitle}</code>\n` +
+    `💵 <b>Amount Paid:</b> <b>${paidAmount}</b>\n` +
     `🏦 <b>Rails:</b> <code>${displayRails}</code>\n` +
     `🔑 <b>API Key:</b> <code>${activeKey}</code>\n` +
     `🛡️ <b>Webhook Secret:</b> <code>${activeSecret}</code>\n` +
@@ -1597,6 +1605,7 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
     `${formatter.divider}\n` +
     `• ${tgEmoji('operator')} <b>Developer:</b> <code>${formatter.escapeHtml(from.first_name || 'Operator')}</code> (ID: <code>${from.id}</code>)\n` +
     `• ${tgEmoji('target')} <b>${isKm ? 'កញ្ចប់គម្រោង:' : 'Plan:'}</b> <code>${formatter.escapeHtml(planTitle)}</code>\n` +
+    `• ${tgEmoji('currency')} <b>${isKm ? 'ចំនួនទឹកប្រាក់ដែលបានបង់:' : 'Amount Paid:'}</b> <b>${paidAmount}</b>\n` +
     `• ${tgEmoji('verified')} <b>ស្ថានភាព Status:</b> <code>[ PRODUCTION ACTIVE ]</code> ${tgEmoji('active')}\n` +
     `• ⏳ <b>${isKm ? 'សុពលភាពនៅសល់:' : 'Remaining:'}</b> <b>${formatter.escapeHtml(countdown.text)}</b>\n` +
     `• 📅 <b>${isKm ? 'ផុតកំណត់នៅថ្ងៃ:' : 'Expires At:'}</b> <code>${(activeKeyObj.expiresAt || '').slice(0, 19).replace('T', ' ') || 'N/A'}</code>\n` +
