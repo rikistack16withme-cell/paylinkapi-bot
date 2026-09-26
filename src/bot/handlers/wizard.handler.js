@@ -1644,11 +1644,47 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
     ]
   };
 
-  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+  const resMsg = await safeSender.replaceOrSend(bot, chatId, messageId, text, {
     parse_mode: 'HTML',
     reply_markup: keyboard,
     message_effect_id: '5046509860389126442'
   });
+
+  if (isPaid) {
+    try {
+      const pdfGeneratorService = require('../../services/pdf_generator.service');
+      const pdfPath = await pdfGeneratorService.generateIntegrationPdf({
+        telegramId: String(from.id),
+        userName: from.first_name || merchantName || 'Developer',
+        apiKeys: userKeys,
+        baseUrl,
+        user
+      });
+
+      const pdfCaption = isKm
+        ? `📄 <b>សៀវភៅណែនាំតភ្ជាប់ DEVELOPER INTEGRATION GUIDE (PDF)</b>\n\n` +
+          `• <b>API Key:</b> <code>${activeKey}</code>\n` +
+          `• <b>Webhook Secret:</b> <code>${activeSecret}</code>\n` +
+          `• 🌐 <b>Live Gateway:</b> <code>${baseUrl}</code>\n` +
+          `• 🤖 <b>AI Coding Prompt:</b> <code>ទំព័រទី ២ (សម្រាប់ Cursor / Claude / ChatGPT)</code>\n\n` +
+          `<i>សៀវភៅណែនាំត្រូវបានបង្កើតឡើងដោយស្វ័យប្រវត្តិជាមួយ Key ថ្មីរបស់អ្នក!</i>`
+        : `📄 <b>OFFICIAL DEVELOPER INTEGRATION GUIDE (PDF)</b>\n\n` +
+          `• <b>API Key:</b> <code>${activeKey}</code>\n` +
+          `• <b>Webhook Secret:</b> <code>${activeSecret}</code>\n` +
+          `• 🌐 <b>Live Gateway:</b> <code>${baseUrl}</code>\n` +
+          `• 🤖 <b>AI Coding Prompt:</b> <code>Page 2 (Ready for Cursor / Claude / ChatGPT)</code>\n\n` +
+          `<i>Your official developer guide was automatically generated with your active API key and customized AI prompt!</i>`;
+
+      await bot.sendDocument(chatId, pdfPath, {
+        caption: pdfCaption,
+        parse_mode: 'HTML'
+      });
+    } catch (err) {
+      console.error('[Wizard Handler] ⚠️ Failed to auto-send PDF:', err.message);
+    }
+  }
+
+  return resMsg;
 }
 
 /**

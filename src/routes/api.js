@@ -1104,5 +1104,57 @@ router.post('/web/check-payment', async (req, res) => {
   }
 });
 
+// Download Personalized Developer Integration Guide PDF
+router.get(['/user/download-pdf', '/user/pdf-guide', '/download-pdf'], async (req, res) => {
+  try {
+    const telegramIdParam = req.query.telegramId || req.query.tid;
+    const apiKeyParam = req.query.key || req.query.apiKey;
+    let targetTid = telegramIdParam;
+
+    if (apiKeyParam) {
+      const validated = apiKeyService.validateApiKey(apiKeyParam);
+      if (validated && validated.valid) {
+        targetTid = validated.telegramId;
+      }
+    }
+
+    if (!targetTid) {
+      const authHeader = req.headers.authorization || '';
+      if (authHeader.startsWith('Bearer ')) {
+        const v = apiKeyService.validateApiKey(authHeader.slice(7).trim());
+        if (v && v.valid) targetTid = v.telegramId;
+      }
+    }
+
+    targetTid = targetTid || '8665505824';
+    const userKeys = apiKeyService.getUserApiKeys(targetTid);
+    const user = userService.getUser(targetTid) || {};
+    const pdfGeneratorService = require('../services/pdf_generator.service');
+    const tunnelService = require('../services/tunnel.service');
+    const baseUrl = tunnelService.getPublicUrl() || process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com';
+
+    const pdfPath = await pdfGeneratorService.generateIntegrationPdf({
+      telegramId: String(targetTid),
+      userName: user.merchantName || user.firstName || 'Developer',
+      apiKeys: userKeys,
+      baseUrl,
+      user
+    });
+
+    const fs = require('fs');
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json({ success: false, error: 'Generated PDF not found' });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="PaylinkApi_Integration_Guide_${targetTid}.pdf"`);
+    const fileStream = fs.createReadStream(pdfPath);
+    return fileStream.pipe(res);
+  } catch (err) {
+    console.error('[PDF Download Error]:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Failed to generate PDF' });
+  }
+});
+
 router.setTelegramBot = setTelegramBot;
 module.exports = router;

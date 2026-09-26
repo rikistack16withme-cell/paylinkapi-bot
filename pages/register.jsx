@@ -16,7 +16,10 @@ import {
   Smartphone,
   ChevronRight,
   AlertCircle,
-  Info
+  Info,
+  Download,
+  FileText,
+  Bot
 } from 'lucide-react';
 
 export default function RegisterPortal() {
@@ -46,6 +49,7 @@ export default function RegisterPortal() {
   const [qrData, setQrData] = useState(null);
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [countdown, setCountdown] = useState(900); // 15 mins
 
   // Sync telegramId from URL query
@@ -236,9 +240,12 @@ export default function RegisterPortal() {
       if (type === 'key') {
         setCopiedKey(true);
         setTimeout(() => setCopiedKey(false), 2000);
-      } else {
+      } else if (type === 'secret') {
         setCopiedSecret(true);
         setTimeout(() => setCopiedSecret(false), 2000);
+      } else if (type === 'prompt') {
+        setCopiedPrompt(true);
+        setTimeout(() => setCopiedPrompt(false), 2000);
       }
     }
   };
@@ -996,6 +1003,90 @@ export default function RegisterPortal() {
               </code>
               <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
                 Header: <code>Authorization: Bearer {'<API_KEY>'}</code>
+              </div>
+            </div>
+
+            {/* Direct PDF Integration Manual Download */}
+            <a
+              href={`/api/user/download-pdf?telegramId=${telegramId}&key=${qrData?.apiKey || ''}`}
+              download={`PaylinkApi_Integration_Guide_${telegramId}.pdf`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                marginTop: '16px',
+                padding: '13px 18px',
+                borderRadius: '12px',
+                background: '#2563eb',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '13.5px',
+                textDecoration: 'none',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Download size={16} /> Download Integration Guide (PDF)
+            </a>
+
+            {/* AI Master Coding Prompt for Vibe Coding (Cursor / Claude / ChatGPT / v0) */}
+            <div style={{ marginTop: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', textAlign: 'left' }}>
+              <div style={{
+                background: '#0b132b',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontSize: '11.5px', fontWeight: 700 }}>
+                  <Bot size={15} />
+                  <span>AI MASTER PROMPT ({paymentRail === 'bakong' ? 'BAKONG KHQR ONLY' : (paymentRail === 'aba' ? 'ABA PAYWAY ONLY' : 'DUAL RAIL')})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://paylinkapi-bot.onrender.com';
+                    const effectiveKey = qrData?.apiKey || `plk_live_${telegramId}_active`;
+                    const effectiveSecret = qrData?.secret || `whsec_${telegramId}_active`;
+                    const effectiveMerchant = storeName || 'Merchant Store';
+
+                    let aiRailText = '';
+                    let aiEndpointText = '';
+                    if (paymentRail === 'bakong') {
+                      aiRailText = `   - System Rail: NBC BAKONG KHQR ONLY (Account: ${bakongAccount || 'your_bakong_id'})\n   - CRITICAL REQUIREMENT FOR AI:\n     This merchant is registered EXCLUSIVELY for NBC Bakong KHQR. All customer payments MUST route directly to the merchant's Bakong ID (${bakongAccount || 'your_bakong_id'}). DO NOT generate ABA PayWay links. Customers can scan the generated KHQR using ANY Cambodian banking app (Bakong, ACLEDA, ABA Mobile, Wing, Canadia, TrueMoney, Sathapana, etc.).`;
+                      aiEndpointText = `   - Generate QR: POST ${baseUrl}/api/payment/generate-qr (or /api/bakong/generate-qr)\n     Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<ORDER_ID>" }`;
+                    } else if (paymentRail === 'aba') {
+                      aiRailText = `   - System Rail: ABA PAYWAY ONLY\n   - CRITICAL REQUIREMENT FOR AI:\n     This merchant is registered EXCLUSIVELY for ABA PayWay Gateway. All customer payments generate ABA PayWay QR codes and deeplinks for ABA Mobile banking. DO NOT generate Bakong-only payloads.`;
+                      aiEndpointText = `   - Generate QR: POST ${baseUrl}/api/payment/generate-qr (or /api/aba/generate-qr)\n     Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<ORDER_ID>" }`;
+                    } else {
+                      aiRailText = `   - System Rail: DUAL-RAIL (NBC Bakong KHQR & ABA PayWay)\n   - CRITICAL REQUIREMENT FOR AI:\n     This merchant supports BOTH Bakong KHQR (for all Cambodian bank apps) AND ABA PayWay (for ABA Mobile). Use the unified auto-routing endpoint.`;
+                      aiEndpointText = `   - Generate QR: POST ${baseUrl}/api/payment/generate-qr\n     Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<ORDER_ID>" }`;
+                    }
+
+                    const prompt = `You are an expert full-stack engineer. Build a Cambodian Payment Checkout integration using PaylinkApi Gateway with the following exact specifications:\n\n1. CONFIGURATION & MERCHANT CREDENTIALS:\n   - Live Base URL: "${baseUrl}"\n   - Production API Key: "${effectiveKey}"\n   - Webhook Secret: "${effectiveSecret}"\n   - Merchant Name: "${effectiveMerchant}"\n   - Authorization Header: "Bearer ${effectiveKey}"\n${aiRailText}\n\n2. STEP 1: INITIALIZE PAYMENT (GENERATE QR CODE)\n${aiEndpointText}\n   - Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${effectiveKey}" }\n   - Response contains:\n     { "success": true, "qrString": "<EMV_QR_STRING>", "tranId": "<TRAN_ID>", "deepLink": "<BANK_DEEPLINK>" }\n\n3. STEP 2: RENDER PAYMENT MODAL & KHQR\n   - Display a modern checkout modal with:\n     a) QR Code rendered from "qrString" (using 'qrcode.react' or standard QR canvas).\n     b) Formatted price ($ USD and KHR), Store Name ("${effectiveMerchant}"), and Order ID.\n     c) Mobile Deep Link button: <a href="deepLink">Open Banking App to Pay</a>.\n\n4. STEP 3: AUTOMATED SETTLEMENT VERIFICATION\n   - Set an automated 2-3 second polling interval:\n     POST ${baseUrl}/api/payment/check\n     Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${effectiveKey}" }\n     Body: { "tranId": "<TRAN_ID>" }\n   - When response { "status": "PAID", "paid": true }:\n     a) Clear interval, display success checkmark, and complete the customer order.\n     b) PaylinkApi automatically sends an instant transaction alert to your Telegram Bot!\n\n5. STEP 4: OPTIONAL WEBHOOK LISTENER (BACKEND)\n   - Listen for POST /api/webhook and verify 'X-Signature' header:\n     const expected = crypto.createHmac('sha256', '${effectiveSecret}').update(rawBody).digest('hex');\n     if (req.headers['x-signature'] === expected);\n`;
+                    copyToClipboard(prompt, 'prompt');
+                  }}
+                  style={{
+                    background: copiedPrompt ? '#10b981' : '#1e293b',
+                    color: '#ffffff',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    padding: '5px 10px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  {copiedPrompt ? <Check size={12} /> : <Copy size={12} />}
+                  {copiedPrompt ? 'Copied Prompt!' : 'Copy for AI'}
+                </button>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '10px 14px', fontSize: '11.5px', color: '#475569' }}>
+                💡 Click <strong>"Copy for AI"</strong> and paste into <strong>Cursor</strong>, <strong>Claude 3.7</strong>, <strong>ChatGPT 4o</strong>, or <strong>v0.dev</strong> to auto-generate your full checkout code!
               </div>
             </div>
           </div>

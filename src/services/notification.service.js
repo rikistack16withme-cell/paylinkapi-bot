@@ -117,6 +117,40 @@ async function sendPaymentSuccessNotification(telegramId, data) {
     });
     console.log(`[Notification Service] ✓ Sent API Key directly to Telegram user ${telegramId} with animated emojis & celebration effect! Message ID: ${res.message_id}`);
 
+    // Automatically generate and deliver personalized Developer Integration Guide PDF
+    try {
+      const pdfGeneratorService = require('./pdf_generator.service');
+      const pdfPath = await pdfGeneratorService.generateIntegrationPdf({
+        telegramId: String(telegramId),
+        userName: user.merchantName || user.firstName || 'Developer',
+        apiKeys: userKeys,
+        baseUrl: baseApiUrl,
+        user
+      });
+
+      const pdfCaption = isKm
+        ? `📄 <b>សៀវភៅណែនាំតភ្ជាប់ DEVELOPER INTEGRATION GUIDE (PDF)</b>\n\n` +
+          `• <b>API Key:</b> <code>${data.apiKey}</code>\n` +
+          `• <b>Webhook Secret:</b> <code>${data.secret}</code>\n` +
+          `• 🌐 <b>Live Gateway:</b> <code>${baseApiUrl}</code>\n` +
+          `• 🤖 <b>AI Coding Prompt:</b> <code>ទំព័រទី ២ (សម្រាប់ Cursor / Claude / ChatGPT)</code>\n\n` +
+          `<i>ឯកសារនេះត្រូវបានបង្កើតឡើងដោយស្វ័យប្រវត្តិ ជាមួយនឹងកូនសោ API និងកូដគំរូសម្រាប់យកទៅឱ្យ AI សរសេរកូដភ្លាមៗ!</i>`
+        : `📄 <b>OFFICIAL DEVELOPER INTEGRATION GUIDE (PDF)</b>\n\n` +
+          `• <b>API Key:</b> <code>${data.apiKey}</code>\n` +
+          `• <b>Webhook Secret:</b> <code>${data.secret}</code>\n` +
+          `• 🌐 <b>Live Gateway:</b> <code>${baseApiUrl}</code>\n` +
+          `• 🤖 <b>AI Coding Prompt:</b> <code>Page 2 (Ready for Cursor / Claude / ChatGPT)</code>\n\n` +
+          `<i>Attached is your official integration manual personalized with your live API keys, code snippets, and custom AI prompt!</i>`;
+
+      await notifier.sendDocument(telegramId, pdfPath, {
+        caption: pdfCaption,
+        parse_mode: 'HTML'
+      });
+      console.log(`[Notification Service] ✓ Automatically delivered integration guide PDF to user ${telegramId}`);
+    } catch (pdfErr) {
+      console.error(`[Notification Service] ⚠️ Could not auto-send PDF to ${telegramId}:`, pdfErr.message);
+    }
+
     // Broadcast instant alert to Admin Group (-5393647415)
     sendAdminAlert(
       `💰 <b>[PAYMENT & KEY ISSUED ALERT]</b>\n` +

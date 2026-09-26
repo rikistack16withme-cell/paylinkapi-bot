@@ -145,10 +145,14 @@ class PdfGeneratorService {
   /**
    * Generates a clean, executive-grade Developer Integration Guide PDF
    * including an AI Vibe Coding Master Prompt for ChatGPT / Claude / Cursor / v0
+   * fully tailored to whether the merchant registered Bakong Only, ABA Only, or Dual Rail!
    */
-  async generateIntegrationPdf({ telegramId, userName = 'Developer', apiKeys = [], baseUrl = 'https://paylinkapi-bot.onrender.com' }) {
+  async generateIntegrationPdf({ telegramId, userName = 'Developer', apiKeys = [], baseUrl = 'https://paylinkapi-bot.onrender.com', user: providedUser = null }) {
     return new Promise((resolve, reject) => {
       try {
+        const userService = require('./user.service');
+        const user = providedUser || userService.getUser(telegramId) || {};
+
         const fileName = `PaylinkApi_Integration_Guide_${telegramId}_${Date.now()}.pdf`;
         const filePath = path.join(this.tempDir, fileName);
 
@@ -172,15 +176,32 @@ class PdfGeneratorService {
           ? baseUrl.replace(/\/+$/, '')
           : (process.env.RENDER_EXTERNAL_URL || process.env.BASE_URL || 'https://paylinkapi-bot.onrender.com').replace(/\/+$/, '');
 
-        const sampleKey = (apiKeys && apiKeys[0]?.apiKey) || 'dp_live_your_api_key';
-        const sampleSecret = (apiKeys && apiKeys[0]?.secret) || 'whsec_sample_secret';
-        const sampleMerchant = (apiKeys && apiKeys[0]?.merchantName) || 'Merchant Store';
+        const primaryKey = (apiKeys && apiKeys[0]) || {};
+        const userProv = String(user?.provider || primaryKey?.provider || '').toLowerCase();
+        const isBakongOnly = (userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user?.bakongId || primaryKey?.bakongId) && !user?.usdLink && !primaryKey?.usdLink && !user?.khrLink && !primaryKey?.khrLink);
+        const isAbaOnly = (userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user?.usdLink || primaryKey?.usdLink || user?.khrLink || primaryKey?.khrLink) && !user?.bakongId && !primaryKey?.bakongId);
+        const isDual = !isBakongOnly && !isAbaOnly;
+
+        const sampleKey = primaryKey.apiKey || 'plk_live_your_api_key';
+        const sampleSecret = primaryKey.secret || 'whsec_sample_secret';
+        const sampleMerchant = primaryKey.merchantName || user.merchantName || userName || 'Merchant Store';
+        const sampleBakongId = user.bakongId || primaryKey.bakongId || 'ryjinn@aclb';
+
+        let railTitle = 'NBC BAKONG KHQR & ABA PAYWAY DUAL-RAIL';
+        let railBadge = 'DUAL ENGINE (KHQR & ABA)';
+        if (isBakongOnly) {
+          railTitle = 'NBC BAKONG NATIONAL KHQR RAIL';
+          railBadge = 'BAKONG KHQR ONLY';
+        } else if (isAbaOnly) {
+          railTitle = 'ABA PAYWAY GATEWAY RAIL';
+          railBadge = 'ABA PAYWAY ONLY';
+        }
 
         // =========================================================================
         // PAGE 1: CREDENTIALS, LIVE GATEWAY & QUICK WORKFLOW
         // =========================================================================
         doc.addPage();
-        this.drawHeader(doc, 'PAYLINKAPI GATEWAY', 'OFFICIAL DEVELOPER INTEGRATION MANUAL', 1, totalPages, userName, telegramId);
+        this.drawHeader(doc, 'PAYLINKAPI GATEWAY', `${railTitle} - DEVELOPER MANUAL`, 1, totalPages, userName, telegramId);
 
         let curY = 96;
 
@@ -204,12 +225,12 @@ class PdfGeneratorService {
             doc.fillColor('#FFFFFF')
               .fontSize(9)
               .font('Helvetica-Bold')
-              .text(`KEY #${idx + 1}: ${k.merchantName || 'Merchant Store'}`, 52, curY + 6);
+              .text(`KEY #${idx + 1}: ${k.merchantName || sampleMerchant}`, 52, curY + 6);
 
             doc.fillColor('#38BDF8')
               .fontSize(8)
               .font('Helvetica-Bold')
-              .text(k.provider || 'Bakong KHQR & ABA PayWay Dual Rail', 350, curY + 6, { align: 'right', width: 190 });
+              .text(railBadge, 350, curY + 6, { align: 'right', width: 190 });
 
             // Keys & Secrets
             const textY = curY + 28;
@@ -220,7 +241,9 @@ class PdfGeneratorService {
             doc.fillColor('#0F172A').font('Courier-Bold').text(k.secret || 'whsec_live_default', 130, textY + 16);
 
             doc.fillColor('#334155').font('Helvetica-Bold').text('Settlement:', 52, textY + 32);
-            const bankInfo = k.bakongId ? `Bakong: ${k.bakongId}` : (k.usdLink ? 'ABA PayWay Direct Link' : 'Automated Dual Rail');
+            const bankInfo = isBakongOnly
+              ? `Bakong Account: ${sampleBakongId}`
+              : (isAbaOnly ? 'ABA PayWay Direct Link' : `Bakong: ${sampleBakongId} | ABA: Active`);
             doc.fillColor('#2563EB').font('Helvetica-Bold').text(bankInfo, 130, textY + 32);
 
             curY += cardH + 12;
@@ -247,11 +270,26 @@ class PdfGeneratorService {
 
         curY += 42;
 
-        const endpoints = [
-          { method: 'POST', path: '/api/aba/generate-qr', desc: 'Create dynamic ABA/Bakong KHQR string & deeplink' },
-          { method: 'POST', path: '/api/aba/check-payment', desc: 'Verify transaction status (PAID or PENDING)' },
-          { method: 'GET',  path: '/api/bakong/check/:md5', desc: 'Direct National Bank of Cambodia hash status query' }
-        ];
+        let endpoints = [];
+        if (isBakongOnly) {
+          endpoints = [
+            { method: 'POST', path: '/api/payment/generate-qr', desc: 'Create NBC Bakong KHQR string & deeplink (Recommended)' },
+            { method: 'POST', path: '/api/bakong/generate-qr', desc: 'Dedicated NBC Bakong KHQR generation endpoint' },
+            { method: 'POST', path: '/api/payment/check', desc: 'Verify transaction settlement status (PAID or PENDING)' }
+          ];
+        } else if (isAbaOnly) {
+          endpoints = [
+            { method: 'POST', path: '/api/payment/generate-qr', desc: 'Create ABA PayWay QR code & deeplink (Recommended)' },
+            { method: 'POST', path: '/api/aba/generate-qr', desc: 'Dedicated ABA PayWay generation endpoint' },
+            { method: 'POST', path: '/api/payment/check', desc: 'Verify transaction settlement status (PAID or PENDING)' }
+          ];
+        } else {
+          endpoints = [
+            { method: 'POST', path: '/api/payment/generate-qr', desc: 'Unified QR Generator (Auto-routes Bakong / ABA)' },
+            { method: 'POST', path: '/api/bakong/generate-qr', desc: 'Direct NBC Bakong KHQR Generator' },
+            { method: 'POST', path: '/api/payment/check', desc: 'Unified Payment Check (All rails)' }
+          ];
+        }
 
         endpoints.forEach(ep => {
           doc.roundedRect(40, curY, 515, 24, 4).fillAndStroke('#F8FAFC', '#E2E8F0');
@@ -280,9 +318,9 @@ class PdfGeneratorService {
         curY = this.drawSectionHeader(doc, '3. QUICK INTEGRATION WORKFLOW (POLLING)', curY);
 
         const steps = [
-          { num: 'STEP 1', title: 'Generate QR Code', desc: `POST ${effectiveBaseUrl}/api/aba/generate-qr with Authorization header.` },
-          { num: 'STEP 2', title: 'Customer Scans & Pays', desc: 'Display the returned qrString or image. Customer scans with ABA or Bakong.' },
-          { num: 'STEP 3', title: 'Verify Settlement', desc: `Poll ${effectiveBaseUrl}/api/aba/check-payment every 2-3s until status is PAID.` }
+          { num: 'STEP 1', title: 'Generate QR Code', desc: `POST ${effectiveBaseUrl}/api/payment/generate-qr with Authorization header.` },
+          { num: 'STEP 2', title: 'Customer Scans & Pays', desc: isBakongOnly ? 'Display qrString or deeplink. Customer pays with any Cambodian Bank app.' : (isAbaOnly ? 'Display qrString or deeplink. Customer pays with ABA Mobile.' : 'Customer scans with Bakong, ABA Mobile, or any Cambodian bank app.') },
+          { num: 'STEP 3', title: 'Verify Settlement', desc: `Poll ${effectiveBaseUrl}/api/payment/check every 2-3s until status is PAID.` }
         ];
 
         steps.forEach((st) => {
@@ -306,7 +344,7 @@ class PdfGeneratorService {
         // PAGE 2: AI VIBE CODING PROMPT (FOR CURSOR, CHATGPT, CLAUDE, V0, BOLT)
         // =========================================================================
         doc.addPage();
-        this.drawHeader(doc, 'PAYLINKAPI GATEWAY', 'AI VIBE CODING MASTER PROMPT', 2, totalPages, userName, telegramId);
+        this.drawHeader(doc, 'PAYLINKAPI GATEWAY', `AI VIBE CODING MASTER PROMPT (${railBadge})`, 2, totalPages, userName, telegramId);
 
         let p2Y = 96;
 
@@ -328,42 +366,67 @@ class PdfGeneratorService {
 
         p2Y += 50;
 
-        const vibePrompt = 
-`You are an expert full-stack engineer. Build a Cambodian Payment Checkout integration using PaylinkApi Gateway (NBC Bakong KHQR & ABA PayWay) with the following specifications:
+        let aiRailInstruction = '';
+        let aiEndpointsInstruction = '';
+        if (isBakongOnly) {
+          aiRailInstruction =
+`   - Merchant Rail: NBC BAKONG KHQR ONLY (Account: ${sampleBakongId})
+   - CRITICAL REQUIREMENT FOR AI:
+     This merchant is registered EXCLUSIVELY for NBC Bakong KHQR. All customer payments MUST route directly to the merchant's Bakong ID (${sampleBakongId}). DO NOT generate ABA PayWay merchant links or ABA-only checkout. Customers can scan the generated KHQR using ANY Cambodian banking app (Bakong App, ACLEDA, ABA Mobile, Wing, Canadia, TrueMoney, Sathapana, FTB, etc.).`;
+          aiEndpointsInstruction =
+`   - Endpoint: POST ${effectiveBaseUrl}/api/payment/generate-qr  (or /api/bakong/generate-qr)
+     Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<UNIQUE_ORDER_ID>" }`;
+        } else if (isAbaOnly) {
+          aiRailInstruction =
+`   - Merchant Rail: ABA PAYWAY ONLY
+   - CRITICAL REQUIREMENT FOR AI:
+     This merchant is registered EXCLUSIVELY for ABA PayWay Gateway. All customer payments MUST generate ABA PayWay QR codes and deeplinks for ABA Mobile banking. DO NOT generate Bakong-only payloads.`;
+          aiEndpointsInstruction =
+`   - Endpoint: POST ${effectiveBaseUrl}/api/payment/generate-qr  (or /api/aba/generate-qr)
+     Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<UNIQUE_ORDER_ID>" }`;
+        } else {
+          aiRailInstruction =
+`   - Merchant Rail: DUAL-RAIL (NBC Bakong KHQR & ABA PayWay)
+   - CRITICAL REQUIREMENT FOR AI:
+     This merchant supports BOTH Bakong KHQR (for all Cambodian banking apps) AND ABA PayWay (for ABA Mobile). Use the unified auto-routing endpoint.`;
+          aiEndpointsInstruction =
+`   - Endpoint: POST ${effectiveBaseUrl}/api/payment/generate-qr
+     Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<UNIQUE_ORDER_ID>" }`;
+        }
 
-1. CONFIGURATION & CREDENTIALS:
+        const vibePrompt = 
+`You are an expert full-stack engineer. Build a Cambodian Payment Checkout integration using PaylinkApi Gateway with the following exact specifications:
+
+1. CONFIGURATION & MERCHANT CREDENTIALS:
    - Live Base URL: "${effectiveBaseUrl}"
    - Production API Key: "${sampleKey}"
    - Webhook Secret: "${sampleSecret}"
    - Merchant Name: "${sampleMerchant}"
    - Authorization Header: "Bearer ${sampleKey}"
-   - Enterprise Rate Limit: 60 req/min per IP (Automated Anti-DDoS Protection active)
+${aiRailInstruction}
+   - Anti-DDoS Rate Limit: 60 req/min per IP (Firewall active)
 
-2. STEP 1: INITIALIZE PAYMENT (GENERATE QR)
-   - When customer clicks "Pay Now", send POST request:
-     POST ${effectiveBaseUrl}/api/aba/generate-qr
-     Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${sampleKey}" }
-     Body: { "amount": <amount>, "currency": "USD" | "KHR" }
+2. STEP 1: INITIALIZE PAYMENT (GENERATE QR CODE)
+${aiEndpointsInstruction}
+   - Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${sampleKey}" }
    - Response contains:
-     { "status": "success", "qrString": "<KHQR_STRING>", "transactionId": "<TRAN_ID>", "deeplink": "<NBC_DEEPLINK>" }
+     { "success": true, "qrString": "<EMV_QR_STRING>", "tranId": "<TRAN_ID>", "deepLink": "<BANK_DEEPLINK>" }
 
 3. STEP 2: RENDER PAYMENT MODAL & KHQR
    - Display a modern checkout modal with:
-     a) QR Code generated from "qrString" (using qrcode.react or any QR renderer).
-     b) Formatted price ($ USD and KHR), Merchant Name, and Transaction ID.
-     c) Mobile Deep Link button: <a href="deeplink">Pay via Banking App</a>.
+     a) QR Code rendered from "qrString" (using 'qrcode.react' or standard QR canvas).
+     b) Formatted price ($ USD and KHR), Store Name ("${sampleMerchant}"), and Order ID.
+     c) Mobile Deep Link button: <a href="deepLink">Open Banking App to Pay</a>.
 
-4. STEP 3: REAL-TIME PAYMENT VERIFICATION & TELEGRAM SETTLEMENT ALERTS
-   - Set an automated 3-second interval polling:
-     POST ${effectiveBaseUrl}/api/aba/check-payment
+4. STEP 3: AUTOMATED SETTLEMENT VERIFICATION & TELEGRAM ALERTS
+   - Set an automated 2-3 second polling interval:
+     POST ${effectiveBaseUrl}/api/payment/check
      Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${sampleKey}" }
-     Body: { "transactionId": "<TRAN_ID>" }
-   - If response { "status": "PAID" }:
-     a) Clear the polling interval.
-     b) Show congratulations checkmark animation.
-     c) Update order state to "PAID" and deliver goods.
-     d) PaylinkApi automatically delivers an instant transaction alert directly to your Telegram Bot (@PayLinkAPI_bot) with amount, customer info, and timestamp!
-   - If { "status": "PENDING" }, keep checking until 5-minute timeout.
+     Body: { "tranId": "<TRAN_ID>" }
+   - When response { "status": "PAID", "paid": true }:
+     a) Clear interval, display success checkmark, and complete the customer order.
+     b) PaylinkApi automatically sends an instant transaction alert to your Telegram Bot!
+   - If { "status": "PENDING" }, continue polling until 5-minute timeout.
 
 5. STEP 4: OPTIONAL WEBHOOK LISTENER (BACKEND)
    - Listen for POST /api/webhook and verify 'X-Signature' header:
@@ -389,25 +452,25 @@ class PdfGeneratorService {
         // --- Node.js Sample ---
         p3Y = this.drawSectionHeader(doc, 'A. Node.js (JavaScript / Fetch)', p3Y);
         const nodeCode = 
-`// 1. Generate QR Code
-const genRes = await fetch('${effectiveBaseUrl}/api/aba/generate-qr', {
+`// 1. Generate Payment QR
+const genRes = await fetch('${effectiveBaseUrl}/api/payment/generate-qr', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ${sampleKey}'
   },
-  body: JSON.stringify({ amount: 1.00, currency: 'USD' })
+  body: JSON.stringify({ amount: 1.00, currency: 'USD', orderId: 'ORD_' + Date.now() })
 });
-const { qrString, transactionId } = await genRes.json();
+const { qrString, tranId, deepLink } = await genRes.json();
 
-// 2. Check Payment Status (Polling every 3 seconds)
-const checkRes = await fetch('${effectiveBaseUrl}/api/aba/check-payment', {
+// 2. Check Payment Status (Polling every 2-3 seconds)
+const checkRes = await fetch('${effectiveBaseUrl}/api/payment/check', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ${sampleKey}'
   },
-  body: JSON.stringify({ transactionId })
+  body: JSON.stringify({ tranId })
 });
 const result = await checkRes.json();
 if (result.status === 'PAID') {
@@ -420,15 +483,26 @@ if (result.status === 'PAID') {
         const pythonCode = 
 `import requests
 
-headers = { "Authorization": "Bearer ${sampleKey}" }
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer ${sampleKey}"
+}
 
-# 1. Generate QR
-res = requests.post("${effectiveBaseUrl}/api/aba/generate-qr", json={"amount": 1.00, "currency": "USD"}, headers=headers)
+# 1. Generate Payment QR
+res = requests.post(
+    "${effectiveBaseUrl}/api/payment/generate-qr",
+    json={"amount": 1.00, "currency": "USD", "orderId": "ORD_123"},
+    headers=headers
+)
 data = res.json()
-tran_id = data.get("transactionId")
+tran_id = data.get("tranId") or data.get("transactionId")
 
-# 2. Check Payment Status
-check = requests.post("${effectiveBaseUrl}/api/aba/check-payment", json={"transactionId": tran_id}, headers=headers)
+# 2. Check Payment Settlement Status
+check = requests.post(
+    "${effectiveBaseUrl}/api/payment/check",
+    json={"tranId": tran_id},
+    headers=headers
+)
 if check.json().get("status") == "PAID":
     print("Payment Verified Successfully!")`;
         p3Y = this.drawCodeBox(doc, 'Python 3', pythonCode, p3Y, { fontSize: 7.5, lineGap: 1.8, codeColor: '#A7F3D0' });
@@ -447,11 +521,19 @@ if check.json().get("status") == "PAID":
         p4Y = this.drawSectionHeader(doc, 'C. PHP (cURL)', p4Y);
         const phpCode = 
 `<?php
-$ch = curl_init("${effectiveBaseUrl}/api/aba/generate-qr");
+$ch = curl_init("${effectiveBaseUrl}/api/payment/generate-qr");
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER => ["Content-Type: application/json", "Authorization: Bearer ${sampleKey}"],
-    CURLOPT_POSTFIELDS => json_encode(["amount" => 1.00, "currency" => "USD"])
+    CURLOPT_POST => true,
+    CURLOPT_HTTPHEADER => [
+        "Content-Type: application/json",
+        "Authorization: Bearer ${sampleKey}"
+    ],
+    CURLOPT_POSTFIELDS => json_encode([
+        "amount" => 1.00,
+        "currency" => "USD",
+        "orderId" => "ORD_" . time()
+    ])
 ]);
 $res = json_decode(curl_exec($ch), true);
 curl_close($ch);
@@ -462,10 +544,10 @@ echo "QR String: " . $res["qrString"];
         // --- cURL CLI ---
         p4Y = this.drawSectionHeader(doc, 'D. cURL Command Line', p4Y);
         const curlCode = 
-`curl -X POST "${effectiveBaseUrl}/api/aba/generate-qr" \\
+`curl -X POST "${effectiveBaseUrl}/api/payment/generate-qr" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${sampleKey}" \\
-  -d '{"amount": 1.00, "currency": "USD"}'`;
+  -d '{"amount": 1.00, "currency": "USD", "orderId": "ORD_123"}'`;
         p4Y = this.drawCodeBox(doc, 'cURL CLI', curlCode, p4Y, { fontSize: 7.5, lineGap: 1.8, codeColor: '#F1F5F9' });
 
         // --- Webhook Verification ---
