@@ -84,9 +84,11 @@ function generateBakongKhqrCore({
       amountFormatted: curr === 'KHR' ? String(Math.round(amtNum)) : amtNum.toFixed(2),
       currency: curr,
       tranId: transactionId,
+      transactionId: transactionId,
       qrString,
       md5: md5Hash,
-      deepLink
+      deepLink,
+      deeplink: deepLink
     };
   }
 

@@ -415,10 +415,20 @@ router.post(['/payment/generate-qr', '/qr/generate', '/payment/create'], authent
     let bank = String(payload.bank || '').toUpperCase();
     if (!bank) {
       const userProv = String(req.auth?.provider || '').toLowerCase();
-      if (userProv.includes('bakong') && !userProv.includes('aba')) {
+      const hasCustomAba = Boolean(payload.merchantLink || req.auth?.khrLink || req.auth?.usdLink);
+      const hasBakong = Boolean(payload.merchantId || req.auth?.bakongId || req.auth?.merchantId);
+
+      if (hasBakong && !hasCustomAba) {
         bank = 'BAKONG';
-      } else {
+      } else if (hasCustomAba && !hasBakong) {
         bank = 'ABA';
+      } else if (userProv.includes('bakong') && !userProv.includes('aba')) {
+        bank = 'BAKONG';
+      } else if (userProv.includes('aba') && !userProv.includes('bakong')) {
+        bank = 'ABA';
+      } else {
+        // Dual Rail: default to BAKONG if Bakong configured, as Bakong KHQR is Cambodia's national standard
+        bank = hasBakong ? 'BAKONG' : 'ABA';
       }
     }
 
@@ -467,6 +477,7 @@ router.post(['/payment/generate-qr', '/qr/generate', '/payment/create'], authent
         qrString: result.qrString,
         md5: result.md5,
         deepLink: result.deepLink,
+        deeplink: result.deepLink,
         amount: result.amount,
         amountFormatted: result.amountFormatted,
         currency: result.currency,
@@ -812,6 +823,8 @@ router.post('/web/register-and-subscribe', async (req, res) => {
       amount = null,
       currency = 'USD',
       plan = '1w',
+      rail = null,
+      paymentRail = null,
       merchantData = {},
       payMethod = 'bakong' // 'bakong' or 'aba'
     } = req.body;
@@ -830,26 +843,60 @@ router.post('/web/register-and-subscribe', async (req, res) => {
       }
     }
 
+    // Determine explicitly requested merchant registration rail
+    const regRail = String(rail || paymentRail || (merchantData.merchantId && !merchantData.usdLink ? 'bakong' : (merchantData.usdLink && !merchantData.merchantId ? 'aba' : 'bundle'))).toLowerCase();
+
+    let providerName = 'Bakong KHQR';
+    if (regRail === 'aba') providerName = 'ABA PayWay Gateway';
+    if (regRail === 'bundle') providerName = 'Bakong + ABA Dual Suite';
+
     const user = userService.getUser(tId) || {};
     const storeName = merchantData.merchantName || user.merchantName || DEFAULT_STORE_NAME || 'Rikidev';
-    if (merchantData && typeof merchantData === 'object') {
-      const updateData = {};
-      if (merchantData.khrLink) updateData.khrLink = merchantData.khrLink;
-      if (merchantData.usdLink) updateData.usdLink = merchantData.usdLink;
-      if (merchantData.merchantId) updateData.merchantId = merchantData.merchantId;
-      if (merchantData.merchantName) updateData.merchantName = merchantData.merchantName;
-      if (merchantData.phone) updateData.phone = merchantData.phone;
-      if (Object.keys(updateData).length > 0) {
-        userService.updateUser(tId, updateData);
-      }
+
+    const updateData = {
+      provider: providerName,
+      providerKey: regRail,
+      merchantName: storeName,
+      phone: merchantData.phone || user.phone || '0977416126'
+    };
+
+    if (regRail === 'bakong') {
+      updateData.merchantId = merchantData.merchantId || user.merchantId || null;
+      updateData.bakongId = merchantData.merchantId || user.bakongId || null;
+      updateData.khrLink = null;
+      updateData.usdLink = null;
+    } else if (regRail === 'aba') {
+      updateData.khrLink = merchantData.khrLink || user.khrLink || null;
+      updateData.usdLink = merchantData.usdLink || user.usdLink || null;
+      updateData.merchantId = null;
+      updateData.bakongId = null;
+    } else {
+      updateData.merchantId = merchantData.merchantId || user.merchantId || null;
+      updateData.bakongId = merchantData.merchantId || user.bakongId || null;
+      updateData.khrLink = merchantData.khrLink || user.khrLink || null;
+      updateData.usdLink = merchantData.usdLink || user.usdLink || null;
     }
 
-    const method = String(payMethod || 'bakong').toLowerCase();
+    userService.updateUser(tId, updateData);
 
-    // Get active user API keys
+    // Get and synchronize active user API keys to match registered rail
     const userKeys = apiKeyService.getOrCreateUserKeys(tId);
+    if (userKeys && userKeys.length > 0) {
+      const k = userKeys[0];
+      k.provider = providerName;
+      k.merchantName = updateData.merchantName;
+      k.phone = updateData.phone;
+      k.bakongId = updateData.bakongId;
+      k.merchantId = updateData.merchantId;
+      k.khrLink = updateData.khrLink;
+      k.usdLink = updateData.usdLink;
+      db.saveApiKey(k);
+    }
+
     const activeKey = userKeys[0]?.apiKey || `plk_live_${tId}_active`;
     const secret = userKeys[0]?.secret || `whsec_${tId}_active`;
+
+    const method = String(payMethod || 'bakong').toLowerCase();
 
     const platformName = process.env.BRAND_NAME || 'PaylinkApi';
     const platformBakongId = process.env.DEFAULT_BAKONG_ACCOUNT || 'hut_soksitchey1@aclb';
@@ -878,6 +925,7 @@ router.post('/web/register-and-subscribe', async (req, res) => {
         currency: curr,
         status: 'PENDING',
         plan,
+        registeredRail: providerName,
         tranId: result.tranId,
         qrString: result.qrString,
         md5: result.md5,
@@ -887,7 +935,10 @@ router.post('/web/register-and-subscribe', async (req, res) => {
       return res.json({
         success: true,
         bank: 'BAKONG',
+        registeredRail: providerName,
+        paymentMethod: 'BAKONG',
         tranId: result.tranId,
+        transactionId: result.tranId,
         qrString: result.qrString,
         md5: result.md5,
         amount: amt,
@@ -895,6 +946,7 @@ router.post('/web/register-and-subscribe', async (req, res) => {
         currency: curr,
         merchantName: platformName,
         deepLink: result.deepLink,
+        deeplink: result.deepLink,
         apiKey: activeKey,
         secret: secret,
         plan: plan
@@ -929,6 +981,7 @@ router.post('/web/register-and-subscribe', async (req, res) => {
         currency: billCurr,
         status: 'PENDING',
         plan,
+        registeredRail: providerName,
         tranId: result.tranId,
         clientId: result.clientId,
         requestTime: result.requestTime,
@@ -942,7 +995,10 @@ router.post('/web/register-and-subscribe', async (req, res) => {
       return res.json({
         success: true,
         bank: 'ABA',
+        registeredRail: providerName,
+        paymentMethod: 'ABA',
         tranId: result.tranId,
+        transactionId: result.tranId,
         clientId: result.clientId,
         qrString: result.qrString,
         md5: result.md5,
@@ -952,6 +1008,7 @@ router.post('/web/register-and-subscribe', async (req, res) => {
         merchantName: platformName,
         merchantLink: result.merchantLink,
         deepLink: result.deepLink,
+        deeplink: result.deepLink,
         apiKey: activeKey,
         secret: secret,
         plan: plan

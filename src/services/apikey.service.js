@@ -62,15 +62,17 @@ class ApiKeyService {
 
       if (user) {
         const userProv = String(user.provider || '').toLowerCase();
-        const isBakongOnly = userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual');
-        const isAbaOnly = userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual');
+        const isBakongOnly = (userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user.bakongId || user.merchantId) && !user.usdLink && !user.khrLink);
+        const isAbaOnly = (userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user.usdLink || user.khrLink) && !user.bakongId && !user.merchantId);
 
         if (isBakongOnly) {
           if (existing[0].khrLink !== null) { existing[0].khrLink = null; changed = true; }
           if (existing[0].usdLink !== null) { existing[0].usdLink = null; changed = true; }
+          if (existing[0].provider !== 'Bakong KHQR') { existing[0].provider = 'Bakong KHQR'; changed = true; }
         } else if (isAbaOnly) {
           if (existing[0].bakongId !== null) { existing[0].bakongId = null; changed = true; }
           if (existing[0].merchantId !== null) { existing[0].merchantId = null; changed = true; }
+          if (existing[0].provider !== 'ABA PayWay Gateway') { existing[0].provider = 'ABA PayWay Gateway'; changed = true; }
         } else {
           if (existing[0].khrLink !== (user.khrLink || null)) { existing[0].khrLink = user.khrLink || null; changed = true; }
           if (existing[0].usdLink !== (user.usdLink || null)) { existing[0].usdLink = user.usdLink || null; changed = true; }
@@ -352,8 +354,8 @@ class ApiKeyService {
 
       const user = db.getUser(match.telegramId) || {};
       const userProv = String(user.provider || match.provider || '').toLowerCase();
-      const isBakongOnly = userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual');
-      const isAbaOnly = userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual');
+      const isBakongOnly = (userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user.bakongId || match.bakongId) && !user.usdLink && !match.usdLink && !user.khrLink && !match.khrLink);
+      const isAbaOnly = (userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user.usdLink || match.usdLink || user.khrLink || match.khrLink) && !user.bakongId && !match.bakongId);
 
       const resolvedBakong = !isAbaOnly ? (user.bakongId || user.merchantId || match.bakongId || match.merchantId || null) : null;
       const resolvedKhr = !isBakongOnly ? (user.khrLink || match.khrLink || null) : null;

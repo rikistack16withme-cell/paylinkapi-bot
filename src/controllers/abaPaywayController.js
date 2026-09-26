@@ -345,6 +345,52 @@ async function generateAbaQr(req, res) {
 
     const payload = req.body || {};
     const curr = String(payload.currency || 'USD').toUpperCase();
+
+    // Intelligent Rail Fallback: If merchant registered for Bakong KHQR and has no custom ABA links configured,
+    // seamlessly generate official Bakong KHQR so customer payments go to the merchant's registered Bakong account!
+    const hasCustomAbaLink = Boolean(payload.merchantLink || req.auth.khrLink || req.auth.usdLink);
+    const hasBakongAccount = Boolean(req.auth.bakongId || req.auth.merchantId || payload.merchantId);
+
+    if (!hasCustomAbaLink && hasBakongAccount) {
+      const { generateBakongKhqrCore } = require('../services/bakong_khqr.service');
+      const amount = parseFloat(payload.amount) || 1.00;
+      const merchantId = payload.merchantId || req.auth.bakongId || req.auth.merchantId;
+      const merchantName = payload.merchantName || req.auth.merchantName || 'Merchant Store';
+      const phone = payload.phone || req.auth.phone || '0977416126';
+
+      const bakongResult = generateBakongKhqrCore({
+        amount,
+        currency: curr,
+        merchantId,
+        merchantName,
+        phone,
+        tranId: payload.orderId || payload.tranId
+      });
+
+      const orderService = require('../services/order.service');
+      const targetTelegramId = req.auth?.telegramId || payload.telegramId || '8665505824';
+      orderService.savePaymentTransaction({
+        telegramId: targetTelegramId,
+        bank: 'BAKONG',
+        amount: bakongResult.amount,
+        amountFormatted: bakongResult.amountFormatted,
+        currency: curr,
+        status: 'PENDING',
+        tranId: bakongResult.tranId,
+        qrString: bakongResult.qrString,
+        md5: bakongResult.md5,
+        deepLink: bakongResult.deepLink,
+        merchantName
+      });
+
+      return res.json({
+        ...bakongResult,
+        transactionId: bakongResult.tranId,
+        deeplink: bakongResult.deepLink,
+        railNotice: 'Auto-routed to registered Bakong KHQR destination (No custom ABA merchant link configured)'
+      });
+    }
+
     const merchantLink = payload.merchantLink || (curr === 'KHR' ? req.auth.khrLink : req.auth.usdLink) || (curr === 'KHR' ? DEFAULT_MERCHANT_LINK_KHR : DEFAULT_MERCHANT_LINK_USD);
 
     const result = await generateAbaQrCore({
@@ -380,7 +426,8 @@ async function generateAbaQr(req, res) {
 
     return res.json({
       ...result,
-      transactionId: result.tranId
+      transactionId: result.tranId,
+      deeplink: result.deepLink
     });
   } catch (error) {
     console.error('[ABA QR Generation Error]:', error);
@@ -494,12 +541,20 @@ async function checkAbaPayment(req, res) {
         }
       }
 
+      const userKeys = apiKeyService.getOrCreateUserKeys(targetTelegramId);
+      const activeKey = userKeys[0]?.apiKey || `plk_live_${targetTelegramId}_active`;
+      const activeSecret = userKeys[0]?.secret || `whsec_${targetTelegramId}_active`;
+      const user = userService.getUser(targetTelegramId) || {};
+
       return res.json({
         success: true,
         paid: true,
         status: 'PAID',
         tranId: activeTranId,
         transactionId: activeTranId,
+        apiKey: activeKey,
+        secret: activeSecret,
+        registeredRail: tx?.registeredRail || user.provider || userKeys[0]?.provider || 'NBC Bakong National KHQR',
         amount: tx?.amount || payload.amount || 1.00,
         currency: tx?.currency || payload.currency || 'USD',
         notifiedTelegramId: targetTelegramId,

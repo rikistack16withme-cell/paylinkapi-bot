@@ -46,7 +46,7 @@ async function sendPaymentSuccessNotification(telegramId, data) {
   const animReceipt = tgEmoji('receipt');
   const animBank = tgEmoji('clearing');
 
-  const text =
+  const textHeader =
     `${animParty} <b>${isKm ? 'ការទូទាត់ជោគជ័យ • បញ្ចេញកូនសោ API KEY' : 'PAYMENT SUCCESS • API CREDENTIALS ISSUED'}</b> ${animStar}\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
     `${animBank} <b>${isKm ? 'ប្រព័ន្ធ:' : 'PLATFORM:'}</b> <code>PaylinkApi Global Gateway</code>\n` +
@@ -59,10 +59,42 @@ async function sendPaymentSuccessNotification(telegramId, data) {
     `<code>${data.apiKey}</code>\n\n` +
     `${animShield} <b>${isKm ? 'WEBHOOK SECRET:' : 'WEBHOOK SECRET:'}</b>\n` +
     `<code>${data.secret}</code>\n` +
-    `<code>─────────────────────────────</code>\n\n` +
-    `${animServer} <b>PRODUCTION REST GATEWAY ENDPOINTS:</b>\n` +
-    `• <b>ABA QR Generator:</b>\n  <code>POST ${process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com'}/api/aba/generate-qr</code>\n` +
-    `• <b>Payment Status Check:</b>\n  <code>POST ${process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com'}/api/aba/check-payment</code>\n\n` +
+    `<code>─────────────────────────────</code>\n\n`;
+
+  const userService = require('./user.service');
+  const apiKeyService = require('./apikey.service');
+  const user = userService.getUser(telegramId) || {};
+  const userKeys = apiKeyService.getUserApiKeys(telegramId);
+  const activeKeyObj = userKeys[0] || {};
+  const userProv = String(user.provider || activeKeyObj.provider || '').toLowerCase();
+  const isBakongOnly = userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual');
+  const isAbaOnly = userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual');
+  const baseApiUrl = process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com';
+
+  let endpointsBlock = '';
+  if (isBakongOnly) {
+    endpointsBlock =
+      `${animServer} <b>PRODUCTION REST GATEWAY ENDPOINTS (NBC BAKONG KHQR):</b>\n` +
+      `• <b>Create Payment QR (POST):</b>\n  <code>${baseApiUrl}/api/payment/generate-qr</code>\n` +
+      `• <b>Direct Bakong Endpoint (POST):</b>\n  <code>${baseApiUrl}/api/bakong/generate-qr</code>\n` +
+      `• <b>Payment Status Check:</b>\n  <code>POST ${baseApiUrl}/api/payment/check</code>\n\n`;
+  } else if (isAbaOnly) {
+    endpointsBlock =
+      `${animServer} <b>PRODUCTION REST GATEWAY ENDPOINTS (ABA PAYWAY):</b>\n` +
+      `• <b>Create Payment QR (POST):</b>\n  <code>${baseApiUrl}/api/payment/generate-qr</code>\n` +
+      `• <b>Direct ABA Endpoint (POST):</b>\n  <code>${baseApiUrl}/api/aba/generate-qr</code>\n` +
+      `• <b>Payment Status Check:</b>\n  <code>POST ${baseApiUrl}/api/payment/check</code>\n\n`;
+  } else {
+    endpointsBlock =
+      `${animServer} <b>PRODUCTION REST GATEWAY ENDPOINTS (UNIFIED DUAL-RAIL):</b>\n` +
+      `• <b>Unified QR Generator (Auto-Rail):</b>\n  <code>POST ${baseApiUrl}/api/payment/generate-qr</code>\n` +
+      `• <b>Bakong KHQR Generator:</b>\n  <code>POST ${baseApiUrl}/api/bakong/generate-qr</code>\n` +
+      `• <b>ABA PayWay Generator:</b>\n  <code>POST ${baseApiUrl}/api/aba/generate-qr</code>\n` +
+      `• <b>Unified Payment Check:</b>\n  <code>POST ${baseApiUrl}/api/payment/check</code>\n\n`;
+  }
+
+  const text = textHeader +
+    endpointsBlock +
     `<i>${animBulb} ${isKm ? 'ទិន្នន័យគណនីរបស់អ្នកត្រូវបានរក្សាទុកដោយសុវត្ថិភាព។ លោកអ្នកអាចប្រើប្រាស់ API Key នេះក្នុងការភ្ជាប់ប្រព័ន្ធទូទាត់បានភ្លាមៗ!' : 'Your merchant data is saved and your live API key is ready for immediate integration!'}</i>`;
 
   const keyboard = {

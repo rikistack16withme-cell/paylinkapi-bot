@@ -30,6 +30,7 @@ export default function RegisterPortal() {
   const [telegramId, setTelegramId] = useState('7283817695');
   const [currency, setCurrency] = useState('USD');
   const [paymentRail, setPaymentRail] = useState('bundle'); // 'bundle', 'bakong', 'aba'
+  const [payMethod, setPayMethod] = useState('aba'); // 'aba' or 'bakong' for subscription checkout
   const [plan, setPlan] = useState('1w'); // '1w', '1m', '1y'
 
   // Merchant Credentials (empty by default as requested)
@@ -120,6 +121,9 @@ export default function RegisterPortal() {
             const res = await fetch(`/api/bakong/check/${qrData.md5}`);
             const result = await res.json();
             if (result.status === 'SUCCESS' || result.responseCode === 0) {
+              if (result.apiKey) {
+                setQrData(prev => ({ ...prev, ...result }));
+              }
               setStep(4);
             }
           } else if (qrData.bank === 'ABA') {
@@ -134,6 +138,9 @@ export default function RegisterPortal() {
             });
             const result = await res.json();
             if (result.paid || result.status === 'SUCCESS') {
+              if (result.apiKey) {
+                setQrData(prev => ({ ...prev, ...result }));
+              }
               setStep(4);
             }
           }
@@ -173,21 +180,21 @@ export default function RegisterPortal() {
 
     try {
       const planInfo = getPlanPrice(plan, currency);
-      // Determine effective checkout provider: if bundle, default to bakong clearing with dual credentials stored
-      const checkoutMethod = paymentRail === 'aba' ? 'aba' : 'bakong';
 
       const payload = {
         telegramId,
         currency,
         plan,
         amount: planInfo.amount,
-        payMethod: checkoutMethod,
+        rail: paymentRail,
+        paymentRail,
+        payMethod: payMethod || 'aba',
         merchantData: {
-          merchantId: bakongAccount || '',
+          merchantId: paymentRail === 'aba' ? '' : (bakongAccount || ''),
           merchantName: storeName || '',
           phone: phone || '',
-          usdLink: abaUsdLink || '',
-          khrLink: abaKhrLink || ''
+          usdLink: paymentRail === 'bakong' ? '' : (abaUsdLink || ''),
+          khrLink: paymentRail === 'bakong' ? '' : (abaKhrLink || '')
         }
       };
 
@@ -631,6 +638,58 @@ export default function RegisterPortal() {
             </div>
           </div>
 
+          {/* Payment Method Selector for Subscription Fee */}
+          <div style={{ marginTop: '20px' }}>
+            <label className="field-label" style={{ marginBottom: '8px', display: 'block' }}>Pay Subscription Fee Via</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: `2px solid ${payMethod === 'bakong' ? '#e11900' : '#e2e8f0'}`,
+                  background: payMethod === 'bakong' ? '#fff5f5' : '#ffffff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  transition: 'all 0.2s ease'
+                }}
+                onClick={() => setPayMethod('bakong')}
+              >
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e11900', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '9px', flexShrink: 0 }}>
+                  KHQR
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>Bakong KHQR</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Scan Any Banking App</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: `2px solid ${payMethod === 'aba' ? '#002D56' : '#e2e8f0'}`,
+                  background: payMethod === 'aba' ? '#f0f7ff' : '#ffffff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  transition: 'all 0.2s ease'
+                }}
+                onClick={() => setPayMethod('aba')}
+              >
+                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#002D56', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '10px', flexShrink: 0 }}>
+                  ABA
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>ABA PayWay</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Open ABA Mobile App</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style={{
             margin: '20px 0',
             padding: '14px',
@@ -645,7 +704,7 @@ export default function RegisterPortal() {
               Linked Telegram ID: <strong style={{ color: '#0f172a' }}>{telegramId}</strong>
             </div>
             <div style={{ fontSize: '13px', color: '#004f71' }}>
-              Rail: <strong style={{ color: '#0f172a' }}>{paymentRail === 'bundle' ? 'DUAL SUITE' : paymentRail.toUpperCase()}</strong>
+              Merchant Rail: <strong style={{ color: paymentRail === 'bakong' ? '#e11900' : (paymentRail === 'aba' ? '#004f71' : '#7c3aed') }}>{paymentRail === 'bundle' ? 'DUAL SUITE' : paymentRail.toUpperCase()}</strong>
             </div>
           </div>
 
@@ -876,9 +935,15 @@ export default function RegisterPortal() {
               <strong style={{ color: '#0f172a' }}>{qrData?.tranId || `TX-${Date.now()}`}</strong>
             </div>
             <div className="receipt-row">
-              <span style={{ color: '#64748b' }}>Cleared Via</span>
+              <span style={{ color: '#64748b' }}>Registered Merchant Rail</span>
+              <strong style={{ color: paymentRail === 'bakong' ? '#e11900' : (paymentRail === 'aba' ? '#004f71' : '#7c3aed') }}>
+                {paymentRail === 'bakong' ? 'NBC Bakong National KHQR' : (paymentRail === 'aba' ? 'ABA PayWay Gateway' : 'Bakong + ABA Dual Suite')}
+              </strong>
+            </div>
+            <div className="receipt-row">
+              <span style={{ color: '#64748b' }}>Subscription Paid Via</span>
               <strong style={{ color: qrData?.bank === 'ABA' ? '#004f71' : '#e11900' }}>
-                {qrData?.bank === 'ABA' ? 'ABA PayWay Rail' : 'NBC Bakong KHQR'}
+                {qrData?.bank === 'ABA' ? 'ABA PayWay Checkout' : 'NBC Bakong KHQR'}
               </strong>
             </div>
             <div className="receipt-row">
@@ -917,6 +982,20 @@ export default function RegisterPortal() {
                 >
                   <Copy size={13} style={{ display: 'inline', marginRight: '4px' }} /> Copy
                 </button>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '14px', padding: '12px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                How to Create Payment QR (POST)
+              </div>
+              <code style={{ fontSize: '12px', color: '#0f172a', wordBreak: 'break-all', display: 'block' }}>
+                {paymentRail === 'bakong'
+                  ? '/api/payment/generate-qr (or /api/bakong/generate-qr)'
+                  : (paymentRail === 'aba' ? '/api/payment/generate-qr (or /api/aba/generate-qr)' : '/api/payment/generate-qr')}
+              </code>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                Header: <code>Authorization: Bearer {'<API_KEY>'}</code>
               </div>
             </div>
           </div>

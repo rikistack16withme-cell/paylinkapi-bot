@@ -842,6 +842,7 @@ async function handleConfirmSubmit(bot, query) {
   const session = sessionManager.getSession(from.id);
   const isKm = lang === 'km';
 
+  const details = session?.data || {};
   const providerKey = session?.data?.providerKey ||
     (session?.data?.provider?.includes('bundle') || (details.merchantId && (details.khrLink || details.usdLink)) ? 'bundle' :
     (details.khrLink || details.usdLink ? 'aba' : 'bakong'));
@@ -851,7 +852,6 @@ async function handleConfirmSubmit(bot, query) {
   if (providerKey === 'bundle') providerName = 'Bakong + ABA Dual Suite';
 
   const currency = 'USD ($) + KHR (៛) Dual Mode';
-  const details = session?.data || {};
 
   // Create order in DB
   const newOrder = orderService.createPlaceholderOrder(from.id, providerName, currency, details);
@@ -1619,7 +1619,14 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
     `${formatter.divider}\n\n` +
     `${tgEmoji('telemetry')} <b>${isKm ? 'របៀបតភ្ជាប់ជាមួយប្រព័ន្ធ API (HOW TO CONNECT):' : 'HOW TO CONNECT TO YOUR LIVE API:'}</b>\n\n` +
     `🌐 <b>Base Gateway URL:</b>\n<code>${baseUrl}</code>\n\n` +
-    `📡 <b>Create Payment QR (POST):</b>\n<code>${baseUrl}/api/aba/generate-qr</code>\n\n` +
+    (isBakongOnly
+      ? `📡 <b>Create Payment QR (POST):</b>\n<code>${baseUrl}/api/payment/generate-qr</code>\n<i>(or <code>${baseUrl}/api/bakong/generate-qr</code>)</i>\n\n` +
+        `🔍 <b>Verify Payment (POST):</b>\n<code>${baseUrl}/api/payment/check</code>\n\n`
+      : isAbaOnly
+      ? `📡 <b>Create Payment QR (POST):</b>\n<code>${baseUrl}/api/payment/generate-qr</code>\n<i>(or <code>${baseUrl}/api/aba/generate-qr</code>)</i>\n\n` +
+        `🔍 <b>Verify Payment (POST):</b>\n<code>${baseUrl}/api/payment/check</code>\n\n`
+      : `📡 <b>Unified Payment QR (POST):</b>\n<code>${baseUrl}/api/payment/generate-qr</code>\n\n` +
+        `🔍 <b>Unified Payment Check (POST):</b>\n<code>${baseUrl}/api/payment/check</code>\n\n`) +
     `🔑 <b>Request Header:</b>\n<code>Authorization: Bearer ${activeKey}</code>\n\n` +
     `🛡️ <b>Security & Anti-DDoS:</b> <code>Rate limit 60 req/min, DDoS firewall auto-ban active</code>\n` +
     `${formatter.divider}\n` +
