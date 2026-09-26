@@ -98,20 +98,28 @@ class ApiKeyService {
     const durationDays = getDurationDays(planKey);
     const now = new Date();
 
+    const userProv = String(user?.provider || '').toLowerCase();
+    const isBakongOnly = (userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user?.bakongId || user?.merchantId) && !user?.usdLink && !user?.khrLink);
+    const isAbaOnly = (userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user?.usdLink || user?.khrLink) && !user?.bakongId && !user?.merchantId);
+
+    const resolvedProvider = isBakongOnly
+      ? 'Bakong KHQR'
+      : (isAbaOnly ? 'ABA PayWay Gateway' : (user?.provider || 'Dual Suite (ABA & Bakong)'));
+
     const liveKey = {
       id: `key_${tId}`,
       telegramId: tId,
-      provider: user?.provider || 'NBC Bakong National KHQR',
+      provider: resolvedProvider,
       tier: 'Production Live Rail',
       apiKey: `plk_live_${tId}_${crypto.randomBytes(4).toString('hex')}`,
       secret: `whsec_${crypto.randomBytes(8).toString('hex')}`,
       status: 'ACTIVE',
       isMock: false,
-      bakongId: user?.bakongId || user?.merchantId || null,
-      merchantId: user?.merchantId || user?.bakongId || null,
+      bakongId: isAbaOnly ? null : (user?.bakongId || user?.merchantId || null),
+      merchantId: isAbaOnly ? null : (user?.merchantId || user?.bakongId || null),
       phone: user?.phone || null,
-      khrLink: user?.khrLink || null,
-      usdLink: user?.usdLink || null,
+      khrLink: isBakongOnly ? null : (user?.khrLink || null),
+      usdLink: isBakongOnly ? null : (user?.usdLink || null),
       merchantName: user?.merchantName || (user?.firstName ? `${user.firstName}'s Store` : 'Merchant Store'),
       plan: planKey,
       durationDays,

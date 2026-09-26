@@ -39,15 +39,26 @@ function generateBakongKhqrCore({
   tranId = null,
   expiryHours = 24
 } = {}) {
-  const curr = String(currency || 'USD').toUpperCase();
-  const amtNum = parseFloat(amount) || (curr === 'KHR' ? 400 : 0.10);
-  const accountId = (merchantId && merchantId.trim()) || DEFAULT_BAKONG_ACCOUNT;
-  const storeName = ((merchantName && merchantName.trim()) || DEFAULT_STORE_NAME).slice(0, 25);
-  const transactionId = tranId || `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  const acquiringBank = getAcquiringBankName(accountId);
+  const curr = String(currency || 'USD').toUpperCase().trim();
+  const rawAmt = parseFloat(amount);
+  const amtNum = (!isNaN(rawAmt) && rawAmt > 0) ? rawAmt : (curr === 'KHR' ? 400 : 0.10);
+  const accountId = (merchantId && String(merchantId).trim()) || DEFAULT_BAKONG_ACCOUNT;
+  const storeName = ((merchantName && String(merchantName).trim()) || DEFAULT_STORE_NAME).slice(0, 25);
+  
+  // Preserve original tranId for merchant tracking and order reconciliation
+  const rawTranId = tranId ? String(tranId).trim() : `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  
+  // EMVCo / NBC Tag 62 Subtag 01 (Bill Number) strictly limits length to 25 characters.
+  // We sanitize to safe alphanumeric/hyphen/underscore and take the trailing 25 chars.
+  const sanitizedBill = rawTranId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const emvBillNumber = (sanitizedBill.length > 0 ? sanitizedBill.slice(-25) : `${Date.now()}`).slice(-25);
 
   // 24-hour expiration timestamp (NBC dynamic KHQR standard)
-  const expirationTimestamp = Date.now() + (expiryHours * 60 * 60 * 1000);
+  const expHours = parseFloat(expiryHours) || 24;
+  const expirationTimestamp = Date.now() + (expHours * 60 * 60 * 1000);
+
+  // Mobile number must be valid digits or undefined if empty
+  const cleanPhone = phone ? String(phone).replace(/[^0-9+]/g, '').slice(0, 25) : undefined;
 
   // Clean individual KHQR parameters compliant with NBC / EMVCo Tag 29 standard
   // Note: Tag 29 is Individual Account and only accepts subtag 00 (bakongAccountId).
@@ -60,8 +71,8 @@ function generateBakongKhqrCore({
     {
       currency: curr === 'KHR' ? khqrData.currency.khr : khqrData.currency.usd,
       amount: amtNum,
-      billNumber: String(transactionId),
-      mobileNumber: phone ? String(phone).replace(/[^0-9+]/g, '') : undefined,
+      billNumber: emvBillNumber,
+      mobileNumber: cleanPhone || undefined,
       storeLabel: storeName,
       terminalLabel: 'POS-01',
       expirationTimestamp
@@ -83,12 +94,14 @@ function generateBakongKhqrCore({
       amount: amtNum,
       amountFormatted: curr === 'KHR' ? String(Math.round(amtNum)) : amtNum.toFixed(2),
       currency: curr,
-      tranId: transactionId,
-      transactionId: transactionId,
+      tranId: rawTranId,
+      transactionId: rawTranId,
+      billNumber: emvBillNumber,
       qrString,
       md5: md5Hash,
       deepLink,
-      deeplink: deepLink
+      deeplink: deepLink,
+      status: 'PENDING'
     };
   }
 
