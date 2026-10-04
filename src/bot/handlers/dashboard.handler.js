@@ -22,7 +22,7 @@ async function renderDashboard(bot, chatId, messageId, from) {
   if (userKeys && userKeys.length > 0) {
     const key = userKeys[0];
     const countdown = apiKeyService.getExpiryCountdown(key, lang);
-    const planTitle = apiKeyService.getPlanTitle(key.plan, lang);
+    const planTitle = apiKeyService.getPlanTitle(key.plan, lang, key);
     const badge = countdown.isExpired
       ? `${tgEmoji('alert')} <b>[ EXPIRED ]</b>`
       : (countdown.isExpiringSoon ? `${tgEmoji('pending')} <b>[ EXPIRING SOON ]</b>` : `${tgEmoji('active')} <b>[ ACTIVE ]</b>`);

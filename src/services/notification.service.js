@@ -30,8 +30,9 @@ async function sendPaymentSuccessNotification(telegramId, data) {
   const lang = userService.getUserLanguage(telegramId) || 'km';
   const isKm = lang === 'km';
 
-  const planName = data.plan === '1y' ? '1 Year Enterprise ($15.00)' : (data.plan === '1m' ? '1 Month Pro ($2.50)' : '1 Week Pass ($0.50)');
-  const amountStr = data.amountFormatted || (data.amount ? `${data.amount} ${data.currency || 'USD'}` : '2,000 ៛ KHR / $0.50 USD');
+  const apiKeyService = require('./apikey.service');
+  const planName = data.planTitle || apiKeyService.getPlanTitle(data.plan, lang, data.key || data.provider || data.rail);
+  const amountStr = data.amountFormatted || (data.amount ? `${data.amount} ${data.currency || 'USD'}` : 'Live Rail Verified');
 
   // Animated Telegram custom emojis
   const animStar = tgEmoji('brand');

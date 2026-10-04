@@ -1289,15 +1289,15 @@ async function handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId 
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton('7 Days Trial ($0.50)', `admin_wstep_days_${targetId}_${rail}_7`, 'telemetry', 'primary'),
-        makeButton('30 Days Standard ($2.50)', `admin_wstep_days_${targetId}_${rail}_30`, 'brand', 'primary')
+        makeButton('7 Days Trial (Free / $0.50-$1.50)', `admin_wstep_days_${targetId}_${rail}_7`, 'telemetry', 'primary'),
+        makeButton('30 Days Standard ($2.50-$3.50)', `admin_wstep_days_${targetId}_${rail}_30`, 'brand', 'primary')
       ],
       [
         makeButton('90 Days Quarter ($5.00)', `admin_wstep_days_${targetId}_${rail}_90`, 'telemetry', 'primary'),
         makeButton('180 Days Half-Year ($8.00)', `admin_wstep_days_${targetId}_${rail}_180`, 'brand', 'primary')
       ],
       [
-        makeButton('365 Days Enterprise ($15.00)', `admin_wstep_days_${targetId}_${rail}_365`, 'crown', 'success'),
+        makeButton('365 Days Enterprise ($15-$25)', `admin_wstep_days_${targetId}_${rail}_365`, 'crown', 'success'),
         makeButton('♾️ Permanent (9999 Days)', `admin_wstep_days_${targetId}_${rail}_9999`, 'verified', 'secondary')
       ],
       [
@@ -1517,11 +1517,11 @@ async function handleAdminPickDays(bot, chatId, targetId, messageId = null) {
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton('7 Days ($0.50)', `admin_do_set_days_7_${targetId}`, 'telemetry', 'primary'),
+        makeButton('7 Days ($0.50-$1.50)', `admin_do_set_days_7_${targetId}`, 'telemetry', 'primary'),
         makeButton('14 Days (2 Weeks)', `admin_do_set_days_14_${targetId}`, 'telemetry', 'primary')
       ],
       [
-        makeButton('30 Days ($2.50)', `admin_do_set_days_30_${targetId}`, 'brand', 'primary'),
+        makeButton('30 Days ($2.50-$3.50)', `admin_do_set_days_30_${targetId}`, 'brand', 'primary'),
         makeButton('60 Days (2 Months)', `admin_do_set_days_60_${targetId}`, 'brand', 'primary')
       ],
       [
@@ -1529,7 +1529,7 @@ async function handleAdminPickDays(bot, chatId, targetId, messageId = null) {
         makeButton('180 Days ($8.00)', `admin_do_set_days_180_${targetId}`, 'brand', 'primary')
       ],
       [
-        makeButton('365 Days 1-Year ($15.00)', `admin_do_set_days_365_${targetId}`, 'crown', 'success'),
+        makeButton('365 Days 1-Year ($15-$25)', `admin_do_set_days_365_${targetId}`, 'crown', 'success'),
         makeButton('♾️ Permanent (9999 Days)', `admin_do_set_days_9999_${targetId}`, 'verified', 'secondary')
       ],
       [

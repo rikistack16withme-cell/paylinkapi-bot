@@ -24,7 +24,7 @@ async function handleApiKeys(bot, query) {
     userKeys.forEach((key, index) => {
       const provIcon = (key.provider || '').includes('Bakong') ? tgEmoji('bakong') : tgEmoji('aba');
       const countdown = apiKeyService.getExpiryCountdown(key, lang);
-      const planTitle = apiKeyService.getPlanTitle(key.plan, lang);
+      const planTitle = apiKeyService.getPlanTitle(key.plan, lang, key);
       const statusBadge = countdown.isExpired
         ? (isKm ? '🔴 [ ផុតសុពលភាព - EXPIRED ]' : '🔴 [ EXPIRED ]')
         : (isKm ? '🟢 [ សកម្ម - ACTIVE ]' : '🟢 [ ACTIVE ]');

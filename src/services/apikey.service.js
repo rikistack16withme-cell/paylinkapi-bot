@@ -2,24 +2,43 @@ const crypto = require('node:crypto');
 const db = require('../database');
 
 const PLAN_DURATIONS = {
+  '1w_free': 7,
+  'trial': 7,
   '1w': 7,
   '1m': 30,
-  '1y': 365
+  '1y': 365,
+  'bundle_1w': 7,
+  'bundle_1m': 30,
+  'bundle_1y': 365
 };
 
 const PLAN_TITLES = {
+  '1w_free': '1 Week Free Trial (Free)',
+  'trial': '1 Week Free Trial (Free)',
   '1w': '1 Week Pass ($0.50)',
   '1m': '1 Month Pro ($2.50)',
-  '1y': '1 Year Enterprise ($15.00)'
+  '1y': '1 Year Enterprise ($15.00)',
+  'bundle_1w': 'ABA + Bakong 1 Week ($1.50)',
+  'bundle_1m': 'ABA + Bakong 1 Month Pro ($3.50)',
+  'bundle_1y': 'ABA + Bakong 1 Year Enterprise ($25.00)'
 };
 
 const PLAN_INFO = {
-  '1w': { days: 7, nameKm: 'កញ្ចប់សាកល្បង ១ សប្តាហ៍ ($0.50)', nameEn: '1 Week Pass ($0.50)' },
-  '1m': { days: 30, nameKm: 'កញ្ចប់អាជីវកម្ម ១ ខែ ($2.50)', nameEn: '1 Month Pro ($2.50)' },
-  '1y': { days: 365, nameKm: 'កញ្ចប់សហគ្រាស ១ ឆ្នាំ ($15.00)', nameEn: '1 Year Enterprise ($15.00)' }
+  '1w_free': { days: 7, nameKm: 'កញ្ចប់សាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (Free Trial)', nameEn: '1 Week Free Trial (Free)', priceUsd: 0 },
+  'trial': { days: 7, nameKm: 'កញ្ចប់សាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (Free Trial)', nameEn: '1 Week Free Trial (Free)', priceUsd: 0 },
+
+  // Single Provider (Bakong or ABA alone)
+  '1w': { days: 7, nameKm: 'កញ្ចប់ ១ សប្តាហ៍ ($0.50)', nameEn: '1 Week Pass ($0.50)', priceUsd: 0.50, priceKhr: 2000 },
+  '1m': { days: 30, nameKm: 'កញ្ចប់ ១ ខែ ($2.50)', nameEn: '1 Month Pro ($2.50)', priceUsd: 2.50, priceKhr: 10000 },
+  '1y': { days: 365, nameKm: 'កញ្ចប់ ១ ឆ្នាំ ($15.00)', nameEn: '1 Year Enterprise ($15.00)', priceUsd: 15.00, priceKhr: 60000 },
+
+  // Dual / Bundle Provider (ABA + Bakong)
+  'bundle_1w': { days: 7, nameKm: 'កញ្ចប់រួម ABA + Bakong ១ សប្តាហ៍ ($1.50)', nameEn: 'ABA + Bakong 1 Week ($1.50)', priceUsd: 1.50, priceKhr: 6000 },
+  'bundle_1m': { days: 30, nameKm: 'កញ្ចប់រួម ABA + Bakong ១ ខែ ($3.50)', nameEn: 'ABA + Bakong 1 Month Pro ($3.50)', priceUsd: 3.50, priceKhr: 14000 },
+  'bundle_1y': { days: 365, nameKm: 'កញ្ចប់រួម ABA + Bakong ១ ឆ្នាំ ($25.00)', nameEn: 'ABA + Bakong 1 Year Enterprise ($25.00)', priceUsd: 25.00, priceKhr: 100000 }
 };
 
-function getDurationDays(planKey = '1w') {
+function getDurationDays(planKey = '1w_free') {
   return PLAN_DURATIONS[planKey] || 7;
 }
 
@@ -34,8 +53,32 @@ class ApiKeyService {
     return PLAN_DURATIONS;
   }
 
-  getPlanTitle(planKey, lang = 'km') {
-    const info = PLAN_INFO[planKey] || PLAN_INFO['1w'];
+  getPlanTitle(planKey, lang = 'km', keyOrProvider = null) {
+    if (planKey === '1w_free' || planKey === 'trial') {
+      return lang === 'km' ? 'កញ្ចប់សាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (Free Trial)' : '1 Week Free Trial (Free)';
+    }
+
+    // Check if key or user is bundle (Dual)
+    let isBundle = false;
+    if (typeof keyOrProvider === 'string') {
+      const p = keyOrProvider.toLowerCase();
+      isBundle = p.includes('bundle') || p.includes('dual') || p.includes('+');
+    } else if (keyOrProvider && typeof keyOrProvider === 'object') {
+      const p = String(keyOrProvider.provider || '').toLowerCase();
+      isBundle = p.includes('bundle') || p.includes('dual') || p.includes('+') || (Boolean(keyOrProvider.usdLink) && Boolean(keyOrProvider.bakongId || keyOrProvider.merchantId));
+    }
+
+    if (planKey === 'bundle_1w' || (isBundle && planKey === '1w')) {
+      return lang === 'km' ? 'កញ្ចប់រួម ABA + Bakong ១ សប្តាហ៍ ($1.50)' : 'ABA + Bakong 1 Week ($1.50)';
+    }
+    if (planKey === 'bundle_1m' || (isBundle && planKey === '1m')) {
+      return lang === 'km' ? 'កញ្ចប់រួម ABA + Bakong ១ ខែ ($3.50)' : 'ABA + Bakong 1 Month Pro ($3.50)';
+    }
+    if (planKey === 'bundle_1y' || (isBundle && planKey === '1y')) {
+      return lang === 'km' ? 'កញ្ចប់រួម ABA + Bakong ១ ឆ្នាំ ($25.00)' : 'ABA + Bakong 1 Year Enterprise ($25.00)';
+    }
+
+    const info = PLAN_INFO[planKey] || PLAN_INFO['1w_free'];
     return lang === 'km' ? info.nameKm : info.nameEn;
   }
   /**
@@ -51,8 +94,8 @@ class ApiKeyService {
 
       // Migrate existing keys that lack expiresAt
       if (!existing[0].expiresAt) {
-        const days = existing[0].plan === '1y' ? 365 : (existing[0].plan === '1w' ? 7 : 30);
-        existing[0].plan = existing[0].plan || '1m';
+        const days = existing[0].plan === '1y' ? 365 : (existing[0].plan === '1m' ? 30 : 7);
+        existing[0].plan = existing[0].plan || '1w_free';
         existing[0].durationDays = days;
         existing[0].expiresAt = calculateExpiryDate(existing[0].createdAt || new Date(), days);
         existing[0].expiryWarningSent = false;
@@ -93,8 +136,8 @@ class ApiKeyService {
       return existing;
     }
 
-    // Create live working key tied directly to the user's registered bank details
-    const planKey = user?.plan || '1w';
+    // Create live working key tied directly to the user's registered bank details (1-Week Free Trial for every account)
+    const planKey = user?.subscription?.plan || user?.plan || '1w_free';
     const durationDays = getDurationDays(planKey);
     const now = new Date();
 
@@ -227,6 +270,19 @@ class ApiKeyService {
     key.renewedAt = new Date().toISOString();
 
     db.saveApiKey(key);
+
+    const user = db.getUser(tId);
+    if (user) {
+      user.subscription = {
+        ...(user.subscription || {}),
+        status: 'ACTIVE',
+        plan: planKey,
+        durationDays,
+        expiresAt: newExpiry.toISOString(),
+        renewedAt: key.renewedAt
+      };
+      db.saveUser(user);
+    }
     return key;
   }
 

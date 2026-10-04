@@ -109,9 +109,9 @@ const translations = {
     // Pricing
     pricing_title: `<b>◈ DEVELOPER SUBSCRIPTION TIERS</b>`,
     pricing_subtitle: 'Select an infrastructure tier for your production workloads:',
-    pricing_plan1: `${tgEmoji('rocket')} <b>1 Week Pass (1w) — Popular Test Plan</b>\n• Dual-Rail: <code>USD ($) + KHR (៛)</code>\n• Dynamic KHQR &amp; Real-time status\n• 1 Production Live API Key\n• Tier: <code>Quick Test Rail</code>\n• Price: <b>$0.50 / week</b> <i>(≈ 2,000 ៛ KHR)</i>`,
-    pricing_plan2: `${tgEmoji('brand')} <b>1 Month Pro (1m)</b>\n• Full NBC Bakong &amp; ABA PayWay Gateway\n• Unlimited Payment Invoices\n• Instant Webhook Dispatch (~180ms)\n• Tier: <code>Professional Production</code>\n• Price: <b>$2.50 / month</b> <i>(≈ 10,000 ៛ KHR)</i>`,
-    pricing_plan3: `${tgEmoji('verified')} <b>1 Year Enterprise (1y) — Best Value</b>\n• Unified Cambodian Financial Infrastructure\n• Automated dual-currency routing (USD + KHR)\n• 24/7 Dedicated Infrastructure SLA\n• Tier: <code>Ultimate Enterprise</code>\n• Price: <b>$15.00 / year</b> <i>(≈ 60,000 ៛ KHR)</i>`,
+    pricing_plan1: `${tgEmoji('party')} <b>1 Week Free Trial (1w) — 100% Free</b>\n• Every account receives 1-week free trial upon registration\n• Full live access: Bakong KHQR &amp; ABA PayWay\n• Tier: <code>Free Trial (7 Days)</code>\n• Price: <b>$0.00 FREE</b>`,
+    pricing_plan2: `${tgEmoji('rocket')} <b>Single Rail Plans (Bakong only OR ABA only)</b>\n• <b>1 Week:</b> $0.50 USD <i>(≈ 2,000 ៛ KHR)</i>\n• <b>1 Month:</b> $2.50 USD <i>(≈ 10,000 ៛ KHR)</i>\n• <b>1 Year:</b> $15.00 USD <i>(≈ 60,000 ៛ KHR)</i>\n• Unlimited instant checks &amp; webhook callbacks`,
+    pricing_plan3: `${tgEmoji('verified')} <b>ABA + Bakong Dual Suite Plans (Combined)</b>\n• <b>1 Week:</b> $1.50 USD <i>(≈ 6,000 ៛ KHR)</i>\n• <b>1 Month:</b> $3.50 USD <i>(≈ 14,000 ៛ KHR)</i>\n• <b>1 Year:</b> $25.00 USD <i>(≈ 100,000 ៛ KHR)</i>\n• Dual USD ($) + KHR (៛) automated clearance &amp; 99.99% SLA`,
 
     // Orders
     orders_title: `<b>◈ INTEGRATION PIPELINES &amp; ORDERS</b>`,
@@ -265,9 +265,9 @@ const translations = {
     // Pricing
     pricing_title: `<b>◈ កញ្ចប់តម្លៃ DEVELOPER TIERS</b>`,
     pricing_subtitle: 'ជម្រើស Infrastructure សម្រាប់អាជីវកម្មរបស់អ្នក:',
-    pricing_plan1: `${tgEmoji('rocket')} <b>កញ្ចប់ ១ សប្តាហ៍ (1 Week) — សម្រាប់តេស្តសាកល្បង</b>\n• ប្រព័ន្ធពីរ: <code>USD ($) + KHR (៛) ដំណើរការរួមគ្នា</code>\n• បង្កើត KHQR Dynamic &amp; ពិនិត្យទូទាត់ភ្លាមៗ\n• កូដ API Key ដំណើរការជាក់ស្តែង ១\n• កម្រិត: <code>Fast Staging &amp; Test</code>\n• តម្លៃ: <b>$0.50 / ១សប្តាហ៍</b> <i>(ត្រឹមតែ ~២,០០០ រៀល)</i>`,
-    pricing_plan2: `${tgEmoji('brand')} <b>កញ្ចប់ ១ ខែ (1 Month Pro)</b>\n• ប្រព័ន្ធធនាគារ NBC Bakong &amp; ABA PayWay ពេញលេញ\n• បង្កើត Invoice ទូទាត់មិនកំណត់\n• Webhook ជូនដំណឹងភ្លាមៗ (~180ms)\n• កម្រិត: <code>Professional Production</code>\n• តម្លៃ: <b>$2.50 / ១ខែ</b> <i>(ត្រឹមតែ ~១០,០០០ រៀល)</i>`,
-    pricing_plan3: `${tgEmoji('verified')} <b>កញ្ចប់ ១ ឆ្នាំ (1 Year Enterprise) — ចំណេញបំផុត</b>\n• ហេដ្ឋារចនាសម្ព័ន្ធទូទាត់កម្ពុជាកម្រិតខ្ពស់ពេញលេញ\n• រូបិយប័ណ្ណពីរស្វ័យប្រវត្តិ (USD + KHR)\n• ប្រព័ន្ធដំណើរការ 99.99% 24/7 Support\n• កម្រិត: <code>Ultimate Enterprise</code>\n• តម្លៃ: <b>$15.00 / ១ឆ្នាំ</b> <i>(ត្រឹមតែ ~៦០,០០០ រៀល)</i>`,
+    pricing_plan1: `${tgEmoji('party')} <b>សាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (Free Trial) — ១០០% Free</b>\n• គ្រប់គណនីថ្មីទាំងអស់ទទួលបានសាកល្បងឥតគិតថ្លៃ ៧ ថ្ងៃ\n• ដំណើរការពេញលេញ: Bakong KHQR &amp; ABA PayWay\n• កម្រិត: <code>Free Trial (7 Days)</code>\n• តម្លៃ: <b>$0.00 ឥតគិតថ្លៃ</b>`,
+    pricing_plan2: `${tgEmoji('rocket')} <b>កញ្ចប់ទោល Single Rail (Bakong សុទ្ធ ឬ ABA សុទ្ធ)</b>\n• <b>១ សប្តាហ៍ (1 Week):</b> $0.50 USD <i>(~២,០០០ រៀល)</i>\n• <b>១ ខែ (1 Month):</b> $2.50 USD <i>(~១០,០០០ រៀល)</i>\n• <b>១ ឆ្នាំ (1 Year):</b> $15.00 USD <i>(~៦០,០០០ រៀល)</i>\n• ពិនិត្យការទូទាត់ភ្លាមៗ &amp; Webhook ជូនដំណឹងល្បឿនលឿន`,
+    pricing_plan3: `${tgEmoji('verified')} <b>កញ្ចប់រួម ABA + Bakong Dual Suite (ទាំងពីររួមគ្នា)</b>\n• <b>១ សប្តាហ៍ (1 Week):</b> $1.50 USD <i>(~៦,០០០ រៀល)</i>\n• <b>១ ខែ (1 Month):</b> $3.50 USD <i>(~១៤,០០០ រៀល)</i>\n• <b>១ ឆ្នាំ (1 Year):</b> $25.00 USD <i>(~១០០,០០០ រៀល)</i>\n• រូបិយប័ណ្ណពីរស្វ័យប្រវត្តិ USD ($) + KHR (៛) &amp; ជំនួយបច្ចេកទេស 24/7`,
 
     // Orders
     orders_title: `<b>◈ ប្រតិបត្តិការ &amp; ការបញ្ជាទិញ</b>`,

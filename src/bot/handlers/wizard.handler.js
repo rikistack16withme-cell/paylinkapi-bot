@@ -997,16 +997,49 @@ async function handleConfirmSubmit(bot, query) {
     db.saveApiKey(keyToUpdate);
   }
 
+function checkIsBundle(providerName, user = {}, details = {}) {
+  const p = String(providerName || details?.provider || user?.provider || '').toLowerCase();
+  if (p.includes('bundle') || p.includes('dual') || p.includes('+') || (p.includes('bakong') && p.includes('aba'))) {
+    return true;
+  }
+  const hasAba = Boolean(details?.usdLink || details?.khrLink || user?.usdLink || user?.khrLink);
+  const hasBakong = Boolean(details?.merchantId || details?.bakongId || user?.merchantId || user?.bakongId);
+  return hasAba && hasBakong;
+}
+
+function getPlanPricing(planKey, isBundle = false) {
+  if (isBundle) {
+    if (planKey === '1m') return { usd: 3.50, khr: 14000, titleEn: 'ABA + Bakong 1 Month Pro', titleKm: 'កញ្ចប់រួម ABA + Bakong ១ ខែ' };
+    if (planKey === '1y') return { usd: 25.00, khr: 100000, titleEn: 'ABA + Bakong 1 Year Enterprise', titleKm: 'កញ្ចប់រួម ABA + Bakong ១ ឆ្នាំ' };
+    return { usd: 1.50, khr: 6000, titleEn: 'ABA + Bakong 1 Week Pass', titleKm: 'កញ្ចប់រួម ABA + Bakong ១ សប្តាហ៍' };
+  }
+  if (planKey === '1m') return { usd: 2.50, khr: 10000, titleEn: '1 Month Pro', titleKm: 'កញ្ចប់ ១ ខែ' };
+  if (planKey === '1y') return { usd: 15.00, khr: 60000, titleEn: '1 Year Enterprise', titleKm: 'កញ្ចប់ ១ ឆ្នាំ' };
+  return { usd: 0.50, khr: 2000, titleEn: '1 Week Pass', titleKm: 'កញ្ចប់ ១ សប្តាហ៍' };
+}
+
+async function renderPlanSelection(bot, chatId, messageId, from, providerName, details = {}) {
+  const lang = userService.getUserLanguage(from.id);
+  const isKm = lang === 'km';
+  const user = userService.getUser(from.id) || {};
+
   // Reset wizard session
   sessionManager.resetSession(from.id);
 
+  const isBundle = checkIsBundle(providerName, user, details);
+  const p1w = getPlanPricing('1w', isBundle);
+  const p1m = getPlanPricing('1m', isBundle);
+  const p1y = getPlanPricing('1y', isBundle);
+
+  const hasFreeTrialAvailable = !user.freeTrialUsed;
+
   const displayProvider = isKm
-    ? (providerName.includes('Bakong') && providerName.includes('ABA')
+    ? (isBundle
         ? 'កញ្ចប់រួម Bakong + ABA ទាំងពីរ'
         : (providerName.includes('Bakong')
             ? 'Bakong KHQR (ធនាគារជាតិ NBC)'
             : 'ច្រកទូទាត់ ABA PayWay'))
-    : providerName;
+    : (isBundle ? 'Bakong + ABA Dual Suite' : providerName);
 
   let text = `${formatter.header(isKm ? 'ជ្រើសរើសកញ្ចប់ SUBSCRIPTION' : 'SELECT SUBSCRIPTION PLAN')}\n\n` +
     `${tgEmoji('verified')} <b>${isKm ? 'ព័ត៌មានធនាគារត្រូវបានកត់ត្រាជោគជ័យ!' : 'Bank Credentials Saved!'}</b>\n` +
@@ -1014,21 +1047,28 @@ async function handleConfirmSubmit(bot, query) {
     `• ${tgEmoji('clearing')} <b>${isKm ? 'ប្រព័ន្ធ:' : 'Rail:'}</b> <code>${formatter.escapeHtml(displayProvider)}</code>\n` +
     (details.merchantName ? `• ${tgEmoji('brand')} <b>Merchant:</b> <code>${formatter.escapeHtml(details.merchantName)}</code>\n` : '') +
     `• ${tgEmoji('currency')} <b>Engine:</b> <code>USD ($) + KHR (៛) Dual Mode</code>\n\n` +
-    `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីបង្កើត Styled QR Card និងបើកដំណើរការ Production API Key:' : 'Select a subscription plan to generate your styled KHQR payment card and activate your Production API Key:'}</i>\n\n` +
-    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.50 USD</code> <i>(~២,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$2.50 USD</code> <i>(~១០,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$15.00 USD</code> <i>(~៦០,០០០ ៛ KHR)</i>`;
+    (hasFreeTrialAvailable
+      ? `<i>${tgEmoji('party')} ${isKm ? '🎁 គណនីថ្មីទទួលបានការសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (1 Week Free Trial) ពេញលេញ!' : '🎁 Every new account gets 1 Week Free Trial with full access!'}</i>\n` +
+        `• 🎁 <b>1 Week Free Trial:</b> <code>$0.00 FREE (7 Days)</code>\n\n` +
+        `<i>${tgEmoji('rocket')} ${isKm ? 'ឬជ្រើសរើសកញ្ចប់ផ្លូវការ (Subscription Plans):' : 'Or select an official subscription plan:'}</i>\n\n`
+      : `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីដំណើរការ ឬបន្តសុពលភាព Production API Key:' : 'Select a subscription plan to activate or renew your Production API Key:'}</i>\n\n`) +
+    `• ${tgEmoji('telemetry')} <b>${isBundle ? 'ABA + Bakong 1 Week Pass:' : '1 Week Pass:'}</b> <code>$${p1w.usd.toFixed(2)} USD</code> <i>(~${p1w.khr.toLocaleString()} ៛ KHR)</i>\n` +
+    `• ${tgEmoji('brand')} <b>${isBundle ? 'ABA + Bakong 1 Month Pro:' : '1 Month Pro:'}</b> <code>$${p1m.usd.toFixed(2)} USD</code> <i>(~${p1m.khr.toLocaleString()} ៛ KHR)</i>\n` +
+    `• ${tgEmoji('crown')} <b>${isBundle ? 'ABA + Bakong 1 Year Enterprise:' : '1 Year Enterprise:'}</b> <code>$${p1y.usd.toFixed(2)} USD</code> <i>(~${p1y.khr.toLocaleString()} ៛ KHR)</i>`;
 
   const keyboard = {
     inline_keyboard: [
+      ...(hasFreeTrialAvailable ? [
+        [makeButton(isKm ? '🎁 បើកសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (Free Trial) ❯' : '🎁 Activate 1-Week Free Trial ($0.00) ❯', 'reg_instant_activate', 'rocket', 'success')]
+      ] : []),
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.50 USD) ❯' : '1 Week Pass ($0.50 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
+        makeButton(isKm ? `${p1w.titleKm} ($${p1w.usd.toFixed(2)} USD) ❯` : `${p1w.titleEn} ($${p1w.usd.toFixed(2)} USD) ❯`, 'reg_plan_1w', 'telemetry', 'primary')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($2.50 USD) ❯' : '1 Month Pro ($2.50 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
+        makeButton(isKm ? `${p1m.titleKm} ($${p1m.usd.toFixed(2)} USD) ❯` : `${p1m.titleEn} ($${p1m.usd.toFixed(2)} USD) ❯`, 'reg_plan_1m', 'brand', 'primary')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($15.00 USD) ❯' : '1 Year Enterprise ($15.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
+        makeButton(isKm ? `${p1y.titleKm} ($${p1y.usd.toFixed(2)} USD) ❯` : `${p1y.titleEn} ($${p1y.usd.toFixed(2)} USD) ❯`, 'reg_plan_1y', 'crown', 'primary')
       ],
       [
         makeButton(i18n.t('btn_back', lang), 'nav_dashboard', 'brand', 'danger')
@@ -1052,6 +1092,8 @@ async function handleBackToPlans(bot, query) {
   const lang = userService.getUserLanguage(from.id);
   const isKm = lang === 'km';
   const user = userService.getUser(from.id) || {};
+  const activeKeys = apiKeyService.getUserApiKeys(from.id);
+  const activeKey = activeKeys && activeKeys.length > 0 ? activeKeys[0] : null;
 
   await bot.answerCallbackQuery(query.id).catch(() => {});
 
@@ -1063,26 +1105,41 @@ async function handleBackToPlans(bot, query) {
     await bot.deleteMessage(chatId, messageId).catch(() => {});
   }
 
+  const isBundle = checkIsBundle(user.provider || activeKey?.provider, user);
+  const p1w = getPlanPricing('1w', isBundle);
+  const p1m = getPlanPricing('1m', isBundle);
+  const p1y = getPlanPricing('1y', isBundle);
+
+  const hasFreeTrialAvailable = !user.freeTrialUsed;
+
   const text = `${formatter.header(isKm ? 'ជ្រើសរើសកញ្ចប់ SUBSCRIPTION' : 'SELECT SUBSCRIPTION PLAN')}\n\n` +
     `${tgEmoji('verified')} <b>${isKm ? 'ព័ត៌មានធនាគារត្រូវបានកត់ត្រាជោគជ័យ!' : 'Bank Credentials Saved!'}</b>\n` +
     `${formatter.divider}\n` +
     (user.merchantName ? `• ${tgEmoji('brand')} <b>Merchant:</b> <code>${formatter.escapeHtml(user.merchantName)}</code>\n` : '') +
+    `• ${tgEmoji('clearing')} <b>Rail:</b> <code>${isBundle ? 'Bakong + ABA Dual Suite' : formatter.escapeHtml(user.provider || 'Payment Rail')}</code>\n` +
     `• ${tgEmoji('currency')} <b>Engine:</b> <code>USD ($) + KHR (៛) Dual Mode</code>\n\n` +
-    `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីបង្កើត Styled QR Card និងបើកដំណើរការ Production API Key:' : 'Select a subscription plan to generate your styled KHQR payment card and activate your Production API Key:'}</i>\n\n` +
-    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.50 USD</code> <i>(~២,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$2.50 USD</code> <i>(~១០,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$15.00 USD</code> <i>(~៦០,០០០ ៛ KHR)</i>`;
+    (hasFreeTrialAvailable
+      ? `<i>${tgEmoji('party')} ${isKm ? '🎁 គណនីថ្មីទទួលបានការសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (1 Week Free Trial) ពេញលេញ!' : '🎁 Every new account gets 1 Week Free Trial with full access!'}</i>\n` +
+        `• 🎁 <b>1 Week Free Trial:</b> <code>$0.00 FREE (7 Days)</code>\n\n` +
+        `<i>${tgEmoji('rocket')} ${isKm ? 'ឬជ្រើសរើសកញ្ចប់ផ្លូវការ (Subscription Plans):' : 'Or select an official subscription plan:'}</i>\n\n`
+      : `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីបន្តសុពលភាព Production API Key:' : 'Select a subscription plan to activate or renew your Production API Key:'}</i>\n\n`) +
+    `• ${tgEmoji('telemetry')} <b>${isBundle ? 'ABA + Bakong 1 Week Pass:' : '1 Week Pass:'}</b> <code>$${p1w.usd.toFixed(2)} USD</code> <i>(~${p1w.khr.toLocaleString()} ៛ KHR)</i>\n` +
+    `• ${tgEmoji('brand')} <b>${isBundle ? 'ABA + Bakong 1 Month Pro:' : '1 Month Pro:'}</b> <code>$${p1m.usd.toFixed(2)} USD</code> <i>(~${p1m.khr.toLocaleString()} ៛ KHR)</i>\n` +
+    `• ${tgEmoji('crown')} <b>${isBundle ? 'ABA + Bakong 1 Year Enterprise:' : '1 Year Enterprise:'}</b> <code>$${p1y.usd.toFixed(2)} USD</code> <i>(~${p1y.khr.toLocaleString()} ៛ KHR)</i>`;
 
   const keyboard = {
     inline_keyboard: [
+      ...(hasFreeTrialAvailable ? [
+        [makeButton(isKm ? '🎁 បើកសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (Free Trial) ❯' : '🎁 Activate 1-Week Free Trial ($0.00) ❯', 'reg_instant_activate', 'rocket', 'success')]
+      ] : []),
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.50 USD) ❯' : '1 Week Pass ($0.50 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
+        makeButton(isKm ? `${p1w.titleKm} ($${p1w.usd.toFixed(2)} USD) ❯` : `${p1w.titleEn} ($${p1w.usd.toFixed(2)} USD) ❯`, 'reg_plan_1w', 'telemetry', 'primary')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($2.50 USD) ❯' : '1 Month Pro ($2.50 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
+        makeButton(isKm ? `${p1m.titleKm} ($${p1m.usd.toFixed(2)} USD) ❯` : `${p1m.titleEn} ($${p1m.usd.toFixed(2)} USD) ❯`, 'reg_plan_1m', 'brand', 'primary')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($15.00 USD) ❯' : '1 Year Enterprise ($15.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
+        makeButton(isKm ? `${p1y.titleKm} ($${p1y.usd.toFixed(2)} USD) ❯` : `${p1y.titleEn} ($${p1y.usd.toFixed(2)} USD) ❯`, 'reg_plan_1y', 'crown', 'primary')
       ],
       [
         makeButton(i18n.t('btn_back', lang), 'nav_dashboard', 'brand', 'danger')
@@ -1104,19 +1161,15 @@ async function handleSelectRegistrationPlan(bot, query, planKey) {
   const from = query.from;
   const lang = userService.getUserLanguage(from.id);
   const isKm = lang === 'km';
+  const user = userService.getUser(from.id) || {};
+  const activeKeys = apiKeyService.getUserApiKeys(from.id);
+  const activeKey = activeKeys && activeKeys.length > 0 ? activeKeys[0] : null;
 
-  let usdAmount = 0.50;
-  let khrAmount = 2000;
-  let planTitle = '1 Week Pass';
-  if (planKey === '1m') {
-    usdAmount = 2.50;
-    khrAmount = 10000;
-    planTitle = '1 Month Pro';
-  } else if (planKey === '1y') {
-    usdAmount = 15.00;
-    khrAmount = 60000;
-    planTitle = '1 Year Enterprise';
-  }
+  const isBundle = checkIsBundle(user.provider || activeKey?.provider, user);
+  const pricing = getPlanPricing(planKey, isBundle);
+  const usdAmount = pricing.usd;
+  const khrAmount = pricing.khr;
+  const planTitle = isKm ? pricing.titleKm : pricing.titleEn;
 
   await bot.answerCallbackQuery(query.id, {
     text: isKm ? `ជ្រើសរើសរូបិយប័ណ្ណ និងធនាគារសម្រាប់ ${planTitle}` : `Choose currency and bank for ${planTitle}`
@@ -1172,19 +1225,14 @@ async function handleExecuteSubPayment(bot, query, planKey, bank, currency = 'US
   const isKm = lang === 'km';
   const curr = (currency || 'USD').toUpperCase();
   const isKhr = curr === 'KHR';
+  const user = userService.getUser(from.id) || {};
+  const activeKeys = apiKeyService.getUserApiKeys(from.id);
+  const activeKey = activeKeys && activeKeys.length > 0 ? activeKeys[0] : null;
 
-  let amount;
-  let planTitle = '1 Week Pass';
-  if (planKey === '1m') {
-    amount = isKhr ? 10000 : 2.50;
-    planTitle = '1 Month Pro';
-  } else if (planKey === '1y') {
-    amount = isKhr ? 60000 : 15.00;
-    planTitle = '1 Year Enterprise';
-  } else {
-    amount = isKhr ? 2000 : 0.50;
-    planTitle = '1 Week Pass';
-  }
+  const isBundle = checkIsBundle(user.provider || activeKey?.provider, user);
+  const pricing = getPlanPricing(planKey, isBundle);
+  const amount = isKhr ? pricing.khr : pricing.usd;
+  const planTitle = isKm ? pricing.titleKm : pricing.titleEn;
 
   const amountDisplay = isKhr
     ? `${amount.toLocaleString()} ៛ KHR`
@@ -1235,7 +1283,7 @@ async function handleExecuteSubPayment(bot, query, planKey, bank, currency = 'US
         tranId: result.tranId, clientId: result.clientId, requestTime: result.requestTime,
         token: result.token, merchantLink: result.merchantLink,
         qrString: result.qrString, md5: result.md5, deepLink: abaDeepLink, plan: planTitle,
-        planKey
+        planKey: isBundle ? `bundle_${planKey}` : planKey
       });
 
       // Generate card with genuine ABA KHQR payload so scanning with ABA Mobile directly opens ABA
@@ -1322,7 +1370,7 @@ async function handleExecuteSubPayment(bot, query, planKey, bank, currency = 'US
         amountFormatted: result.amountFormatted, currency: curr, status: 'PENDING',
         tranId: result.tranId, qrString: result.qrString, md5: result.md5,
         deepLink: nbcDeepLink, plan: planTitle,
-        planKey
+        planKey: isBundle ? `bundle_${planKey}` : planKey
       });
 
       // Generate card with genuine Bakong KHQR payload
@@ -1561,61 +1609,6 @@ async function sendSubscriptionSurpriseCelebration(bot, chatId, from, planTitle 
 }
 
 /**
- * Handles going back to the subscription plan selection screen
- */
-async function handleBackToPlans(bot, query) {
-  const chatId = query.message?.chat?.id;
-  const messageId = query.message?.message_id;
-  const from = query.from;
-  const lang = userService.getUserLanguage(from.id);
-  const isKm = lang === 'km';
-
-  const user = userService.getUser(from.id) || {};
-  const merchantName = user.merchantName || (from?.first_name ? `${from.first_name}'s Store` : 'Merchant Store');
-
-  stopSubscriptionAutoChecker(chatId);
-  await bot.answerCallbackQuery(query.id).catch(() => {});
-
-  let text = `${formatter.header(isKm ? 'ជ្រើសរើសកញ្ចប់ SUBSCRIPTION' : 'SELECT SUBSCRIPTION PLAN')}\n\n` +
-    `${tgEmoji('verified')} <b>${isKm ? 'ព័ត៌មានធនាគារត្រូវបានកត់ត្រាជោគជ័យ!' : 'Bank Credentials Saved!'}</b>\n` +
-    `${formatter.divider}\n` +
-    `• ${tgEmoji('clearing')} <b>${isKm ? 'ប្រព័ន្ធ:' : 'Rail:'}</b> <code>NBC Bakong KHQR &amp; ABA PayWay</code>\n` +
-    (merchantName ? `• ${tgEmoji('brand')} <b>Merchant:</b> <code>${formatter.escapeHtml(merchantName)}</code>\n` : '') +
-    `• ${tgEmoji('currency')} <b>Engine:</b> <code>USD ($) + KHR (៛) Dual Mode</code>\n\n` +
-    `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីបង្កើត Styled QR Card និងបើកដំណើរការ Production API Key:' : 'Select a subscription plan to generate your styled KHQR payment card and activate your Production API Key:'}</i>\n\n` +
-    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.50 USD</code> <i>(~២,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$2.50 USD</code> <i>(~១០,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$15.00 USD</code> <i>(~៦០,០០០ ៛ KHR)</i>`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [
-        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.50 USD) ❯' : '1 Week Pass ($0.50 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
-      ],
-      [
-        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($2.50 USD) ❯' : '1 Month Pro ($2.50 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
-      ],
-      [
-        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($15.00 USD) ❯' : '1 Year Enterprise ($15.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
-      ],
-      [
-        makeButton(i18n.t('btn_back', lang), 'nav_dashboard', null, 'danger')
-      ]
-    ]
-  };
-
-  // When going back to plan selection, delete the previous message (photo card or selection prompt)
-  // so that the previous screen is cleanly replaced and NEVER lingers above the plans screen!
-  if (messageId) {
-    await bot.deleteMessage(chatId, messageId).catch(() => {});
-  }
-  return await safeSender.sendMessage(bot, chatId, text, {
-    parse_mode: 'HTML',
-    reply_markup: keyboard
-  });
-}
-
-/**
  * Issues developer credentials receipt upon confirmed payment or instant activation
  */
 async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid = false) {
@@ -1626,7 +1619,7 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
   const activeKeyObj = userKeys[0] || {};
   const activeKey = activeKeyObj.apiKey || '';
   const activeSecret = activeKeyObj.secret || 'whsec_live_default';
-  const planTitle = apiKeyService.getPlanTitle(activeKeyObj.plan, lang);
+  const planTitle = apiKeyService.getPlanTitle(activeKeyObj.plan, lang, activeKeyObj);
   const countdown = apiKeyService.getExpiryCountdown(activeKeyObj, lang);
 
   const user = userService.getUser(from.id) || {};
@@ -1765,17 +1758,23 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
 }
 
 /**
- * Handles instant sandbox activation button
+ * Handles 1-week free trial instant activation button
  */
 async function handleInstantActivate(bot, query) {
   const chatId = query.message.chat.id;
   const messageId = query.message.message_id;
   const from = query.from;
+  const db = require('../../database');
 
-  apiKeyService.renewApiKeySubscription(from.id, '1w');
+  const user = userService.getUser(from.id) || {};
+  user.freeTrialUsed = true;
+  user.freeTrialActivatedAt = new Date().toISOString();
+  db.saveUser(user);
+
+  apiKeyService.renewApiKeySubscription(from.id, '1w_free');
 
   await bot.answerCallbackQuery(query.id, {
-    text: 'API Key Active!'
+    text: '✓ 1-Week Free Trial Activated (7 Days Free)!'
   }).catch(() => {});
 
   return await issueUserCredentialsReceipt(bot, chatId, messageId, from, true);

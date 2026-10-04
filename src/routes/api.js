@@ -851,22 +851,28 @@ router.post('/web/register-and-subscribe', async (req, res) => {
     const curr = String(currency || 'USD').toUpperCase();
     const isKhr = curr === 'KHR';
 
-    // Calculate plan amount based on currency
-    let amt = (amount !== null && amount !== undefined) ? parseFloat(amount) : null;
-    if (!amt || isNaN(amt) || (isKhr && amt < 100) || (!isKhr && amt >= 100)) {
-      if (isKhr) {
-        amt = plan === '1w' ? 2000 : plan === '1m' ? 10000 : 60000;
-      } else {
-        amt = plan === '1w' ? 0.50 : plan === '1m' ? 2.50 : 15.00;
-      }
-    }
-
     // Determine explicitly requested merchant registration rail
     const regRail = String(rail || paymentRail || (merchantData.merchantId && !merchantData.usdLink ? 'bakong' : (merchantData.usdLink && !merchantData.merchantId ? 'aba' : 'bundle'))).toLowerCase();
 
     let providerName = 'Bakong KHQR';
     if (regRail === 'aba') providerName = 'ABA PayWay Gateway';
-    if (regRail === 'bundle') providerName = 'Bakong + ABA Dual Suite';
+    if (regRail === 'bundle' || regRail.includes('dual') || regRail.includes('+')) providerName = 'Bakong + ABA Dual Suite';
+
+    const isBundle = regRail === 'bundle' || providerName.includes('Dual') || providerName.includes('+');
+
+    // Calculate plan amount based on currency & rail
+    let amt = (amount !== null && amount !== undefined) ? parseFloat(amount) : null;
+    if (!amt || isNaN(amt) || (isKhr && amt < 100) || (!isKhr && amt >= 100)) {
+      if (isKhr) {
+        amt = isBundle
+          ? (plan === '1w' ? 6000 : plan === '1m' ? 14000 : 100000)
+          : (plan === '1w' ? 2000 : plan === '1m' ? 10000 : 60000);
+      } else {
+        amt = isBundle
+          ? (plan === '1w' ? 1.50 : plan === '1m' ? 3.50 : 25.00)
+          : (plan === '1w' ? 0.50 : plan === '1m' ? 2.50 : 15.00);
+      }
+    }
 
     const user = userService.getUser(tId) || {};
     const storeName = merchantData.merchantName || user.merchantName || (user.firstName ? `${user.firstName}'s Store` : 'Merchant Store');

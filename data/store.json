@@ -30,8 +30,10 @@
       "khrLink": null,
       "subscription": {
         "status": "ACTIVE",
-        "plan": "1y",
-        "activatedAt": "2026-09-23T12:00:00.000Z"
+        "plan": "1w_free",
+        "durationDays": 7,
+        "activatedAt": "2026-10-04T10:00:00.000Z",
+        "expiresAt": "2026-10-11T17:15:00.000Z"
       }
     },
     "7283817695": {
@@ -275,9 +277,9 @@
       "bakongId": null,
       "merchantId": null,
       "phone": null,
-      "plan": "1y",
-      "durationDays": 365,
-      "expiresAt": "2027-09-23T12:00:00.000Z",
+      "plan": "1w_free",
+      "durationDays": 7,
+      "expiresAt": "2026-10-11T17:15:00.000Z",
       "expiryWarningSent": false,
       "expiredNoticeSent": false
     },
