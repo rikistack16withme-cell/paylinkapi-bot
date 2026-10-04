@@ -111,7 +111,15 @@ async function handleStart(bot, msg) {
     }
   }
 
-  // If already registered, send straight to Dashboard with Logo & Console
+  // 1. Deliver the Video Tutorial right into the chat on /start so user can watch directly!
+  try {
+    const { handleTutorialVideo } = require('./tutorial_video.handler');
+    await handleTutorialVideo(bot, chatId, null, from);
+  } catch (vidErr) {
+    // If video auto-send encounters transient issue, continue to dashboard
+  }
+
+  // 2. Deliver the Official Logo Photo Dashboard Console!
   if (userService.isRegistered(from.id)) {
     return await renderDashboard(bot, chatId, null, from);
   }

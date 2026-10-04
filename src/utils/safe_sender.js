@@ -41,6 +41,49 @@ function cleanOptions(options) {
   return fallbackOptions;
 }
 
+function safeCaption(caption, maxLength = 1010) {
+  if (!caption) return caption;
+  const plain = caption.replace(/<[^>]+>/g, '');
+  if (plain.length <= maxLength) return caption;
+
+  let cutIndex = 0;
+  let visibleCount = 0;
+  let inTag = false;
+
+  for (let i = 0; i < caption.length; i++) {
+    if (caption[i] === '<') {
+      inTag = true;
+    } else if (caption[i] === '>') {
+      inTag = false;
+      continue;
+    }
+
+    if (!inTag) {
+      visibleCount++;
+      if (visibleCount >= maxLength - 3) {
+        cutIndex = i;
+        break;
+      }
+    }
+  }
+
+  let truncated = caption.slice(0, cutIndex) + '...';
+  const openTags = [];
+  const tagRegex = /<\/?([a-z0-9-]+)[^>]*>/gi;
+  let match;
+  while ((match = tagRegex.exec(truncated)) !== null) {
+    if (match[0].startsWith('</')) {
+      openTags.pop();
+    } else if (!match[0].endsWith('/>')) {
+      openTags.push(match[1]);
+    }
+  }
+  while (openTags.length > 0) {
+    truncated += `</${openTags.pop()}>`;
+  }
+  return truncated;
+}
+
 const safeSender = {
   sendMessage: async (bot, chatId, text, options = {}) => {
     const norm = normalizeReplyMarkup(options);
@@ -71,13 +114,14 @@ const safeSender = {
   },
 
   editMessageCaption: async (bot, caption, options = {}) => {
+    const secureCaption = safeCaption(caption);
     const norm = normalizeReplyMarkup(options);
     try {
-      return await bot.editMessageCaption(caption, norm);
+      return await bot.editMessageCaption(secureCaption, norm);
     } catch (err) {
       if (isCustomEmojiError(err)) {
         logger.warn(`Custom emoji error on editMessageCaption (${err.message}), falling back to clean caption...`);
-        const cleanCaption = stripTgEmoji(caption);
+        const cleanCaption = stripTgEmoji(secureCaption);
         return await bot.editMessageCaption(cleanCaption, cleanOptions(options));
       }
       throw err;
@@ -85,13 +129,17 @@ const safeSender = {
   },
 
   sendPhoto: async (bot, chatId, photo, options = {}, fileOptions = {}) => {
-    const norm = normalizeReplyMarkup(options);
+    const secureOptions = { ...options };
+    if (secureOptions.caption) {
+      secureOptions.caption = safeCaption(secureOptions.caption);
+    }
+    const norm = normalizeReplyMarkup(secureOptions);
     try {
       return await bot.sendPhoto(chatId, photo, norm, fileOptions);
     } catch (err) {
       if (isCustomEmojiError(err)) {
         logger.warn(`Custom emoji error on sendPhoto (${err.message}), falling back to clean caption...`);
-        const cleanOpts = cleanOptions(options);
+        const cleanOpts = cleanOptions(secureOptions);
         if (cleanOpts.caption) {
           cleanOpts.caption = stripTgEmoji(cleanOpts.caption);
         }
@@ -102,13 +150,17 @@ const safeSender = {
   },
 
   sendVideo: async (bot, chatId, video, options = {}, fileOptions = {}) => {
-    const norm = normalizeReplyMarkup(options);
+    const secureOptions = { ...options };
+    if (secureOptions.caption) {
+      secureOptions.caption = safeCaption(secureOptions.caption);
+    }
+    const norm = normalizeReplyMarkup(secureOptions);
     try {
       return await bot.sendVideo(chatId, video, norm, fileOptions);
     } catch (err) {
       if (isCustomEmojiError(err)) {
         logger.warn(`Custom emoji error on sendVideo (${err.message}), falling back to clean caption...`);
-        const cleanOpts = cleanOptions(options);
+        const cleanOpts = cleanOptions(secureOptions);
         if (cleanOpts.caption) {
           cleanOpts.caption = stripTgEmoji(cleanOpts.caption);
         }
@@ -119,9 +171,10 @@ const safeSender = {
   },
 
   replaceOrSendPhoto: async (bot, chatId, messageId, photo, caption, options = {}, fileOptions = {}) => {
+    const secureCaption = safeCaption(caption);
     if (messageId) {
       try {
-        return await safeSender.editMessageCaption(bot, caption, {
+        return await safeSender.editMessageCaption(bot, secureCaption, {
           chat_id: chatId,
           message_id: messageId,
           ...options
@@ -136,7 +189,7 @@ const safeSender = {
       }
     }
     return await safeSender.sendPhoto(bot, chatId, photo, {
-      caption,
+      caption: secureCaption,
       ...options
     }, fileOptions);
   },
