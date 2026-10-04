@@ -20,15 +20,16 @@
       "createdAt": "2026-09-23T11:30:46.000Z",
       "lastActive": "2026-09-23T12:01:00.000Z",
       "updatedAt": "2026-09-23T12:01:00.000Z",
-      "merchantName": "Vuth Store",
-      "provider": "Bakong KHQR",
-      "providerKey": "bakong",
+      "merchantName": null,
+      "provider": null,
+      "providerKey": null,
       "bakongId": null,
       "merchantId": null,
       "phone": null,
       "usdLink": null,
       "khrLink": null,
-      "subscription": null
+      "subscription": null,
+      "freeTrialUsed": false
     },
     "7283817695": {
       "telegramId": 7283817695,
@@ -255,28 +256,6 @@
     }
   },
   "apiKeys": {
-    "key_8665505824": {
-      "id": "key_8665505824",
-      "isMock": false,
-      "createdAt": "2026-09-23T11:30:46.000Z",
-      "telegramId": "8665505824",
-      "provider": "Bakong KHQR",
-      "tier": "Production Live Rail",
-      "apiKey": "plk_live_8665505824_8817b0a1",
-      "secret": "whsec_08d2a2fbd5afc8f2",
-      "status": "ACTIVE",
-      "khrLink": null,
-      "usdLink": null,
-      "merchantName": "Vuth Store",
-      "bakongId": null,
-      "merchantId": null,
-      "phone": null,
-      "plan": "1w_free",
-      "durationDays": 7,
-      "expiresAt": "2026-10-11T17:15:00.000Z",
-      "expiryWarningSent": false,
-      "expiredNoticeSent": false
-    },
     "key_7283817695": {
       "id": "key_7283817695",
       "telegramId": "7283817695",

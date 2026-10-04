@@ -26,28 +26,34 @@ async function handleGetPaymentApi(bot, query) {
 
   if (isKm) {
     text += `${tgEmoji('brand')} <b>ជ្រើសរើសប្រព័ន្ធទូទាត់សម្រាប់ការចុះឈ្មោះក្នុង BOT:</b>\n\n` +
+      `🎁 <b>លក្ខខណ្ឌសាកល្បងឥតគិតថ្លៃ (1-Week Free Trial):</b>\n` +
+      `• អ្នកប្រើប្រាស់ថ្មីអាចទទួលបាន Free Trial ១ សប្តាហ៍ ($0.00) សម្រាប់តែ <b>Bakong KHQR</b> ឬ <b>ABA PayWay</b> តែមួយប៉ុណ្ណោះ (បានតែម្តងគត់ក្នុង ១ គណនី)។\n` +
+      `• ប្រសិនបើអ្នកចុះឈ្មោះយក Free Trial លើ Bakong រួចរាល់ នោះលោកអ្នកមិនអាចយក Free Trial លើ ABA បានទៀតឡើយ!\n` +
+      `• ប្រសិនបើចង់បានទាំងពីរ (Dual Suite) ឬចង់បន្តប្រើ ត្រូវជាវកញ្ចប់ Subscription ($1.50/w)។\n\n` +
+      `${formatter.divider}\n` +
       `• ${tgEmoji('bundle')} <b>កញ្ចប់រួម Bakong + ABA (Dual Suite):</b>\n` +
-      `  ដំណើរការរូបិយប័ណ្ណពីរ USD ($) និង KHR (៛) ដោយស្វ័យប្រវត្តិ។\n\n` +
+      `  ដំណើរការរូបិយប័ណ្ណពីរ USD ($) និង KHR (៛) ទាំងពីរប្រព័ន្ធរួមគ្នា ($1.50/w)។\n\n` +
       `• ${tgEmoji('bakong')} <b>NBC Bakong National KHQR:</b>\n` +
       `  ស្តង់ដារជាតិ EMVCo អាចកំណត់ឈ្មោះហាងផ្ទាល់ខ្លួន (Store Name) បានដោយសេរី។\n\n` +
       `• ${tgEmoji('aba')} <b>ច្រកទូទាត់ ABA PayWay Gateway:</b>\n` +
       `  Dynamic KHQR និង Webhooks ជូនដំណឹងភ្លាមៗតាមរយៈ ABA Merchant App។\n\n` +
       `${formatter.divider}\n` +
-      `• ${tgEmoji('bulb')} <b>ចំណាំ Bakong:</b> អ្នកអាចកំណត់ឈ្មោះហាង (Store Display Name) ផ្ទាល់ខ្លួនបានដោយសេរី។\n` +
-      `• ${tgEmoji('alert')} <b>ចំណាំ ABA:</b> ឈ្មោះ Merchant ត្រូវគ្រប់គ្រងក្នុង ABA Merchant App ផ្ទាល់។\n\n` +
-      `<i>${tgEmoji('rocket')} សូមជ្រើសរើសជម្រើសខាងក្រោមដើម្បីចាប់ផ្តើមចុះឈ្មោះផ្ទាល់ក្នុង Bot ភ្លាមៗ:</i>`;
+      `<i>${tgEmoji('rocket')} សូមជ្រើសរើសជម្រើសខាងក្រោមដើម្បីចាប់ផ្តើមចុះឈ្មោះ:</i>`;
   } else {
     text += `${tgEmoji('brand')} <b>SELECT PAYMENT INFRASTRUCTURE (REGISTER IN BOT):</b>\n\n` +
+      `🎁 <b>1-WEEK FREE TRIAL POLICY:</b>\n` +
+      `• New users can start a 1-Week Free Trial ($0.00) for EITHER <b>Bakong KHQR</b> OR <b>ABA PayWay</b> only (1 trial per account).\n` +
+      `• If you register and claim a free trial for Bakong, you CANNOT claim a free trial for ABA!\n` +
+      `• If you want both rails (Dual Suite) or need to renew, choose the Dual Suite subscription ($1.50/w).\n\n` +
+      `${formatter.divider}\n` +
       `• ${tgEmoji('bundle')} <b>Dual Suite (Bakong + ABA):</b>\n` +
-      `  Automated dual-currency clearing for both USD ($) and KHR (៛).\n\n` +
+      `  Automated dual-currency clearing for both USD ($) and KHR (៛) ($1.50/w).\n\n` +
       `• ${tgEmoji('bakong')} <b>NBC Bakong National KHQR:</b>\n` +
       `  EMVCo national QR standard with customizable store display name.\n\n` +
       `• ${tgEmoji('aba')} <b>ABA PayWay Gateway:</b>\n` +
       `  Direct dynamic KHQR, in-app deep links, and instant webhook callbacks.\n\n` +
       `${formatter.divider}\n` +
-      `• ${tgEmoji('bulb')} <b>Bakong Note:</b> You can freely customize your Store Display Name directly.\n` +
-      `• ${tgEmoji('alert')} <b>ABA Note:</b> Merchant name is fixed to your official ABA Merchant profile.\n\n` +
-      `<i>${tgEmoji('rocket')} Select a payment rail below to register directly inside Telegram:</i>`;
+      `<i>${tgEmoji('rocket')} Select a payment rail below to register:</i>`;
   }
 
   const keyboard = {

@@ -1034,7 +1034,7 @@ async function renderPlanSelection(bot, chatId, messageId, from, providerName, d
   const p1m = getPlanPricing('1m', isBundle);
   const p1y = getPlanPricing('1y', isBundle);
 
-  const hasFreeTrialAvailable = !user.freeTrialUsed;
+  const hasFreeTrialAvailable = !user.freeTrialUsed && !isBundle;
 
   const displayProvider = isKm
     ? (isBundle
@@ -1044,17 +1044,34 @@ async function renderPlanSelection(bot, chatId, messageId, from, providerName, d
             : 'ច្រកទូទាត់ ABA PayWay'))
     : (isBundle ? 'Bakong + ABA Dual Suite' : providerName);
 
+  let trialSection = '';
+  if (!isBundle) {
+    if (hasFreeTrialAvailable) {
+      trialSection = isKm
+        ? `• 🎁 <b>គម្រោងសាកល្បង (1-Week Free Trial):</b> <code>$0.00 FREE (7 ថ្ងៃ)</code>\n` +
+          `  <i>${tgEmoji('party')} គណនីថ្មីទទួលបាន Free Trial ១ សប្តាហ៍ សម្រាប់ <b>${displayProvider}</b> តែមួយប៉ុណ្ណោះ (បានតែម្តងគត់ក្នុង ១ គណនី)! ប្រសិនបើចង់ប្រើប្រព័ន្ធផ្សេងទៀត ឬបន្ថែម ត្រូវជាវកញ្ចប់ Subscription។</i>\n\n` +
+          `<i>${tgEmoji('rocket')} ឬជ្រើសរើសកញ្ចប់ផ្លូវការ (Subscription Plans):</i>\n\n`
+        : `• 🎁 <b>1-Week Free Trial:</b> <code>$0.00 FREE (7 Days)</code>\n` +
+          `  <i>${tgEmoji('party')} New merchants get a 1-Week Free Trial for <b>${displayProvider}</b> only (1 trial per account)! To use other rails or extend, an official subscription is required.</i>\n\n` +
+          `<i>${tgEmoji('rocket')} Or select an official subscription plan:</i>\n\n`;
+    } else {
+      trialSection = isKm
+        ? `⚠️ <i>លោកអ្នកបានប្រើប្រាស់គម្រោងសាកល្បង Free Trial រួចហើយ ដូច្នេះមិនអាចបើក Free Trial លើ ${displayProvider} បានទៀតទេ។ សូមជ្រើសរើសកញ្ចប់ Subscription ផ្លូវការ៖</i>\n\n`
+        : `⚠️ <i>You have already claimed your 1-Week Free Trial and cannot claim another free trial for ${displayProvider}. Please select an official subscription plan:</i>\n\n`;
+    }
+  } else {
+    trialSection = isKm
+      ? `• ${tgEmoji('bulb')} <i>កញ្ចប់រួម Dual Suite (Bakong + ABA) គឺជាកញ្ចប់ផ្លូវការ (Paid Bundle)។ គម្រោងសាកល្បង Free Trial គឺសម្រាប់តែការចុះឈ្មោះ Bakong ឬ ABA ដាច់ដោយឡែកប៉ុណ្ណោះ។</i>\n\n`
+      : `• ${tgEmoji('bulb')} <i>Dual Suite (Bakong + ABA) is an official paid bundle. Free trial is only available for single rail registration (Bakong or ABA).</i>\n\n`;
+  }
+
   let text = `${formatter.header(isKm ? 'ជ្រើសរើសកញ្ចប់ SUBSCRIPTION' : 'SELECT SUBSCRIPTION PLAN')}\n\n` +
     `${tgEmoji('verified')} <b>${isKm ? 'ព័ត៌មានធនាគារត្រូវបានកត់ត្រាជោគជ័យ!' : 'Bank Credentials Saved!'}</b>\n` +
     `${formatter.divider}\n` +
     `• ${tgEmoji('clearing')} <b>${isKm ? 'ប្រព័ន្ធ:' : 'Rail:'}</b> <code>${formatter.escapeHtml(displayProvider)}</code>\n` +
     (details.merchantName ? `• ${tgEmoji('brand')} <b>Merchant:</b> <code>${formatter.escapeHtml(details.merchantName)}</code>\n` : '') +
     `• ${tgEmoji('currency')} <b>Engine:</b> <code>USD ($) + KHR (៛) Dual Mode</code>\n\n` +
-    (hasFreeTrialAvailable
-      ? `<i>${tgEmoji('party')} ${isKm ? '🎁 គណនីថ្មីទទួលបានការសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (1 Week Free Trial) ពេញលេញ!' : '🎁 Every new account gets 1 Week Free Trial with full access!'}</i>\n` +
-        `• 🎁 <b>1 Week Free Trial:</b> <code>$0.00 FREE (7 Days)</code>\n\n` +
-        `<i>${tgEmoji('rocket')} ${isKm ? 'ឬជ្រើសរើសកញ្ចប់ផ្លូវការ (Subscription Plans):' : 'Or select an official subscription plan:'}</i>\n\n`
-      : `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីដំណើរការ ឬបន្តសុពលភាព Production API Key:' : 'Select a subscription plan to activate or renew your Production API Key:'}</i>\n\n`) +
+    trialSection +
     `• ${tgEmoji('telemetry')} <b>${isBundle ? 'ABA + Bakong 1 Week Pass:' : '1 Week Pass:'}</b> <code>$${p1w.usd.toFixed(2)} USD</code> <i>(~${p1w.khr.toLocaleString()} ៛ KHR)</i>\n` +
     `• ${tgEmoji('brand')} <b>${isBundle ? 'ABA + Bakong 1 Month Pro:' : '1 Month Pro:'}</b> <code>$${p1m.usd.toFixed(2)} USD</code> <i>(~${p1m.khr.toLocaleString()} ៛ KHR)</i>\n` +
     `• ${tgEmoji('crown')} <b>${isBundle ? 'ABA + Bakong 1 Year Enterprise:' : '1 Year Enterprise:'}</b> <code>$${p1y.usd.toFixed(2)} USD</code> <i>(~${p1y.khr.toLocaleString()} ៛ KHR)</i>`;
@@ -1113,19 +1130,44 @@ async function handleBackToPlans(bot, query) {
   const p1m = getPlanPricing('1m', isBundle);
   const p1y = getPlanPricing('1y', isBundle);
 
-  const hasFreeTrialAvailable = !user.freeTrialUsed;
+  const hasFreeTrialAvailable = !user.freeTrialUsed && !isBundle;
+
+  const displayProvider = isKm
+    ? (isBundle
+        ? 'កញ្ចប់រួម Bakong + ABA ទាំងពីរ'
+        : ((user.provider || activeKey?.provider || '').includes('Bakong')
+            ? 'Bakong KHQR (ធនាគារជាតិ NBC)'
+            : 'ច្រកទូទាត់ ABA PayWay'))
+    : (isBundle ? 'Bakong + ABA Dual Suite' : (user.provider || activeKey?.provider || 'Payment Rail'));
+
+  let trialSection = '';
+  if (!isBundle) {
+    if (hasFreeTrialAvailable) {
+      trialSection = isKm
+        ? `• 🎁 <b>គម្រោងសាកល្បង (1-Week Free Trial):</b> <code>$0.00 FREE (7 ថ្ងៃ)</code>\n` +
+          `  <i>${tgEmoji('party')} គណនីថ្មីទទួលបាន Free Trial ១ សប្តាហ៍ សម្រាប់ <b>${displayProvider}</b> តែមួយប៉ុណ្ណោះ (បានតែម្តងគត់ក្នុង ១ គណនី)! ប្រសិនបើចង់ប្រើប្រព័ន្ធផ្សេងទៀត ឬបន្ថែម ត្រូវជាវកញ្ចប់ Subscription។</i>\n\n` +
+          `<i>${tgEmoji('rocket')} ឬជ្រើសរើសកញ្ចប់ផ្លូវការ (Subscription Plans):</i>\n\n`
+        : `• 🎁 <b>1-Week Free Trial:</b> <code>$0.00 FREE (7 Days)</code>\n` +
+          `  <i>${tgEmoji('party')} New merchants get a 1-Week Free Trial for <b>${displayProvider}</b> only (1 trial per account)! To use other rails or extend, an official subscription is required.</i>\n\n` +
+          `<i>${tgEmoji('rocket')} Or select an official subscription plan:</i>\n\n`;
+    } else {
+      trialSection = isKm
+        ? `⚠️ <i>លោកអ្នកបានប្រើប្រាស់គម្រោងសាកល្បង Free Trial រួចហើយ ដូច្នេះមិនអាចបើក Free Trial លើ ${displayProvider} បានទៀតទេ។ សូមជ្រើសរើសកញ្ចប់ Subscription ផ្លូវការ៖</i>\n\n`
+        : `⚠️ <i>You have already claimed your 1-Week Free Trial and cannot claim another free trial for ${displayProvider}. Please select an official subscription plan:</i>\n\n`;
+    }
+  } else {
+    trialSection = isKm
+      ? `• ${tgEmoji('bulb')} <i>កញ្ចប់រួម Dual Suite (Bakong + ABA) គឺជាកញ្ចប់ផ្លូវការ (Paid Bundle)។ គម្រោងសាកល្បង Free Trial គឺសម្រាប់តែការចុះឈ្មោះ Bakong ឬ ABA ដាច់ដោយឡែកប៉ុណ្ណោះ។</i>\n\n`
+      : `• ${tgEmoji('bulb')} <i>Dual Suite (Bakong + ABA) is an official paid bundle. Free trial is only available for single rail registration (Bakong or ABA).</i>\n\n`;
+  }
 
   const text = `${formatter.header(isKm ? 'ជ្រើសរើសកញ្ចប់ SUBSCRIPTION' : 'SELECT SUBSCRIPTION PLAN')}\n\n` +
     `${tgEmoji('verified')} <b>${isKm ? 'ព័ត៌មានធនាគារត្រូវបានកត់ត្រាជោគជ័យ!' : 'Bank Credentials Saved!'}</b>\n` +
     `${formatter.divider}\n` +
     (user.merchantName ? `• ${tgEmoji('brand')} <b>Merchant:</b> <code>${formatter.escapeHtml(user.merchantName)}</code>\n` : '') +
-    `• ${tgEmoji('clearing')} <b>Rail:</b> <code>${isBundle ? 'Bakong + ABA Dual Suite' : formatter.escapeHtml(user.provider || 'Payment Rail')}</code>\n` +
+    `• ${tgEmoji('clearing')} <b>Rail:</b> <code>${formatter.escapeHtml(displayProvider)}</code>\n` +
     `• ${tgEmoji('currency')} <b>Engine:</b> <code>USD ($) + KHR (៛) Dual Mode</code>\n\n` +
-    (hasFreeTrialAvailable
-      ? `<i>${tgEmoji('party')} ${isKm ? '🎁 គណនីថ្មីទទួលបានការសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ (1 Week Free Trial) ពេញលេញ!' : '🎁 Every new account gets 1 Week Free Trial with full access!'}</i>\n` +
-        `• 🎁 <b>1 Week Free Trial:</b> <code>$0.00 FREE (7 Days)</code>\n\n` +
-        `<i>${tgEmoji('rocket')} ${isKm ? 'ឬជ្រើសរើសកញ្ចប់ផ្លូវការ (Subscription Plans):' : 'Or select an official subscription plan:'}</i>\n\n`
-      : `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីបន្តសុពលភាព Production API Key:' : 'Select a subscription plan to activate or renew your Production API Key:'}</i>\n\n`) +
+    trialSection +
     `• ${tgEmoji('telemetry')} <b>${isBundle ? 'ABA + Bakong 1 Week Pass:' : '1 Week Pass:'}</b> <code>$${p1w.usd.toFixed(2)} USD</code> <i>(~${p1w.khr.toLocaleString()} ៛ KHR)</i>\n` +
     `• ${tgEmoji('brand')} <b>${isBundle ? 'ABA + Bakong 1 Month Pro:' : '1 Month Pro:'}</b> <code>$${p1m.usd.toFixed(2)} USD</code> <i>(~${p1m.khr.toLocaleString()} ៛ KHR)</i>\n` +
     `• ${tgEmoji('crown')} <b>${isBundle ? 'ABA + Bakong 1 Year Enterprise:' : '1 Year Enterprise:'}</b> <code>$${p1y.usd.toFixed(2)} USD</code> <i>(~${p1y.khr.toLocaleString()} ៛ KHR)</i>`;
@@ -1770,14 +1812,31 @@ async function handleInstantActivate(bot, query) {
   const db = require('../../database');
 
   const user = userService.getUser(from.id) || {};
+  if (user.freeTrialUsed) {
+    return await bot.answerCallbackQuery(query.id, {
+      text: '⚠️ លោកអ្នកបានប្រើប្រាស់ Free Trial រួចហើយ! មិនអាចបើក Free Trial លើប្រព័ន្ធផ្សេងទៀតបានទេ។ (1 Free Trial per account)',
+      show_alert: true
+    }).catch(() => {});
+  }
+
+  const isBundle = checkIsBundle(user.provider, user);
+  if (isBundle) {
+    return await bot.answerCallbackQuery(query.id, {
+      text: '⚠️ Dual Suite មិនមាន Free Trial ទេ។ Free Trial សម្រាប់តែ Bakong ឬ ABA តែមួយប៉ុណ្ណោះ។',
+      show_alert: true
+    }).catch(() => {});
+  }
+
   user.freeTrialUsed = true;
   user.freeTrialActivatedAt = new Date().toISOString();
+  user.freeTrialProvider = user.provider || 'Bakong KHQR';
   db.saveUser(user);
 
+  apiKeyService.getOrCreateUserKeys(from.id);
   apiKeyService.renewApiKeySubscription(from.id, '1w_free');
 
   await bot.answerCallbackQuery(query.id, {
-    text: '✓ 1-Week Free Trial Activated (7 Days Free)!'
+    text: `✓ 1-Week Free Trial Activated for ${user.provider || 'Single Rail'} (7 Days Free)!`
   }).catch(() => {});
 
   return await issueUserCredentialsReceipt(bot, chatId, messageId, from, true);
