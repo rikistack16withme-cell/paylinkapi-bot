@@ -1,0 +1,2389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>riki - NBC Bakong KHQR Payment Checkout</title>
+  <meta name="description" content="Official Cambodian Banking API Gateway integration for riki. Instant KHQR payments via NBC Bakong network.">
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Required QRCode Library (Local Bundle + Verified CDN Fallback) -->
+  <script src="qrcode.min.js"></script>
+  <script>
+    if (typeof QRCode === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"><\/script>');
+    }
+  </script>
+
+  <!-- Canvas Confetti for Celebration Effects (Local Bundle + CDN Fallback) -->
+  <script src="confetti.browser.min.js"></script>
+  <script>
+    if (typeof confetti === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"><\/script>');
+    }
+  </script>
+
+  <style>
+    :root {
+      --primary: #E1251B; /* Official Bakong KHQR Crimson Red */
+      --primary-hover: #c41c13;
+      --primary-light: rgba(225, 37, 27, 0.12);
+      --primary-border: rgba(225, 37, 27, 0.25);
+      --primary-glow: rgba(225, 37, 27, 0.4);
+      --dark-bg: #0B0F17;
+      --card-bg: #111827;
+      --card-border: #1F2937;
+      --card-hover: #162032;
+      --surface: #1E293B;
+      --text-main: #F9FAFB;
+      --text-muted: #9CA3AF;
+      --text-dim: #6B7280;
+      --success: #10B981;
+      --success-glow: rgba(16, 185, 129, 0.3);
+      --warning: #F59E0B;
+      --info: #3B82F6;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.35);
+      --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.5);
+      --shadow-primary: 0 8px 30px rgba(225, 37, 27, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--dark-bg);
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(225, 37, 27, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 75%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
+        linear-gradient(180deg, #070A0F 0%, var(--dark-bg) 100%);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B0F17;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1F2937;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #374151;
+    }
+
+    /* Header & Navigation */
+    header {
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(11, 15, 23, 0.85);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo-badge {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--primary) 0%, #991B1B 100%);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: -0.5px;
+      box-shadow: 0 4px 14px rgba(225, 37, 27, 0.4);
+    }
+
+    .brand-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .merchant-tag {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--primary-light);
+      color: #FF6B6B;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--primary-border);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .gateway-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+    }
+
+    .status-pulse {
+      width: 8px;
+      height: 8px;
+      background-color: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse-green 2s infinite;
+    }
+
+    @keyframes pulse-green {
+      0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+      70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+      }
+      100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-secondary:hover {
+      background: #253349;
+      border-color: #374151;
+      transform: translateY(-1px);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 36px 24px;
+    }
+
+    /* Page Banner Notice */
+    .rail-alert {
+      background: linear-gradient(90deg, rgba(225, 37, 27, 0.15) 0%, rgba(17, 24, 39, 0.8) 100%);
+      border: 1px solid var(--primary-border);
+      border-left: 4px solid var(--primary);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .rail-alert-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .rail-badge-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .rail-alert-text h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .rail-alert-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .rail-alert-pills {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill-info {
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      color: #D1D5DB;
+      font-family: var(--font-mono);
+    }
+
+    /* Checkout Layout Grid */
+    .checkout-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 32px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .checkout-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Checkout Card */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-subtle);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(225, 37, 27, 0.5), transparent);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title svg {
+      color: var(--primary);
+    }
+
+    /* Dual Currency Selector (Spec Requirement 3) */
+    .currency-selector-card {
+      background: rgba(17, 24, 39, 0.7);
+      border: 1px solid #1F2937;
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .currency-toggle-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .currency-toggle-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .currency-segmented-control {
+      display: inline-flex;
+      background: #0B0F17;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-full);
+      padding: 4px;
+    }
+
+    .currency-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 18px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .currency-btn.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(225, 37, 27, 0.5);
+    }
+
+    /* Amount Presets & Custom Input */
+    .amount-presets-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .amount-presets-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .preset-btn {
+      background: var(--surface);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 10px 8px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--text-main);
+      font-weight: 700;
+      font-size: 14px;
+      transition: all 0.15s ease;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--primary);
+      background: rgba(225, 37, 27, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .preset-btn.active {
+      border-color: var(--primary);
+      background: rgba(225, 37, 27, 0.15);
+      color: #FF8A84;
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+
+    .preset-sub {
+      display: block;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .input-field-group {
+      margin-bottom: 20px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .input-with-symbol {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .currency-prefix {
+      position: absolute;
+      left: 16px;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--primary);
+      pointer-events: none;
+    }
+
+    .amount-input {
+      width: 100%;
+      background: #0B0F17;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px 14px 44px;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .amount-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(225, 37, 27, 0.2);
+    }
+
+    .order-id-input {
+      width: 100%;
+      background: #0B0F17;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      color: #E5E7EB;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .order-id-input:focus {
+      border-color: #4B5563;
+    }
+
+    /* Cart Items & Line items */
+    .cart-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      background: #0B0F17;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+    }
+
+    .cart-item-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .item-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .item-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .item-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .item-price {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      font-family: var(--font-mono);
+    }
+
+    /* Checkout Total Summary */
+    .summary-table {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .summary-row.total-row {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--card-border);
+    }
+
+    .total-amount-display {
+      font-size: 22px;
+      font-weight: 800;
+      color: #FF8A84;
+      font-family: var(--font-mono);
+    }
+
+    /* Primary Pay Button */
+    .btn-pay-now {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary) 0%, #B91C1C 100%);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 16px 24px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 24px;
+      box-shadow: var(--shadow-primary);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-pay-now:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 36px rgba(225, 37, 27, 0.45);
+      background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    }
+
+    .btn-pay-now:active {
+      transform: translateY(0);
+    }
+
+    .btn-pay-now:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Right Column: Information & Authorized Banks */
+    .info-column {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .merchant-profile-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+    }
+
+    .profile-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 13px;
+    }
+
+    .profile-item:last-child {
+      border-bottom: none;
+    }
+
+    .profile-key {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .profile-val {
+      color: #fff;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .copy-pill {
+      background: var(--surface);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-pill:hover {
+      color: #fff;
+      background: #374151;
+    }
+
+    /* Supported Banks Grid */
+    .supported-banks-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+    }
+
+    .banks-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .bank-badge {
+      background: #0B0F17;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 8px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+
+    .bank-badge:hover {
+      border-color: #374151;
+      background: #162032;
+    }
+
+    .bank-badge-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: white;
+    }
+
+    .bank-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* Specific Bank Colors */
+    .b-bakong { background: #E1251B; }
+    .b-acleda { background: #003366; }
+    .b-aba { background: #004D71; }
+    .b-wing { background: #71B436; }
+    .b-canadia { background: #D9232E; }
+    .b-sathapana { background: #1B4E8E; }
+
+    /* Developer Integration Section */
+    .dev-hub-section {
+      margin-top: 48px;
+      border-top: 1px solid var(--card-border);
+      padding-top: 36px;
+    }
+
+    .tabs-nav {
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 24px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 12px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--primary);
+    }
+
+    .code-block-wrapper {
+      position: relative;
+      background: #070A0F;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    .code-header {
+      background: #0E131E;
+      border-bottom: 1px solid var(--card-border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    pre code {
+      display: block;
+      padding: 18px 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #E2E8F0;
+      overflow-x: auto;
+      line-height: 1.6;
+    }
+
+    /* ========================================================
+       MODAL: AUTHENTIC NBC BAKONG KHQR STAND CARD (Step 2 & 5)
+       ======================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 7, 13, 0.85);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .khqr-stand-card {
+      width: 100%;
+      max-width: 420px;
+      background: #FFFFFF;
+      color: #111827;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      transform: scale(0.92) translateY(20px);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+
+    .modal-backdrop.open .khqr-stand-card {
+      transform: scale(1) translateY(0);
+    }
+
+    /* Official Red Header Ribbon */
+    .khqr-header-banner {
+      background: #E1251B;
+      padding: 20px 24px 18px;
+      color: white;
+      text-align: center;
+      position: relative;
+    }
+
+    .khqr-modal-close-btn {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: rgba(0, 0, 0, 0.2);
+      border: none;
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: background 0.2s;
+    }
+
+    .khqr-modal-close-btn:hover {
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    .khqr-logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .khqr-title-bold {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: white;
+      line-height: 1;
+    }
+
+    .khqr-merchant-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.95);
+      margin-top: 4px;
+    }
+
+    .khqr-bakong-id {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.8);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    /* Modal Body */
+    .khqr-body {
+      padding: 24px 28px;
+      background: #FFFFFF;
+      text-align: center;
+    }
+
+    /* Amount Tag */
+    .khqr-amount-wrapper {
+      margin-bottom: 16px;
+    }
+
+    .khqr-amount-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .khqr-amount-value {
+      font-size: 30px;
+      font-weight: 900;
+      color: #111827;
+      font-family: var(--font-mono);
+      letter-spacing: -0.5px;
+    }
+
+    /* Canvas QR Box */
+    .qr-canvas-box {
+      width: 250px;
+      height: 250px;
+      margin: 0 auto;
+      background: #F9FAFB;
+      border: 2px solid #F3F4F6;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+    }
+
+    #qrCanvas {
+      width: 234px !important;
+      height: 234px !important;
+      border-radius: 12px;
+      display: block;
+    }
+
+    /* Centered Bakong Logo on Canvas */
+    .qr-center-logo {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      background: #FFFFFF;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      border: 2px solid #FFFFFF;
+    }
+
+    .qr-center-logo-inner {
+      width: 34px;
+      height: 34px;
+      background: #E1251B;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 900;
+      font-size: 16px;
+    }
+
+    /* Order Reference & Countdown */
+    .khqr-meta-info {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px dashed #E5E7EB;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #4B5563;
+    }
+
+    .order-ref-pill {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #111827;
+      background: #F3F4F6;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    .timer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 700;
+      color: #DC2626;
+      font-family: var(--font-mono);
+      background: #FEE2E2;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+    }
+
+    /* Polling Status Radar */
+    .polling-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 8px 12px;
+      background: #F0FDF4;
+      border: 1px solid #DCFCE7;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 600;
+      color: #15803D;
+    }
+
+    .radar-dot {
+      width: 7px;
+      height: 7px;
+      background: #16A34A;
+      border-radius: 50%;
+      animation: radar-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+
+    @keyframes radar-ping {
+      0% { transform: scale(0.9); opacity: 1; }
+      50% { transform: scale(1.6); opacity: 0.4; }
+      100% { transform: scale(0.9); opacity: 1; }
+    }
+
+    /* Action Deep Link (Step 5c) */
+    .deeplink-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #111827;
+      color: #FFFFFF !important;
+      text-decoration: none;
+      padding: 13px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 14px;
+      transition: all 0.2s;
+    }
+
+    .deeplink-btn:hover {
+      background: #1F2937;
+      transform: translateY(-1px);
+    }
+
+    .instructions-footer {
+      font-size: 11px;
+      color: #6B7280;
+      margin-top: 14px;
+      line-height: 1.4;
+    }
+
+    /* Success Modal View */
+    .khqr-success-view {
+      display: none;
+      padding: 36px 28px;
+      text-align: center;
+    }
+
+    .success-icon-circle {
+      width: 72px;
+      height: 72px;
+      background: #ECFDF5;
+      border: 3px solid #10B981;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+      color: #10B981;
+      font-size: 34px;
+      animation: scale-up 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes scale-up {
+      0% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .success-title {
+      font-size: 22px;
+      font-weight: 900;
+      color: #111827;
+      margin-bottom: 6px;
+    }
+
+    .success-subtitle {
+      font-size: 13px;
+      color: #4B5563;
+      margin-bottom: 20px;
+    }
+
+    .receipt-box {
+      background: #F9FAFB;
+      border: 1px solid #E5E7EB;
+      border-radius: 14px;
+      padding: 16px;
+      text-align: left;
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px dashed #E5E7EB;
+    }
+
+    .receipt-row:last-child {
+      border-bottom: none;
+      font-weight: 800;
+      font-size: 14px;
+      color: #111827;
+      padding-top: 10px;
+    }
+
+    .receipt-key {
+      color: #6B7280;
+    }
+
+    .receipt-val {
+      color: #111827;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .telegram-alert-pill {
+      background: rgba(37, 99, 235, 0.08);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #1D4ED8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    /* Live Request Logger Drawer */
+    .logs-container {
+      background: #070A0F;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      max-height: 280px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .log-entry {
+      padding: 6px 0;
+      border-bottom: 1px solid #162032;
+      display: flex;
+      gap: 10px;
+    }
+
+    .log-time {
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .log-method {
+      font-weight: 700;
+      color: var(--info);
+      flex-shrink: 0;
+    }
+
+    .log-status {
+      font-weight: 700;
+      color: var(--success);
+      flex-shrink: 0;
+    }
+
+    .log-msg {
+      color: var(--text-muted);
+      word-break: break-all;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 24px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-top: auto;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1E293B;
+      color: #fff;
+      border: 1px solid #334155;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      z-index: 200;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header>
+    <div class="nav-container">
+      <div class="brand-group">
+        <div class="brand-logo-badge" aria-label="riki store">R</div>
+        <div class="brand-details">
+          <div class="brand-title">
+            riki
+            <span class="merchant-tag">NBC Bakong KHQR</span>
+          </div>
+          <div class="brand-subtitle">Cambodian Banking API Gateway v2.4</div>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <div class="gateway-status" title="Active Gateway Connection">
+          <span class="status-pulse"></span>
+          <span>Gateway Active (60 req/min limit)</span>
+        </div>
+        <button class="btn-secondary" onclick="scrollToDevDocs()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+          Developer API Hub
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Bank Rail Banner Notice (Mandatory Requirement 1) -->
+    <div class="rail-alert">
+      <div class="rail-alert-left">
+        <div class="rail-badge-icon">✓</div>
+        <div class="rail-alert-text">
+          <h4>Authorized Banking Rail: NBC Bakong KHQR Only</h4>
+          <p>Merchant Bakong ID: <strong style="color: #fff;">hut_soksitchey1@aclb</strong>. Customers scan with ANY Cambodian banking app (Bakong, ACLEDA, ABA Mobile, Wing, Canadia, Sathapana, etc.).</p>
+        </div>
+      </div>
+      <div class="rail-alert-pills">
+        <span class="pill-info">Merchant: riki</span>
+        <span class="pill-info">API Key: plk_live_8665...</span>
+        <span class="pill-info">Rail: NBC KHQR</span>
+      </div>
+    </div>
+
+    <!-- Checkout Main Content -->
+    <div class="checkout-grid">
+      
+      <!-- Left Column: Checkout & Dual-Currency Configurator -->
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="2" y1="10" x2="22" y2="10"></line>
+            </svg>
+            Interactive KHQR Checkout
+          </h2>
+          <span style="font-size: 12px; color: var(--text-dim); font-family: var(--font-mono);">
+            Store: riki
+          </span>
+        </div>
+
+        <!-- Selected Demo Product Cart Item -->
+        <div class="cart-item">
+          <div class="cart-item-info">
+            <div class="item-icon-box">☕</div>
+            <div>
+              <div class="item-title">Mondulkiri Artisan Roast & Pastry</div>
+              <div class="item-desc">Premium Organic Blend • Table 04</div>
+            </div>
+          </div>
+          <div class="item-price" id="cartItemPriceDisplay">$1.50</div>
+        </div>
+
+        <!-- Dual-Currency Engine (Spec Requirement 3) -->
+        <div class="currency-selector-card">
+          <div class="currency-toggle-wrapper">
+            <span class="currency-toggle-label">1. Select Payment Currency</span>
+            <div class="currency-segmented-control" role="group" aria-label="Currency Selector">
+              <button type="button" class="currency-btn active" id="btnCurrencyUSD" onclick="setCurrency('USD')">
+                <span>$</span> USD (US Dollar)
+              </button>
+              <button type="button" class="currency-btn" id="btnCurrencyKHR" onclick="setCurrency('KHR')">
+                <span>៛</span> KHR (Khmer Riel)
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Amount Presets -->
+          <div class="currency-toggle-label" style="margin-bottom: 8px;">2. Quick Amount Presets</div>
+          <div class="amount-presets-grid" id="presetsContainer">
+            <!-- Rendered dynamically depending on currency -->
+          </div>
+
+          <!-- Custom Amount Input -->
+          <div class="input-field-group">
+            <label class="field-label" for="customAmountInput">Or Enter Exact Payment Amount</label>
+            <div class="input-with-symbol">
+              <span class="currency-prefix" id="currencyPrefixSign">$</span>
+              <input 
+                type="number" 
+                id="customAmountInput" 
+                class="amount-input" 
+                value="1.50" 
+                step="0.01" 
+                min="0.01" 
+                oninput="onCustomAmountChange(this.value)"
+              >
+            </div>
+            <div style="font-size: 11px; color: var(--text-dim); margin-top: 6px;" id="currencyFormatHint">
+              Format: Standard USD decimal format (e.g. 1.50). Gateway converts to cents internally.
+            </div>
+          </div>
+
+          <!-- Custom Order ID (Auto-generated with Refresh) -->
+          <div class="input-field-group" style="margin-bottom: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="field-label" for="orderIdInput" style="margin-bottom: 0;">Unique Order ID</label>
+              <button type="button" class="copy-pill" onclick="generateNewOrderId()" style="font-size: 10px;">
+                ↻ Generate New
+              </button>
+            </div>
+            <input type="text" id="orderIdInput" class="order-id-input" value="">
+          </div>
+        </div>
+
+        <!-- Order Summary Breakdown -->
+        <div class="summary-table">
+          <div class="summary-row">
+            <span>Subtotal</span>
+            <span id="subtotalDisplay">$1.50</span>
+          </div>
+          <div class="summary-row">
+            <span>Gateway Bank Fee (Bakong)</span>
+            <span style="color: var(--success); font-weight: 700;">0.00 (Free)</span>
+          </div>
+          <div class="summary-row">
+            <span>Settlement Channel</span>
+            <span style="color: #fff; font-weight: 600;">NBC Bakong KHQR</span>
+          </div>
+          <div class="summary-row total-row">
+            <span>Total Payable</span>
+            <span class="total-amount-display" id="totalPayableDisplay">$1.50</span>
+          </div>
+        </div>
+
+        <!-- Primary Action Button (Calls Step 1 API) -->
+        <button type="button" class="btn-pay-now" id="btnPayNow" onclick="initiatePayment()">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span id="payBtnText">Generate KHQR & Pay</span>
+        </button>
+
+        <div style="text-align: center; margin-top: 14px; font-size: 12px; color: var(--text-dim);">
+          🔒 Protected by Live PayLink Gateway • Anti-DDoS Rate Limited to 60 req/min
+        </div>
+      </div>
+
+      <!-- Right Column: Merchant Profile & Bank Rails -->
+      <div class="info-column">
+        <!-- Merchant Profile Card -->
+        <div class="merchant-profile-card">
+          <h3 class="section-title" style="font-size: 16px; margin-bottom: 16px;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            Merchant Registration
+          </h3>
+
+          <div class="profile-item">
+            <span class="profile-key">Store Name</span>
+            <span class="profile-val">riki</span>
+          </div>
+          <div class="profile-item">
+            <span class="profile-key">Bakong Account ID</span>
+            <span class="profile-val" title="Click to copy" onclick="copyText('hut_soksitchey1@aclb')">
+              hut_soksitchey1@aclb
+              <span class="copy-pill">copy</span>
+            </span>
+          </div>
+          <div class="profile-item">
+            <span class="profile-key">API Base URL</span>
+            <span class="profile-val" style="font-size: 11px;">paylinkapi-bot.onrender.com</span>
+          </div>
+          <div class="profile-item">
+            <span class="profile-key">Authorized Rail</span>
+            <span class="profile-val" style="color: #FF6B6B;">NBC Bakong KHQR (1 Rail)</span>
+          </div>
+          <div class="profile-item">
+            <span class="profile-key">Polling Interval</span>
+            <span class="profile-val" style="color: var(--success);">2.5 seconds (Auto-settle)</span>
+          </div>
+        </div>
+
+        <!-- Authorized Bank Ecosystem Card -->
+        <div class="supported-banks-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 class="section-title" style="font-size: 15px;">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+              </svg>
+              Supported Banking Apps
+            </h3>
+            <span style="font-size: 11px; color: var(--success); font-weight: 700;">Any KHQR App</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+            Customers scan the generated KHQR with their favorite Cambodian mobile banking application:
+          </p>
+
+          <div class="banks-grid">
+            <div class="bank-badge">
+              <div class="bank-badge-icon b-bakong">BK</div>
+              <span class="bank-name">Bakong App</span>
+            </div>
+            <div class="bank-badge">
+              <div class="bank-badge-icon b-acleda">AC</div>
+              <span class="bank-name">ACLEDA</span>
+            </div>
+            <div class="bank-badge">
+              <div class="bank-badge-icon b-aba">ABA</div>
+              <span class="bank-name">ABA Mobile</span>
+            </div>
+            <div class="bank-badge">
+              <div class="bank-badge-icon b-wing">WG</div>
+              <span class="bank-name">Wing Bank</span>
+            </div>
+            <div class="bank-badge">
+              <div class="bank-badge-icon b-canadia">CN</div>
+              <span class="bank-name">Canadia</span>
+            </div>
+            <div class="bank-badge">
+              <div class="bank-badge-icon b-sathapana">SP</div>
+              <span class="bank-name">Sathapana</span>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 10px;">
+            +50 more National Bank of Cambodia financial institutions
+          </div>
+        </div>
+
+        <!-- Live API Activity Log Mini-Viewer -->
+        <div class="card" style="padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 13px; font-weight: 700; color: #fff;">Live Gateway Activity</span>
+            <button type="button" class="copy-pill" onclick="clearLogs()">Clear</button>
+          </div>
+          <div class="logs-container" id="apiActivityLogs">
+            <div class="log-entry">
+              <span class="log-time" id="initLogTime">00:00:00</span>
+              <span class="log-status">[READY]</span>
+              <span class="log-msg">Gateway initialized for merchant "riki".</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Developer Integration Hub (Specifications 1, 2, 4, 6, 7) -->
+    <section class="dev-hub-section" id="devHubSection">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Developer Integration Hub & API Reference</h2>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+            Production specifications for developer implementation across Node.js, Python, and Vanilla HTML.
+          </p>
+        </div>
+      </div>
+
+      <!-- Tabs Navigation -->
+      <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchDevTab('tabInstall')">QR Library Installation</button>
+        <button class="tab-btn" onclick="switchDevTab('tabGenerate')">Step 1: Generate QR API</button>
+        <button class="tab-btn" onclick="switchDevTab('tabPolling')">Step 3: Verification Polling</button>
+        <button class="tab-btn" onclick="switchDevTab('tabWebhook')">Step 4: Webhook Listener (Backend)</button>
+      </div>
+
+      <!-- Tab 1: Installation Commands (Spec Requirement 2) -->
+      <div id="tabInstall" class="tab-content">
+        <p style="font-size: 13px; color: var(--text-muted);">
+          Install the official QRCode library across your desired platform:
+        </p>
+        <div class="code-block-wrapper">
+          <div class="code-header">
+            <span>Terminal / Package Installation</span>
+            <button class="copy-pill" onclick="copySnippet('codeInstall')">Copy Commands</button>
+          </div>
+          <pre><code id="codeInstall"># 1. Node.js / React / Next.js / Vite
+npm install qrcode
+# (or for React components)
+npm install qrcode.react
+
+# 2. Python / Flask / FastAPI / Django
+pip install qrcode[pil] pillow
+
+# 3. Vanilla HTML / JavaScript (Verified CDN & Local)
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"&gt;&lt;/script&gt;
+&lt;!-- or local script: &lt;script src="qrcode.min.js"&gt;&lt;/script&gt; --&gt;
+
+# Canvas Render Execution in Browser:
+QRCode.toCanvas(canvasElement, qrString, { width: 240, margin: 1 });</code></pre>
+        </div>
+      </div>
+
+      <!-- Tab 2: Generate QR API (Spec Requirement 4) -->
+      <div id="tabGenerate" class="tab-content" style="display: none;">
+        <p style="font-size: 13px; color: var(--text-muted);">
+          Initialize payment and generate EMV KHQR string via POST to gateway:
+        </p>
+        <div class="code-block-wrapper">
+          <div class="code-header">
+            <span>POST /api/payment/generate-qr</span>
+            <button class="copy-pill" onclick="copySnippet('codeGenerate')">Copy Code</button>
+          </div>
+          <pre><code id="codeGenerate">// Endpoint: POST https://paylinkapi-bot.onrender.com/api/payment/generate-qr
+const response = await fetch('https://paylinkapi-bot.onrender.com/api/payment/generate-qr', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer plk_live_8665505824_5ea90c68'
+  },
+  body: JSON.stringify({
+    amount: 1.50,         // For USD: 1.50 (decimal) | For KHR: 6000 (integer)
+    currency: 'USD',      // 'USD' or 'KHR'
+    orderId: 'ORD_991823' // Unique Order ID
+  })
+});
+
+const data = await response.json();
+/*
+Response:
+{
+  "success": true,
+  "qrString": "00020101021229240020hut_soksitchey1@aclb...",
+  "tranId": "ORD_1791118090808",
+  "deepLink": "bakong://qr?data=..."
+}
+*/</code></pre>
+        </div>
+      </div>
+
+      <!-- Tab 3: Verification Polling (Spec Requirement 6) -->
+      <div id="tabPolling" class="tab-content" style="display: none;">
+        <p style="font-size: 13px; color: var(--text-muted);">
+          Automated 2-3 second polling verification loop with 5-minute timeout:
+        </p>
+        <div class="code-block-wrapper">
+          <div class="code-header">
+            <span>POST /api/payment/check</span>
+            <button class="copy-pill" onclick="copySnippet('codePolling')">Copy Code</button>
+          </div>
+          <pre><code id="codePolling">// Automated Polling Verification (Every 2.5 seconds)
+const pollInterval = setInterval(async () => {
+  const checkRes = await fetch('https://paylinkapi-bot.onrender.com/api/payment/check', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer plk_live_8665505824_5ea90c68'
+    },
+    body: JSON.stringify({ tranId: transactionId })
+  });
+
+  const checkData = await checkRes.json();
+  
+  if (checkData.status === 'PAID' && checkData.paid === true) {
+    clearInterval(pollInterval);
+    // 1. Clear interval & display success checkmark
+    // 2. Complete customer order
+    // 3. Gateway automatically sends an instant transaction settlement alert to Telegram!
+    showPaymentSuccess(checkData);
+  }
+}, 2500);</code></pre>
+        </div>
+      </div>
+
+      <!-- Tab 4: Webhook Listener (Spec Requirement 7) -->
+      <div id="tabWebhook" class="tab-content" style="display: none;">
+        <p style="font-size: 13px; color: var(--text-muted);">
+          Backend Webhook Listener with HMAC-SHA256 signature verification using secret <code>whsec_a14b36126ad17770</code>:
+        </p>
+        <div class="code-block-wrapper">
+          <div class="code-header">
+            <span>Node.js / Express Webhook Handler</span>
+            <button class="copy-pill" onclick="copySnippet('codeWebhook')">Copy Webhook Code</button>
+          </div>
+          <pre><code id="codeWebhook">const express = require('express');
+const crypto = require('crypto');
+
+const app = express();
+// Webhook requires raw body for accurate cryptographic signature check
+app.use(express.json({
+  verify: (req, res, buf) => { req.rawBody = buf; }
+}));
+
+const WEBHOOK_SECRET = 'whsec_a14b36126ad17770';
+
+app.post('/api/webhook', (req, res) => {
+  const signature = req.headers['x-signature'];
+  const expected = crypto.createHmac('sha256', WEBHOOK_SECRET)
+                         .update(req.rawBody)
+                         .digest('hex');
+
+  if (signature === expected) {
+    const payload = req.body;
+    console.log('Verified settlement payment:', payload);
+    // Fulfill customer order in your database
+    return res.status(200).json({ received: true });
+  } else {
+    console.error('Signature mismatch! Request forged or invalid.');
+    return res.status(401).send('Invalid signature');
+  }
+});
+
+app.listen(3000, () => console.log('Webhook server running on port 3000'));</code></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================================================
+       MODAL: AUTHENTIC NBC BAKONG KHQR STAND (Steps 2, 5 & 6)
+       ======================================================== -->
+  <div class="modal-backdrop" id="khqrModal" role="dialog" aria-modal="true" aria-labelledby="modalMerchantTitle">
+    <div class="khqr-stand-card">
+      
+      <!-- Red Header Banner -->
+      <div class="khqr-header-banner">
+        <button type="button" class="khqr-modal-close-btn" onclick="closeKHQRModal()" aria-label="Close modal">×</button>
+        <div class="khqr-logo-row">
+          <!-- Stylized KHQR Ribbon Emblem -->
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4 4h7v7H4V4zm2 2v3h3V6H6zm7-2h7v7h-7V4zm2 2v3h3V6h-3zM4 13h7v7H4v-7zm2 2v3h3v-3H6zm10-2h1v2h-1v-2zm3 0h1v4h-2v-1h-1v-1h2v-2zm-3 3h2v2h-2v-2zm3 2h1v2h-1v-2zm-1 0v1h-2v-1h2z"/>
+          </svg>
+          <span class="khqr-title-bold">KHQR</span>
+        </div>
+        <div class="khqr-merchant-name" id="modalMerchantTitle">riki</div>
+        <div class="khqr-bakong-id">hut_soksitchey1@aclb</div>
+      </div>
+
+      <!-- KHQR Active QR View -->
+      <div class="khqr-body" id="modalActiveView">
+        <div class="khqr-amount-wrapper">
+          <div class="khqr-amount-title">Total Amount</div>
+          <div class="khqr-amount-value" id="modalAmountDisplay">$ 1.50</div>
+        </div>
+
+        <!-- Rendered QR Canvas with Bakong Center Icon -->
+        <div class="qr-canvas-box">
+          <canvas id="qrCanvas"></canvas>
+          <div class="qr-center-logo">
+            <div class="qr-center-logo-inner">B</div>
+          </div>
+        </div>
+
+        <!-- Order Meta & Countdown Timer -->
+        <div class="khqr-meta-info">
+          <div>
+            Order: <span class="order-ref-pill" id="modalOrderRef">#ORD-0000</span>
+          </div>
+          <div class="timer-badge" id="timerBadge">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span id="countdownText">05:00</span>
+          </div>
+        </div>
+
+        <!-- Live Settlement Status Radar (Polling Step 6) -->
+        <div class="polling-indicator">
+          <span class="radar-dot"></span>
+          <span id="pollingStatusText">Awaiting customer payment (polling 2.5s)...</span>
+        </div>
+
+        <!-- Deep Link Mobile Button (Spec Requirement 5c) -->
+        <a id="bankDeepLinkBtn" href="#" class="deeplink-btn" target="_blank" rel="noopener">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+          Open Banking App to Pay
+        </a>
+
+        <!-- Testing Simulation Helper -->
+        <div style="margin-top: 10px; display: flex; justify-content: center; gap: 8px;">
+          <button type="button" class="copy-pill" style="font-size: 11px;" onclick="simulatePaymentSuccess()">
+            ⚡ Dev Test: Simulate Success
+          </button>
+          <button type="button" class="copy-pill" style="font-size: 11px;" onclick="copyRawQrString()">
+            📋 Copy KHQR String
+          </button>
+        </div>
+
+        <div class="instructions-footer">
+          Scan with <strong>Bakong, ACLEDA, ABA Mobile, Wing, Canadia</strong> or any Cambodian banking app.
+        </div>
+      </div>
+
+      <!-- KHQR Settlement Completed Success View (Step 6a,b) -->
+      <div class="khqr-success-view" id="modalSuccessView">
+        <div class="success-icon-circle">✓</div>
+        <h3 class="success-title">Payment Successful!</h3>
+        <p class="success-subtitle">Your transaction has been verified and settled via NBC Bakong.</p>
+
+        <div class="receipt-box">
+          <div class="receipt-row">
+            <span class="receipt-key">Merchant</span>
+            <span class="receipt-val">riki</span>
+          </div>
+          <div class="receipt-row">
+            <span class="receipt-key">Account</span>
+            <span class="receipt-val">hut_soksitchey1@aclb</span>
+          </div>
+          <div class="receipt-row">
+            <span class="receipt-key">Order ID</span>
+            <span class="receipt-val" id="receiptOrderId">-</span>
+          </div>
+          <div class="receipt-row">
+            <span class="receipt-key">Transaction ID</span>
+            <span class="receipt-val" id="receiptTranId">-</span>
+          </div>
+          <div class="receipt-row">
+            <span class="receipt-key">Settlement Time</span>
+            <span class="receipt-val" id="receiptTimestamp">-</span>
+          </div>
+          <div class="receipt-row">
+            <span class="receipt-key">Amount Settled</span>
+            <span class="receipt-val" id="receiptAmount" style="color: var(--primary); font-size: 15px;">-</span>
+          </div>
+        </div>
+
+        <!-- Telegram Settlement Alert Notice (Step 6b) -->
+        <div class="telegram-alert-pill">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+          </svg>
+          <div>
+            <strong>Instant Settlement Alert Dispatched!</strong><br>
+            The gateway bot sent an automated transaction confirmation to the merchant's Telegram.
+          </div>
+        </div>
+
+        <button type="button" class="btn-pay-now" style="margin-top: 0; background: #111827;" onclick="resetCheckout()">
+          Done & Start New Order
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Pop-up -->
+  <div id="toast">Copied to clipboard!</div>
+
+  <!-- Footer -->
+  <footer>
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <strong>riki</strong> • Powered by Cambodian Banking API Gateway & NBC Bakong KHQR
+      </div>
+      <div>
+        Merchant Bakong ID: <code style="color: #FF8A84;">hut_soksitchey1@aclb</code>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Main Integration Script -->
+  <script>
+    /**
+     * CONFIGURATION & CREDENTIALS (Spec Requirement 1)
+     */
+    const CONFIG = {
+      baseUrl: 'https://paylinkapi-bot.onrender.com',
+      apiKey: 'plk_live_8665505824_5ea90c68',
+      merchantName: 'riki',
+      bakongId: 'hut_soksitchey1@aclb',
+      pollingIntervalMs: 2500, // Polling interval: 2.5s (Step 6)
+      timeoutSeconds: 300      // 5-minute timeout (Step 6)
+    };
+
+    // State Variables
+    let currentCurrency = 'USD';
+    let currentAmount = 1.50;
+    let currentOrderId = '';
+    let currentTranId = '';
+    let currentQrString = '';
+    let currentDeepLink = '';
+    let pollTimerId = null;
+    let countdownTimerId = null;
+    let remainingSeconds = CONFIG.timeoutSeconds;
+    let pollCount = 0;
+
+    // Presets for USD and KHR
+    const PRESETS = {
+      USD: [
+        { label: '$0.50', value: 0.50, desc: 'Micro-pay' },
+        { label: '$1.50', value: 1.50, desc: 'Spec Standard' },
+        { label: '$5.00', value: 5.00, desc: 'Popular' },
+        { label: '$15.00', value: 15.00, desc: 'Premium' }
+      ],
+      KHR: [
+        { label: '2,000 ៛', value: 2000, desc: 'Micro-pay' },
+        { label: '6,000 ៛', value: 6000, desc: 'Spec Standard' },
+        { label: '20,000 ៛', value: 20000, desc: 'Popular' },
+        { label: '60,000 ៛', value: 60000, desc: 'Premium' }
+      ]
+    };
+
+    // Audio chime using Web Audio API (delightful payment confirmation sound)
+    function playSuccessChime() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        
+        const now = ctx.currentTime;
+        // Two-tone bell chord
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(587.33, now); // D5
+        osc1.frequency.exponentialRampToValueAtTime(880.00, now + 0.15); // A5
+
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(880.00, now + 0.15);
+        osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.35); // E6
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc1.start(now);
+        osc2.start(now + 0.15);
+        osc1.stop(now + 1.2);
+        osc2.stop(now + 1.2);
+      } catch (e) {
+        console.warn('Audio chime unsupported or blocked', e);
+      }
+    }
+
+    // Initialize application on DOM load
+    window.addEventListener('DOMContentLoaded', () => {
+      generateNewOrderId();
+      renderPresets();
+      updatePriceDisplay();
+      logActivity('SYSTEM', 'READY', 'Checkout UI ready. Authorized rail: NBC Bakong KHQR.');
+      document.getElementById('initLogTime').textContent = new Date().toTimeString().split(' ')[0];
+    });
+
+    /**
+     * Generate Unique Order ID (Spec Requirement 4)
+     */
+    function generateNewOrderId() {
+      const now = new Date();
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      currentOrderId = `ORD-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${rand}`;
+      document.getElementById('orderIdInput').value = currentOrderId;
+    }
+
+    /**
+     * DUAL-CURRENCY ENGINE & CURRENCY SWITCHING (Spec Requirement 3)
+     */
+    function setCurrency(currency) {
+      if (currentCurrency === currency) return;
+      currentCurrency = currency;
+
+      // Update toggle buttons UI
+      document.getElementById('btnCurrencyUSD').classList.toggle('active', currency === 'USD');
+      document.getElementById('btnCurrencyKHR').classList.toggle('active', currency === 'KHR');
+
+      const prefix = currency === 'USD' ? '$' : '៛';
+      document.getElementById('currencyPrefixSign').textContent = prefix;
+
+      // Set default spec amounts: USD -> 1.50, KHR -> 6000
+      if (currency === 'USD') {
+        currentAmount = 1.50;
+        document.getElementById('customAmountInput').step = '0.01';
+        document.getElementById('customAmountInput').value = '1.50';
+        document.getElementById('currencyFormatHint').textContent = 'Format: Standard USD decimal format (e.g. 1.50). Gateway converts to cents internally.';
+      } else {
+        currentAmount = 6000;
+        document.getElementById('customAmountInput').step = '100';
+        document.getElementById('customAmountInput').value = '6000';
+        document.getElementById('currencyFormatHint').textContent = 'Format: Khmer Riel integer format (e.g. 6000). Integer format required.';
+      }
+
+      renderPresets();
+      updatePriceDisplay();
+      logActivity('CONFIG', 'CURRENCY', `Switched currency to ${currency} (Amount: ${formatPrice(currentAmount, currency)})`);
+    }
+
+    function renderPresets() {
+      const container = document.getElementById('presetsContainer');
+      container.innerHTML = '';
+      const list = PRESETS[currentCurrency];
+
+      list.forEach((preset, index) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `preset-btn ${preset.value === currentAmount ? 'active' : ''}`;
+        btn.innerHTML = `
+          ${preset.label}
+          <span class="preset-sub">${preset.desc}</span>
+        `;
+        btn.onclick = () => {
+          currentAmount = preset.value;
+          document.getElementById('customAmountInput').value = currentCurrency === 'USD' ? currentAmount.toFixed(2) : currentAmount;
+          document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          updatePriceDisplay();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function onCustomAmountChange(val) {
+      const parsed = parseFloat(val);
+      if (!isNaN(parsed) && parsed > 0) {
+        currentAmount = currentCurrency === 'USD' ? Math.round(parsed * 100) / 100 : Math.round(parsed);
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        updatePriceDisplay();
+      }
+    }
+
+    function formatPrice(amount, currency) {
+      if (currency === 'USD') {
+        return `$${Number(amount).toFixed(2)}`;
+      } else {
+        return `${Number(amount).toLocaleString()} ៛`;
+      }
+    }
+
+    function updatePriceDisplay() {
+      const formatted = formatPrice(currentAmount, currentCurrency);
+      document.getElementById('cartItemPriceDisplay').textContent = formatted;
+      document.getElementById('subtotalDisplay').textContent = formatted;
+      document.getElementById('totalPayableDisplay').textContent = formatted;
+    }
+
+    /**
+     * STEP 1: INITIALIZE PAYMENT (GENERATE QR CODE) (Spec Requirement 4)
+     */
+    async function initiatePayment() {
+      const orderId = document.getElementById('orderIdInput').value.trim() || currentOrderId;
+      const btn = document.getElementById('btnPayNow');
+      const btnText = document.getElementById('payBtnText');
+
+      // UI Loading state
+      btn.disabled = true;
+      btnText.innerHTML = '<span class="spinner"></span> Generating KHQR...';
+
+      // Prepare request payload adhering to Step 1 specs
+      const payload = {
+        amount: currentCurrency === 'USD' ? parseFloat(currentAmount.toFixed(2)) : parseInt(currentAmount, 10),
+        currency: currentCurrency,
+        orderId: orderId
+      };
+
+      logActivity('API_REQ', 'POST /api/payment/generate-qr', JSON.stringify(payload));
+
+      try {
+        const response = await fetch(`${CONFIG.baseUrl}/api/payment/generate-qr`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${CONFIG.apiKey}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        logActivity('API_RES', `HTTP ${response.status}`, JSON.stringify(data));
+
+        if (response.ok && data.success) {
+          currentTranId = data.tranId || data.transactionId;
+          currentQrString = data.qrString;
+          currentDeepLink = data.deepLink || data.deeplink || `bakong://qr?data=${encodeURIComponent(data.qrString)}`;
+
+          // Open and render KHQR Stand Modal (Step 2)
+          renderPaymentModal(data, payload);
+          // Start automated settlement verification polling (Step 3)
+          startPollingVerification(currentTranId);
+        } else {
+          showToast(`Gateway Error: ${data.message || 'Failed to generate KHQR'}`);
+          alert(`Gateway Error: ${data.message || 'Could not generate KHQR. Please check credentials or try again.'}`);
+        }
+      } catch (err) {
+        console.error('Payment generation error:', err);
+        logActivity('ERROR', 'NETWORK_ERR', err.message);
+        showToast('Network error contacting payment gateway.');
+        alert('Network connection error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = 'Generate KHQR & Pay';
+      }
+    }
+
+    /**
+     * STEP 2: RENDER PAYMENT MODAL & KHQR (Spec Requirement 5)
+     */
+    function renderPaymentModal(data, payload) {
+      // Set Modal Header & Values
+      document.getElementById('modalMerchantTitle').textContent = CONFIG.merchantName;
+      document.getElementById('modalAmountDisplay').textContent = formatPrice(payload.amount, payload.currency);
+      document.getElementById('modalOrderRef').textContent = `#${payload.orderId}`;
+      
+      // Configure Deep Link Button (Spec Requirement 5c)
+      const deepLinkBtn = document.getElementById('bankDeepLinkBtn');
+      deepLinkBtn.href = currentDeepLink;
+      deepLinkBtn.style.display = 'flex';
+
+      // Ensure modal is reset to active QR view
+      document.getElementById('modalActiveView').style.display = 'block';
+      document.getElementById('modalSuccessView').style.display = 'none';
+
+      // Render QR Canvas using installed QRCode library (Spec Requirement 2)
+      const canvas = document.getElementById('qrCanvas');
+      if (typeof QRCode === 'undefined' || typeof QRCode.toCanvas !== 'function') {
+        console.error('QRCode library is not available');
+        logActivity('ERROR', 'QR_LIB', 'QRCode library is not loaded');
+        alert('QRCode library could not be loaded. Please ensure qrcode.min.js is in the folder or check internet access.');
+        return;
+      }
+
+      QRCode.toCanvas(canvas, data.qrString, {
+        width: 234,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        errorCorrectionLevel: 'M'
+      }, (err) => {
+        if (err) {
+          console.error('QR Render Error:', err);
+          logActivity('ERROR', 'QR_RENDER', err.message);
+        } else {
+          logActivity('UI', 'QR_RENDERED', `Rendered KHQR (${data.qrString.length} bytes) to canvas`);
+        }
+      });
+
+      // Show Modal Backdrop
+      document.getElementById('khqrModal').classList.add('open');
+
+      // Start 5-Minute Countdown Timer
+      startCountdownTimer();
+    }
+
+    /**
+     * STEP 3: AUTOMATED SETTLEMENT VERIFICATION & TELEGRAM ALERTS (Spec Requirement 6)
+     */
+    function startPollingVerification(tranId) {
+      stopPolling();
+      pollCount = 0;
+      const statusText = document.getElementById('pollingStatusText');
+
+      logActivity('POLL', 'START', `Starting automated 2.5s verification loop for tranId: ${tranId}`);
+
+      pollTimerId = setInterval(async () => {
+        pollCount++;
+        statusText.textContent = `Awaiting confirmation (poll #${pollCount})...`;
+
+        try {
+          const res = await fetch(`${CONFIG.baseUrl}/api/payment/check`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${CONFIG.apiKey}`
+            },
+            body: JSON.stringify({ tranId: tranId })
+          });
+
+          const data = await res.json();
+          logActivity('POLL_CHECK', `HTTP ${res.status}`, `Status: ${data.status} | Paid: ${data.paid}`);
+
+          // Check if payment is successful
+          if (data.status === 'PAID' && (data.paid === true || data.paid === 'true')) {
+            stopPolling();
+            handlePaymentSuccess(data);
+          } else if (data.status === 'FAILED' || data.status === 'EXPIRED') {
+            stopPolling();
+            statusText.textContent = `Payment status: ${data.status}`;
+            alert(`Payment has ended with status: ${data.status}`);
+          }
+        } catch (err) {
+          console.warn('Polling check error:', err);
+          logActivity('POLL_WARN', 'ERR', err.message);
+        }
+      }, CONFIG.pollingIntervalMs);
+    }
+
+    function stopPolling() {
+      if (pollTimerId) {
+        clearInterval(pollTimerId);
+        pollTimerId = null;
+      }
+      if (countdownTimerId) {
+        clearInterval(countdownTimerId);
+        countdownTimerId = null;
+      }
+    }
+
+    /**
+     * 5-Minute Countdown Timer
+     */
+    function startCountdownTimer() {
+      remainingSeconds = CONFIG.timeoutSeconds;
+      updateCountdownDisplay();
+
+      countdownTimerId = setInterval(() => {
+        remainingSeconds--;
+        updateCountdownDisplay();
+
+        if (remainingSeconds <= 0) {
+          stopPolling();
+          document.getElementById('pollingStatusText').textContent = 'QR Code Expired. Please generate a new one.';
+          alert('Payment session has timed out after 5 minutes. Please generate a new QR code.');
+        }
+      }, 1000);
+    }
+
+    function updateCountdownDisplay() {
+      const minutes = Math.floor(remainingSeconds / 60).toString().padStart(2, '0');
+      const seconds = (remainingSeconds % 60).toString().padStart(2, '0');
+      document.getElementById('countdownText').textContent = `${minutes}:${seconds}`;
+    }
+
+    /**
+     * Handle Payment Settlement Success (Spec Requirement 6)
+     */
+    function handlePaymentSuccess(data) {
+      playSuccessChime();
+
+      // Trigger Confetti Celebration Blast
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        setTimeout(() => {
+          confetti({
+            particleCount: 50,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 }
+          });
+          confetti({
+            particleCount: 50,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 }
+          });
+        }, 250);
+      }
+
+      // Populate Receipt Details
+      document.getElementById('receiptOrderId').textContent = document.getElementById('orderIdInput').value || currentOrderId;
+      document.getElementById('receiptTranId').textContent = currentTranId || data.tranId || '-';
+      document.getElementById('receiptTimestamp').textContent = new Date().toLocaleString();
+      document.getElementById('receiptAmount').textContent = formatPrice(currentAmount, currentCurrency);
+
+      // Transition modal to success view
+      document.getElementById('modalActiveView').style.display = 'none';
+      document.getElementById('modalSuccessView').style.display = 'block';
+
+      logActivity('SUCCESS', 'SETTLED', `Order successfully settled! Telegram settlement alert dispatched.`);
+      showToast('Payment verified successfully!');
+    }
+
+    /**
+     * Developer Simulation Test for Demo
+     */
+    function simulatePaymentSuccess() {
+      stopPolling();
+      handlePaymentSuccess({
+        status: 'PAID',
+        paid: true,
+        tranId: currentTranId || 'SIMULATED_' + Date.now()
+      });
+    }
+
+    function copyRawQrString() {
+      if (currentQrString) {
+        copyText(currentQrString);
+      }
+    }
+
+    function closeKHQRModal() {
+      stopPolling();
+      document.getElementById('khqrModal').classList.remove('open');
+    }
+
+    function resetCheckout() {
+      closeKHQRModal();
+      generateNewOrderId();
+      showToast('Ready for new customer checkout.');
+    }
+
+    /**
+     * Developer Hub Tab Switcher
+     */
+    function switchDevTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+      const target = document.getElementById(tabId);
+      if (target) target.style.display = 'block';
+      event.target.classList.add('active');
+    }
+
+    function scrollToDevDocs() {
+      document.getElementById('devHubSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /**
+     * Logging & Toast Utilities
+     */
+    function logActivity(level, action, message) {
+      const container = document.getElementById('apiActivityLogs');
+      if (!container) return;
+
+      const row = document.createElement('div');
+      row.className = 'log-entry';
+      const time = new Date().toTimeString().split(' ')[0];
+
+      let levelColor = 'var(--text-muted)';
+      if (level === 'API_REQ') levelColor = 'var(--info)';
+      if (level === 'API_RES' || level === 'SUCCESS') levelColor = 'var(--success)';
+      if (level === 'ERROR') levelColor = 'var(--primary)';
+
+      row.innerHTML = `
+        <span class="log-time">${time}</span>
+        <span class="log-method" style="color: ${levelColor};">[${level}]</span>
+        <span class="log-msg"><strong>${action}</strong>: ${escapeHtml(message)}</span>
+      `;
+
+      container.prepend(row);
+      // Keep max 40 entries
+      while (container.children.length > 40) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    function clearLogs() {
+      document.getElementById('apiActivityLogs').innerHTML = '';
+      showToast('Activity logs cleared');
+    }
+
+    function copyText(str) {
+      navigator.clipboard.writeText(str).then(() => {
+        showToast(`Copied: ${str}`);
+      }).catch(() => {
+        showToast('Copied to clipboard');
+      });
+    }
+
+    function copySnippet(elementId) {
+      const code = document.getElementById(elementId).innerText;
+      copyText(code);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2400);
+    }
+
+    function escapeHtml(string) {
+      const entityMap = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      };
+      return String(string).replace(/[&<>"']/g, s => entityMap[s]);
+    }
+  </script>
+</body>
+</html>
