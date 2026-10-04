@@ -190,6 +190,18 @@ const emojiConfig = {
   gear: {
     id: '5400250414929041085', // ⚙️ Animated Gear
     fallback: '⚙️'
+  },
+  video: {
+    id: process.env.EMOJI_VIDEO_ID || '5445353829304387411', // 🎬 Animated Media / Video Card
+    fallback: '🎬'
+  },
+  note: {
+    id: process.env.EMOJI_NOTE_ID || '5197288647275071607', // ⚠️ Animated Alert / Note Shield
+    fallback: '⚠️'
+  },
+  play: {
+    id: process.env.EMOJI_PLAY_ID || '5373066076558996568',  // ▶️ Animated Action / Lightning
+    fallback: '▶️'
   }
 };
 
@@ -225,7 +237,7 @@ function makeButton(text, callbackData, emojiKey = null, style = 'primary', extr
   // If a custom emoji icon is attached to the button, remove any leading duplicate emoji
   // from the text so Telegram does NOT display two emojis side by side!
   if (emojiKey && emojiConfig[emojiKey]?.id) {
-    cleanText = cleanText.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s🔴🔵⚡✍️🔄🚀🌸←🎯🔑💳🏛️🪙💵📦📖💰🆘⚙️📲✨]+/u, '').trim();
+    cleanText = cleanText.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s🔴🔵⚡✍️🔄🚀🌸←🎯🔑💳🏛️🪙💵📦📖💰🆘⚙️📲✨🎬▶️⚠️]+/u, '').trim();
   }
 
   const btn = {

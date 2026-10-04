@@ -8,6 +8,7 @@ const inlineKeyboards = {
     reply_markup: {
       inline_keyboard: [
         [makeButton(i18n.t('btn_get_started', lang), 'start_register', 'rocket', 'success')],
+        [makeButton(i18n.t('btn_video_tutorial', lang), 'nav_video_tutorial', 'video', 'primary')],
         [
           makeButton(i18n.t('btn_pricing', lang), 'nav_pricing', 'pricing', 'primary'),
           makeButton(i18n.t('btn_documentation', lang), 'nav_docs', 'docs', 'primary')
@@ -33,6 +34,7 @@ const inlineKeyboards = {
       inline_keyboard: [
         [makeButton(i18n.t('btn_get_payment_api', lang), 'nav_get_api', 'get_api', 'primary')],
         [makeButton(i18n.t('btn_test_live_payment', lang), 'start_live_pay_test', 'rocket', 'success')],
+        [makeButton(i18n.t('btn_video_tutorial', lang), 'nav_video_tutorial', 'video', 'primary')],
         [
           makeButton(i18n.t('btn_my_api_keys', lang), 'nav_api_keys', 'keys', 'primary'),
           makeButton(i18n.t('btn_my_orders', lang), 'nav_orders', 'orders', 'primary')
@@ -42,6 +44,19 @@ const inlineKeyboards = {
           { text: lang === 'km' ? '💬 ជំនួយ Support (@kaixite)' : '💬 Developer Support (@kaixite)', url: config.support.url || 'https://t.me/kaixite' }
         ],
         [makeButton(lang === 'en' ? 'ប្តូរជាភាសាខ្មែរ (Khmer)' : 'Switch to English', 'toggle_lang_dash', null, 'success')]
+      ]
+    }
+  }),
+
+  // 3b. Video Tutorial Hub Keyboard
+  videoTutorial: (lang = 'en') => ({
+    reply_markup: {
+      inline_keyboard: [
+        [makeButton(i18n.t('btn_get_payment_api', lang), 'nav_get_api', 'get_api', 'primary')],
+        [makeButton(i18n.t('btn_test_live_payment', lang), 'start_live_pay_test', 'rocket', 'success')],
+        [makeButton(i18n.t('btn_doc_pdf', lang), 'doc_download_pdf', 'docs', 'primary')],
+        [makeButton(i18n.t('btn_dashboard', lang), 'nav_dashboard', 'brand', 'danger')],
+        [makeButton(lang === 'en' ? 'ប្តូរជាភាសាខ្មែរ (Khmer)' : 'Switch to English', 'toggle_lang_video', null, 'success')]
       ]
     }
   }),

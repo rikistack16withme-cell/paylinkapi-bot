@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const config = require('../../config');
 const i18n = require('../../services/i18n.service');
 const userService = require('../../services/user.service');
@@ -5,6 +7,9 @@ const sessionManager = require('../states/user.session');
 const inlineKeyboards = require('../keyboards/inline.keyboards');
 const formatter = require('../../utils/formatter');
 const safeSender = require('../../utils/safe_sender');
+const { tgEmoji } = require('../../config/emojis');
+const { renderDashboard } = require('./dashboard.handler');
+const db = require('../../database');
 
 async function renderWelcome(bot, chatId, messageId, from) {
   const lang = userService.getUserLanguage(from.id) || config.i18n.defaultLanguage;
@@ -14,7 +19,30 @@ async function renderWelcome(bot, chatId, messageId, from) {
     `${formatter.italic(i18n.t('welcome_features', lang))}`;
 
   if (!from.username) {
-    welcomeText += `\n\n💡 <i>Tip: You don't have a Telegram @username set. Setting one in Telegram Settings helps merchants and support connect with you directly!</i>`;
+    welcomeText += `\n\n${tgEmoji('bulb')} <i>Tip: You don't have a Telegram @username set. Setting one in Telegram Settings helps merchants and support connect with you directly!</i>`;
+  }
+
+  const logoPath = path.join(process.cwd(), 'public', 'logo.png');
+  const cachedLogo = db.getSetting('bot_logo_file_id', null);
+  const logoSource = cachedLogo || (fs.existsSync(logoPath) ? logoPath : null);
+
+  if (logoSource) {
+    try {
+      const sent = await safeSender.replaceOrSendPhoto(bot, chatId, messageId, logoSource, welcomeText, {
+        parse_mode: 'HTML',
+        ...inlineKeyboards.welcome(lang)
+      }, {
+        filename: 'paylinkapi_logo.png',
+        contentType: 'image/png'
+      });
+
+      if (sent?.photo && sent.photo.length > 0) {
+        db.setSetting('bot_logo_file_id', sent.photo[sent.photo.length - 1].file_id);
+      }
+      return sent;
+    } catch (_) {
+      // Graceful fallback to text if photo send fails
+    }
   }
 
   return await safeSender.replaceOrSend(bot, chatId, messageId, welcomeText, {
@@ -42,7 +70,6 @@ async function handleStart(bot, msg) {
   // Notify Admin Group when any user starts the bot (excluding Master Admin)
   let adminChatId;
   try {
-    const db = require('../../database');
     adminChatId = String(db.getSetting('admin_group_id') || config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
   } catch (_) {
     adminChatId = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
@@ -62,7 +89,7 @@ async function handleStart(bot, msg) {
       : `<a href="tg://user?id=${from.id}">👤 View Profile (Mobile)</a>`;
 
     sendAdminAlert(
-      `👋 <b>[USER ACTIVE • /START]</b>\n` +
+      `${tgEmoji('brand')} <b>[USER ACTIVE • /START]</b>\n` +
       `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
       `• <b>User:</b> ${userMention}\n` +
       `• <b>Username:</b> ${usernameDisplay}\n` +
@@ -70,7 +97,7 @@ async function handleStart(bot, msg) {
       `• <b>Direct Profile:</b> ${profileLink}\n` +
       `• <b>Account Status:</b> <code>${isReturning ? 'Returning Registered Merchant' : 'New Visitor'}</code>\n` +
       `• <b>Time:</b> <code>${new Date().toLocaleTimeString()} (GMT+7)</code>\n\n` +
-      `<i>💡 Tip: Click the forwarded message header below to open this user's profile directly on Telegram Desktop.</i>`,
+      `<i>${tgEmoji('bulb')} Tip: Click the forwarded message header below to open this user's profile directly on Telegram Desktop.</i>`,
       {
         disable_web_page_preview: true,
         link_preview_options: { is_disabled: true }
@@ -84,25 +111,13 @@ async function handleStart(bot, msg) {
     }
   }
 
-  // If already registered, send straight to Dashboard
+  // If already registered, send straight to Dashboard with Logo & Console
   if (userService.isRegistered(from.id)) {
-    const lang = userService.getUserLanguage(from.id);
-    const firstName = formatter.escapeHtml(from.first_name || (lang === 'km' ? 'អ្នកអភិវឌ្ឍន៍' : 'Developer'));
-    let text = `${formatter.telemetryCard(firstName, from.id, lang)}\n\n` +
-      `${i18n.t('dash_subtitle', lang)}`;
-
-    if (!from.username) {
-      text += `\n\n💡 <i>Tip: Set a Telegram @username in settings so administrators and customers can contact you directly!</i>`;
-    }
-
-    return safeSender.sendMessage(bot, chatId, text, {
-      parse_mode: 'HTML',
-      ...inlineKeyboards.dashboard(lang)
-    });
+    return await renderDashboard(bot, chatId, null, from);
   }
 
-  // Otherwise, show Welcome / Start Board
-  return renderWelcome(bot, chatId, null, from);
+  // Otherwise, show Welcome / Start Board with Logo
+  return await renderWelcome(bot, chatId, null, from);
 }
 
 module.exports = {

@@ -27,3 +27,8 @@ temp/
 Thumbs.db
 .vscode/
 .idea/
+
+# Large Raw Video Files (Only keep optimized tutorial.mp4)
+videoteach/*.MOV
+videoteach/*.mov
+videoteach/*.avi

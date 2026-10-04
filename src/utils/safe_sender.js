@@ -70,6 +70,77 @@ const safeSender = {
     }
   },
 
+  editMessageCaption: async (bot, caption, options = {}) => {
+    const norm = normalizeReplyMarkup(options);
+    try {
+      return await bot.editMessageCaption(caption, norm);
+    } catch (err) {
+      if (isCustomEmojiError(err)) {
+        logger.warn(`Custom emoji error on editMessageCaption (${err.message}), falling back to clean caption...`);
+        const cleanCaption = stripTgEmoji(caption);
+        return await bot.editMessageCaption(cleanCaption, cleanOptions(options));
+      }
+      throw err;
+    }
+  },
+
+  sendPhoto: async (bot, chatId, photo, options = {}, fileOptions = {}) => {
+    const norm = normalizeReplyMarkup(options);
+    try {
+      return await bot.sendPhoto(chatId, photo, norm, fileOptions);
+    } catch (err) {
+      if (isCustomEmojiError(err)) {
+        logger.warn(`Custom emoji error on sendPhoto (${err.message}), falling back to clean caption...`);
+        const cleanOpts = cleanOptions(options);
+        if (cleanOpts.caption) {
+          cleanOpts.caption = stripTgEmoji(cleanOpts.caption);
+        }
+        return await bot.sendPhoto(chatId, photo, cleanOpts, fileOptions);
+      }
+      throw err;
+    }
+  },
+
+  sendVideo: async (bot, chatId, video, options = {}, fileOptions = {}) => {
+    const norm = normalizeReplyMarkup(options);
+    try {
+      return await bot.sendVideo(chatId, video, norm, fileOptions);
+    } catch (err) {
+      if (isCustomEmojiError(err)) {
+        logger.warn(`Custom emoji error on sendVideo (${err.message}), falling back to clean caption...`);
+        const cleanOpts = cleanOptions(options);
+        if (cleanOpts.caption) {
+          cleanOpts.caption = stripTgEmoji(cleanOpts.caption);
+        }
+        return await bot.sendVideo(chatId, video, cleanOpts, fileOptions);
+      }
+      throw err;
+    }
+  },
+
+  replaceOrSendPhoto: async (bot, chatId, messageId, photo, caption, options = {}, fileOptions = {}) => {
+    if (messageId) {
+      try {
+        return await safeSender.editMessageCaption(bot, caption, {
+          chat_id: chatId,
+          message_id: messageId,
+          ...options
+        });
+      } catch (err) {
+        if (err.message && err.message.includes('message is not modified')) {
+          return;
+        }
+        // If editCaption fails (e.g. previous message was text, not a photo),
+        // delete previous message and send fresh photo cleanly
+        await bot.deleteMessage(chatId, messageId).catch(() => {});
+      }
+    }
+    return await safeSender.sendPhoto(bot, chatId, photo, {
+      caption,
+      ...options
+    }, fileOptions);
+  },
+
   replaceOrSend: async (bot, chatId, messageId, text, options = {}) => {
     if (messageId) {
       try {

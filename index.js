@@ -41,6 +41,7 @@ const {
   handleToggleNotifications,
   handleAccountInfo
 } = require('./src/bot/handlers/settings.handler');
+const { handleTutorialVideo, handleToggleLanguageVideo } = require('./src/bot/handlers/tutorial_video.handler');
 const {
   handleStartLivePayTest,
   handleCustomAmountPrompt,
@@ -587,6 +588,12 @@ bot.on('message', async (msg) => {
       return await handleGetPaymentApi(bot, { message: msg, from: msg.from });
     }
 
+    // /video, /tutorial, /videoteach, /teach commands (How to use bot video tutorial)
+    if (cmdText.startsWith('/video') || cmdText.startsWith('/tutorial') || cmdText.startsWith('/videoteach') || cmdText.startsWith('/teach')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      return await handleTutorialVideo(bot, chatId, null, msg.from);
+    }
+
     // /start command
     if (cmdText.startsWith('/start')) {
       middleware.logAction('COMMAND', msg.from, '/start');
@@ -1064,6 +1071,12 @@ bot.on('callback_query', async (query) => {
       case 'settings_account_info':
         return await handleAccountInfo(bot, query);
 
+      // Video Tutorial
+      case 'nav_video_tutorial':
+        return await handleTutorialVideo(bot, chatId, messageId, from, query);
+      case 'toggle_lang_video':
+        return await handleToggleLanguageVideo(bot, query);
+
       // Fast Translation & Language Switching
       case 'toggle_lang_welcome':
         userService.toggleLanguage(from.id);
@@ -1094,8 +1107,8 @@ async function startBotEngine() {
   try {
     if (useWebhook) {
       const publicBase = (
-        process.env.WEBHOOK_URL ||
         process.env.RENDER_EXTERNAL_URL ||
+        process.env.WEBHOOK_URL ||
         (process.env.KOYEB_PUBLIC_DOMAIN ? `https://${process.env.KOYEB_PUBLIC_DOMAIN}` : '') ||
         (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '') ||
         'https://paylinkapi-bot.onrender.com'

@@ -16,11 +16,28 @@ const translations = {
       `• ${tgEmoji('telemetry')} <b>Latency:</b> <code>~180ms Real-Time Settlement</code>\n` +
       `• ${tgEmoji('security')} <b>Encryption:</b> <code>AES-256-GCM + HMAC SHA-256</code>\n\n` +
       `<b>SUPPORTED RAILS:</b>\n` +
-      `${tgEmoji('bakong')} <b>Bakong KHQR:</b> <code>RED STANDARD</code> (NBC)\n` +
-      `${tgEmoji('aba')} <b>ABA PayWay:</b> <code>BLUE GATEWAY</code> (Instant Settlement)\n\n` +
+      `• ${tgEmoji('bakong')} <b>Bakong KHQR:</b> <code>RED STANDARD</code> (NBC) — Unlimited verification! Enter only 1 Merchant ID + phone number; custom merchant store name fully supported in bot.\n` +
+      `• ${tgEmoji('aba')} <b>ABA PayWay:</b> <code>BLUE GATEWAY</code> — Instant settlement! Enter USD & KHR links from your ABA Merchant App. <i>(Note: Store name must be set inside ABA Merchant App beforehand)</i>\n\n` +
+      `${tgEmoji('video')} <i>Tap <b>[ 🎬 Video Tutorial ]</b> below for a complete walkthrough!</i>\n\n` +
       `${tgEmoji('khmer_flag')} <i>(មិនចេះភាសាអង់គ្លេស? ចុចប៊ូតុង [ បកប្រែជាភាសាខ្មែរ ] ខាងក្រោម ឬវាយ /khmer)</i>`,
     welcome_features: 'Zero-Latency • Cryptographic Security • Dual Currency Automated',
     btn_get_started: 'Get Started ❯',
+    btn_video_tutorial: '🎬 Video Tutorial: How to Use ❯',
+    video_tutorial_title: `${tgEmoji('video')} <b>PAYLINKAPI VIDEO TUTORIAL & SETUP GUIDE</b>`,
+    video_tutorial_caption:
+      `${tgEmoji('video')} <b>PAYLINKAPI VIDEO TUTORIAL & SETUP GUIDE</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+      `${tgEmoji('rocket')} <b>HOW TO CONNECT & USE THIS BOT:</b>\n\n` +
+      `• ${tgEmoji('verified')} <b>Unlimited Payment Verification:</b> High-speed (~180ms) automated verification for both <b>NBC Bakong KHQR</b> and <b>ABA PayWay</b> with instant webhook alerts.\n\n` +
+      `• ${tgEmoji('bakong')} <b>Bakong KHQR Setup:</b>\n` +
+      `  1. Enter your <b>Bakong Merchant ID / Account</b> (only 1 needed) and <b>Phone Number</b>.\n` +
+      `  2. Set your <b>Custom Store / Merchant Name</b> (displays on customer KHQR scan).\n\n` +
+      `• ${tgEmoji('aba')} <b>ABA PayWay Setup:</b>\n` +
+      `  1. Open your <b>ABA Merchant App</b> on your smartphone.\n` +
+      `  2. Configure your Store Name directly inside the ABA app.\n` +
+      `  3. Copy your <b>USD ($)</b> and <b>KHR (៛ Riel)</b> payment links and paste them here.\n` +
+      `  ${tgEmoji('alert')} <i>Note: ABA store name cannot be customized in bot.</i>\n\n` +
+      `${tgEmoji('bulb')} <i>Tap the buttons below to test live payments or deploy your API keys!</i>`,
     btn_pricing: 'Pricing & Plans',
     btn_documentation: 'Developer Specs',
     btn_support: 'Engineering Support',
@@ -37,7 +54,16 @@ const translations = {
     dash_welcome: 'Operator: <b>{name}</b>',
     dash_subtitle:
       `${tgEmoji('terminal')} <b>SYSTEM STATUS:</b> <code>ACTIVE • DUAL RAIL (USD+KHR)</code>\n` +
-      `Manage Cambodian gateway credentials, webhooks, and live transaction pipelines.`,
+      `<i>Manage Cambodian gateway credentials, webhooks, and live transaction pipelines.</i>\n\n` +
+      `${tgEmoji('rocket')} <b>PLATFORM CAPABILITIES & SETUP GUIDE:</b>\n` +
+      `• ${tgEmoji('verified')} <b>Unlimited Payment Verification:</b> Real-time checking for both <b>NBC Bakong KHQR</b> and <b>ABA PayWay</b> with instant push webhooks (~180ms).\n\n` +
+      `${tgEmoji('bakong')} <b>Bakong KHQR Deployment:</b>\n` +
+      `• Send only your <b>Bakong Merchant ID / Account</b> (only 1 needed) and registered <b>Phone Number</b>.\n` +
+      `• ${tgEmoji('brand')} <b>Custom Merchant Name:</b> You <b>can customize</b> your Store / Merchant Name directly inside this bot! It will appear on your customer's KHQR scan screen.\n\n` +
+      `${tgEmoji('aba')} <b>ABA PayWay Deployment:</b>\n` +
+      `• Send your <b>USD ($)</b> and <b>KHR (៛ Riel)</b> Merchant Links from your ABA Merchant App.\n` +
+      `• ${tgEmoji('alert')} <b>CRITICAL NOTE:</b> Merchant/Store Name <b>CANNOT</b> be customized inside this bot! You must configure your Store Name directly inside your <b>ABA Merchant App</b> before copying your payment links here.\n\n` +
+      `${tgEmoji('video')} <i>Tap <b>[ 🎬 Video Tutorial ]</b> below to watch step-by-step how to use this bot!</i>`,
     btn_get_payment_api: '✦ Get Payment API ❯',
     btn_test_live_payment: '⚡ Test Purchased API Key ❯',
     btn_how_to_connect: 'How to Connect API Key (Guide) ❯',
@@ -148,11 +174,28 @@ const translations = {
       `• ${tgEmoji('telemetry')} <b>Latency:</b> <code>~180ms Real-Time Push</code>\n` +
       `• ${tgEmoji('security')} <b>Encryption:</b> <code>AES-256-GCM + HMAC SHA-256</code>\n\n` +
       `<b>SUPPORTED RAILS:</b>\n` +
-      `${tgEmoji('bakong')} <b>Bakong KHQR:</b> <code>RED STANDARD</code> (NBC)\n` +
-      `${tgEmoji('aba')} <b>ABA PayWay:</b> <code>BLUE GATEWAY</code> (Instant Settlement)\n\n` +
+      `• ${tgEmoji('bakong')} <b>Bakong KHQR:</b> <code>RED STANDARD</code> (NBC) — ផ្ទៀងផ្ទាត់មិនកំណត់! ត្រូវការតែ Merchant ID តែមួយ + លេខទូរស័ព្ទ; អាចកំណត់ឈ្មោះហាងផ្ទាល់ខ្លួនក្នុង Bot នេះភ្លាមៗ។\n` +
+      `• ${tgEmoji('aba')} <b>ABA PayWay:</b> <code>BLUE GATEWAY</code> — ដំណើរការរហ័ស! ត្រូវការ Link USD & KHR ពី ABA Merchant App។ <i>(ចំណាំ: ឈ្មោះហាងត្រូវកំណត់ក្នុង ABA App ជាមុន)</i>\n\n` +
+      `${tgEmoji('video')} <i>ចុចប៊ូតុង <b>[ 🎬 វីដេអូបង្រៀន ]</b> ខាងក្រោម ដើម្បីទស្សនាការណែនាំលម្អិត!</i>\n\n` +
       `${tgEmoji('english_flag')} <i>(ចុច [ Switch to English ] ខាងក្រោម ឬវាយ /english ដើម្បីប្តូរភាសា)</i>`,
     welcome_features: 'សុវត្ថិភាពកម្រិតខ្ពស់ • ល្បឿនលឿនបំផុត • គាំទ្រ USD + KHR ដោយស្វ័យប្រវត្តិ',
     btn_get_started: 'ចាប់ផ្តើម ❯',
+    btn_video_tutorial: '🎬 វីដេអូបង្រៀនរបៀបប្រើប្រាស់ ❯',
+    video_tutorial_title: `${tgEmoji('video')} <b>វីដេអូបង្រៀនរបៀបប្រើប្រាស់ PAYLINKAPI</b>`,
+    video_tutorial_caption:
+      `${tgEmoji('video')} <b>វីដេអូបង្រៀនរបៀបប្រើប្រាស់ PAYLINKAPI BOT</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+      `${tgEmoji('rocket')} <b>របៀបតភ្ជាប់ និងប្រើប្រាស់ Bot នេះ:</b>\n\n` +
+      `• ${tgEmoji('verified')} <b>ផ្ទៀងផ្ទាត់ការទូទាត់មិនកំណត់ (Unlimited Check):</b> ពិនិត្យការទូទាត់ស្វ័យប្រវត្តិភ្លាមៗទាំង <b>NBC Bakong KHQR</b> និង <b>ABA PayWay</b> ជាមួយ Webhook ជូនដំណឹងលឿន (~180ms)។\n\n` +
+      `• ${tgEmoji('bakong')} <b>ការតភ្ជាប់ Bakong KHQR:</b>\n` +
+      `  ១. បញ្ចូល <b>Merchant ID / គណនី Bakong</b> (ត្រូវការតែមួយប៉ុណ្ណោះ) និង <b>លេខទូរស័ព្ទ</b>។\n` +
+      `  ២. កំណត់ <b>ឈ្មោះហាងផ្ទាល់ខ្លួន (Custom Name)</b> ក្នុង Bot នេះបានភ្លាមៗ (បង្ហាញលើ KHQR ពេលអតិថិជនស្កេន)។\n\n` +
+      `• ${tgEmoji('aba')} <b>ការតភ្ជាប់ ABA PayWay:</b>\n` +
+      `  ១. បើកកម្មវិធី <b>ABA Merchant App</b> លើទូរស័ព្ទរបស់អ្នក។\n` +
+      `  ២. កំណត់ឈ្មោះហាងរបស់អ្នកនៅក្នុង ABA Merchant App ផ្ទាល់។\n` +
+      `  ៣. Copy Link គណនី <b>USD ($)</b> និង <b>KHR (៛ រៀល)</b> មកដាក់ទីនេះ។\n` +
+      `  ${tgEmoji('alert')} <i>ចំណាំ: ឈ្មោះហាង ABA មិនអាចកែប្រែក្នុង Bot នេះបានទេ។</i>\n\n` +
+      `${tgEmoji('bulb')} <i>ចុចប៊ូតុងខាងក្រោមដើម្បីតេស្តការទូទាត់ជាក់ស្តែង ឬភ្ជាប់ API Keys របស់អ្នក!</i>`,
     btn_pricing: 'តម្លៃសេវាកម្ម',
     btn_documentation: 'ឯកសារបច្ចេកទេស',
     btn_support: 'ផ្នែកជំនួយ',
@@ -169,7 +212,16 @@ const translations = {
     dash_welcome: 'អ្នកគ្រប់គ្រង: <b>{name}</b>',
     dash_subtitle:
       `${tgEmoji('terminal')} <b>ស្ថានភាពប្រព័ន្ធ:</b> <code>ដំណើរការ • រូបិយប័ណ្ណពីរ (USD+KHR)</code>\n` +
-      `គ្រប់គ្រងកូដសម្ងាត់ Payment Gateway, Webhooks និងប្រព័ន្ធទូទាត់កម្ពុជា។`,
+      `<i>គ្រប់គ្រងកូដសម្ងាត់ Payment Gateway, Webhooks និងប្រព័ន្ធទូទាត់កម្ពុជា។</i>\n\n` +
+      `${tgEmoji('rocket')} <b>អំពី Bot និងការណែនាំដំឡើងប្រព័ន្ធ:</b>\n` +
+      `• ${tgEmoji('verified')} <b>ផ្ទៀងផ្ទាត់ការទូទាត់មិនកំណត់ (Unlimited Check):</b> ត្រួតពិនិត្យការទូទាត់ស្វ័យប្រវត្តិកម្រិត Real-Time ល្បឿនលឿន (~180ms) ទាំង <b>NBC Bakong KHQR</b> និង <b>ABA PayWay</b> (USD $ + KHR ៛)។\n\n` +
+      `${tgEmoji('bakong')} <b>ការដំឡើង Bakong KHQR:</b>\n` +
+      `• គ្រាន់តែផ្ញើ <b>Merchant ID / គណនី Bakong</b> តែមួយ និង <b>លេខទូរស័ព្ទ</b> ដែលបានចុះឈ្មោះ។\n` +
+      `• ${tgEmoji('brand')} <b>កំណត់ឈ្មោះហាងផ្ទាល់ខ្លួន:</b> អ្នក<b>អាចកំណត់ឈ្មោះហាង (Custom Merchant Name)</b> នៅក្នុង Bot នេះបានភ្លាមៗ ដែលនឹងបង្ហាញលើផ្ទាំង KHQR ពេលអតិថិជនស្កេនទូទាត់!\n\n` +
+      `${tgEmoji('aba')} <b>ការដំឡើង ABA PayWay:</b>\n` +
+      `• គ្រាន់តែផ្ញើ Link Merchant គណនី <b>USD ($)</b> និង <b>KHR (៛ រៀល)</b> ពី ABA Merchant App។\n` +
+      `• ${tgEmoji('alert')} <b>ចំណាំសំខាន់បំផុត:</b> ឈ្មោះហាង <b>មិនអាច</b>កំណត់ ឬកែប្រែក្នុង Bot នេះបានទេ! អ្នកត្រូវកំណត់ឈ្មោះហាងនៅក្នុង <b>ABA Merchant App</b> របស់អ្នកជាមុនសិន រួចទើប Copy Link យកមកដាក់ទីនេះ។\n\n` +
+      `${tgEmoji('video')} <i>ចុចប៊ូតុង <b>[ 🎬 វីដេអូបង្រៀន ]</b> ខាងក្រោម ដើម្បីទស្សនាការណែនាំមួយជំហានម្តងៗ!</i>`,
     btn_get_payment_api: '✦ ភ្ជាប់ប្រព័ន្ធទូទាត់ Payment API ❯',
     btn_test_live_payment: '⚡ តេស្ត API Key ដែលបានទិញ ❯',
     btn_how_to_connect: 'របៀបតភ្ជាប់ API Key (How to Connect) ❯',
