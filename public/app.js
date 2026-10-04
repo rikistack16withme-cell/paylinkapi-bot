@@ -15,34 +15,153 @@ const state = {
 };
 
 // --------------------------------------------------------------------------
-// 1. 🛡️ Anti-Inspect & DevTools Protection Suite
+// 1. 🛡️ Advanced Anti-Inspect & DevTools Lockdown Suite
 // --------------------------------------------------------------------------
 (function setupAntiInspect() {
-  // 1. Disable Right Click
-  document.addEventListener('contextmenu', (e) => {
+  const THRESHOLD = 160;
+  let isDevToolsActive = false;
+
+  function setDevToolsLock(active) {
+    if (isDevToolsActive === active) return;
+    isDevToolsActive = active;
+
+    const overlay = document.getElementById('devtoolsLockOverlay');
+    if (active) {
+      document.body.classList.add('devtools-blocked');
+      if (overlay) overlay.classList.add('active');
+    } else {
+      document.body.classList.remove('devtools-blocked');
+      if (overlay) overlay.classList.remove('active');
+    }
+  }
+
+  // 1. Dimension Check (Docked DevTools on Right, Bottom, or Left)
+  function checkWindowDimensions() {
+    const widthDiff = window.outerWidth - window.innerWidth > THRESHOLD;
+    const heightDiff = window.outerHeight - window.innerHeight > THRESHOLD;
+    return widthDiff || heightDiff;
+  }
+
+  // 2. Console Probe (Detects Undocked / Floating DevTools)
+  let probeHit = false;
+  const detectorProbe = new Image();
+  Object.defineProperty(detectorProbe, 'id', {
+    get: function() {
+      probeHit = true;
+      return 'devtools_probe';
+    }
+  });
+
+  const regProbe = /./;
+  regProbe.toString = function() {
+    probeHit = true;
+    return 'devtools_probe';
+  };
+
+  function checkConsoleProbe() {
+    probeHit = false;
+    try {
+      console.log('%c', detectorProbe);
+      console.log('%c', regProbe);
+    } catch (_) {}
+    return probeHit;
+  }
+
+  // Comprehensive Evaluation
+  function evaluateDevToolsState() {
+    const isDocked = checkWindowDimensions();
+    if (isDocked) {
+      setDevToolsLock(true);
+      return;
+    }
+
+    const isProbeHit = checkConsoleProbe();
+    if (isProbeHit) {
+      setDevToolsLock(true);
+      return;
+    }
+
+    // DevTools not detected -> unlock UI
+    setDevToolsLock(false);
+  }
+
+  // Immediate detection on window resize (occurs when devtools panel opens/docks)
+  window.addEventListener('resize', evaluateDevToolsState, { passive: true });
+
+  // Continuous high-frequency monitoring loop
+  setInterval(evaluateDevToolsState, 350);
+
+  // Initial immediate evaluation
+  setTimeout(evaluateDevToolsState, 100);
+
+  // 3. Block Right-Click Context Menu (Inspect, View Source)
+  window.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    showToast('Inspection is restricted for security.');
+    e.stopPropagation();
+    if (typeof showToast === 'function') {
+      showToast('⚠️ Right-click & inspection are restricted for security.');
+    }
     return false;
-  }, false);
+  }, true);
 
-  // 2. Disable DevTools Shortcuts
-  document.addEventListener('keydown', (e) => {
+  // 4. Block all DevTools, Inspector & Source-Viewing Shortcuts
+  window.addEventListener('keydown', (e) => {
     const isF12 = e.key === 'F12' || e.keyCode === 123;
-    const isCtrlShiftI = e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73);
-    const isCtrlShiftJ = e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74);
-    const isCtrlShiftC = e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67);
-    const isCtrlU = e.ctrlKey && (e.key === 'u' || e.key === 'U' || e.keyCode === 85);
-    const isCtrlS = e.ctrlKey && (e.key === 's' || e.key === 'S' || e.keyCode === 83);
-    const isMacDevTools = e.metaKey && e.altKey && (e.key === 'i' || e.key === 'I');
+    const isCtrlShiftI = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73);
+    const isCtrlShiftJ = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74);
+    const isCtrlShiftC = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67);
+    const isCtrlShiftK = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'K' || e.key === 'k' || e.keyCode === 75);
+    const isCtrlShiftE = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'E' || e.key === 'e' || e.keyCode === 69);
+    const isCtrlU = (e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U' || e.keyCode === 85);
+    const isCtrlS = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.keyCode === 83);
+    const isMacInspect = e.metaKey && e.altKey && (
+      e.key === 'i' || e.key === 'I' || 
+      e.key === 'j' || e.key === 'J' || 
+      e.key === 'c' || e.key === 'C' ||
+      e.key === 'u' || e.key === 'U'
+    );
 
-    if (isF12 || isCtrlShiftI || isCtrlShiftJ || isCtrlShiftC || isCtrlU || isCtrlS || isMacDevTools) {
+    if (isF12 || isCtrlShiftI || isCtrlShiftJ || isCtrlShiftC || isCtrlShiftK || isCtrlShiftE || isCtrlU || isCtrlS || isMacInspect) {
       e.preventDefault();
       e.stopPropagation();
-      showToast('Developer inspection is restricted.');
+      if (typeof showToast === 'function') {
+        showToast('⚠️ Developer inspection shortcuts are strictly disabled.');
+      }
       return false;
     }
-  }, false);
+  }, true);
 
+  // 5. Anti-Tamper DOM Guard (Stops users deleting lock overlay in DevTools Elements)
+  const antiTamperObserver = new MutationObserver(() => {
+    if (!isDevToolsActive) return;
+
+    if (!document.body.classList.contains('devtools-blocked')) {
+      document.body.classList.add('devtools-blocked');
+    }
+
+    const overlay = document.getElementById('devtoolsLockOverlay');
+    if (!overlay) {
+      location.reload();
+    } else if (!overlay.classList.contains('active')) {
+      overlay.classList.add('active');
+    }
+  });
+
+  try {
+    antiTamperObserver.observe(document.documentElement, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      attributeFilter: ['class', 'style']
+    });
+  } catch (_) {}
+
+  // 6. Periodically purge console logs
+  setInterval(() => {
+    try {
+      console.clear();
+    } catch (_) {}
+  }, 2000);
 })();
 
 // --------------------------------------------------------------------------

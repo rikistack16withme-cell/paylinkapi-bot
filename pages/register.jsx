@@ -51,6 +51,97 @@ export default function RegisterPortal() {
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [countdown, setCountdown] = useState(900); // 15 mins
+  const [isDevToolsLocked, setIsDevToolsLocked] = useState(false);
+
+  // Anti-DevTools Security Lockdown
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const THRESHOLD = 160;
+
+    const checkDevTools = () => {
+      const isDocked = (window.outerWidth - window.innerWidth > THRESHOLD) || (window.outerHeight - window.innerHeight > THRESHOLD);
+      if (isDocked) {
+        setIsDevToolsLocked(true);
+        document.body.classList.add('devtools-blocked');
+        return;
+      }
+
+      let probeHit = false;
+      const detectorProbe = new Image();
+      Object.defineProperty(detectorProbe, 'id', {
+        get: function() {
+          probeHit = true;
+          return 'devtools_probe';
+        }
+      });
+
+      const regProbe = /./;
+      regProbe.toString = function() {
+        probeHit = true;
+        return 'devtools_probe';
+      };
+
+      try {
+        console.log('%c', detectorProbe);
+        console.log('%c', regProbe);
+      } catch (_) {}
+
+      if (probeHit) {
+        setIsDevToolsLocked(true);
+        document.body.classList.add('devtools-blocked');
+        return;
+      }
+
+      setIsDevToolsLocked(false);
+      document.body.classList.remove('devtools-blocked');
+    };
+
+    window.addEventListener('resize', checkDevTools, { passive: true });
+    const interval = setInterval(checkDevTools, 350);
+    const initialTimer = setTimeout(checkDevTools, 100);
+
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    const handleKeyDown = (e) => {
+      const isF12 = e.key === 'F12' || e.keyCode === 123;
+      const isCtrlShiftI = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73);
+      const isCtrlShiftJ = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74);
+      const isCtrlShiftC = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67);
+      const isCtrlShiftK = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'K' || e.key === 'k' || e.keyCode === 75);
+      const isCtrlShiftE = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'E' || e.key === 'e' || e.keyCode === 69);
+      const isCtrlU = (e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U' || e.keyCode === 85);
+      const isCtrlS = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.keyCode === 83);
+      const isMacInspect = e.metaKey && e.altKey && (
+        e.key === 'i' || e.key === 'I' || 
+        e.key === 'j' || e.key === 'J' || 
+        e.key === 'c' || e.key === 'C' ||
+        e.key === 'u' || e.key === 'U'
+      );
+
+      if (isF12 || isCtrlShiftI || isCtrlShiftJ || isCtrlShiftC || isCtrlShiftK || isCtrlShiftE || isCtrlU || isCtrlS || isMacInspect) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    window.addEventListener('contextmenu', handleContextMenu, true);
+    window.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      window.removeEventListener('resize', checkDevTools);
+      window.removeEventListener('contextmenu', handleContextMenu, true);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      clearInterval(interval);
+      clearTimeout(initialTimer);
+      document.body.classList.remove('devtools-blocked');
+    };
+  }, []);
 
   // Sync telegramId from URL query
   useEffect(() => {
@@ -261,6 +352,53 @@ export default function RegisterPortal() {
       <Head>
         <title>PaylinkApi — FAST • SECURE • EASY</title>
       </Head>
+
+      {/* DevTools Lockdown Security Overlay */}
+      {isDevToolsLocked && (
+        <div className="devtools-lock-overlay active" role="alertdialog" aria-modal="true">
+          <div className="devtools-card">
+            <div className="devtools-shield-badge">
+              <svg className="devtools-shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+
+            <div className="devtools-tag">
+              <span className="dot"></span>
+              <span>Security Protocol Active</span>
+            </div>
+
+            <h2 className="devtools-title">Developer Tools Detected</h2>
+            <p className="devtools-desc">
+              Inspection tools, DOM modification, and developer consoles are strictly prohibited on the PaylinkApi Financial Gateway.
+            </p>
+
+            <div className="devtools-notice-box">
+              <div className="devtools-notice-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span><strong>Action Required:</strong> Please close DevTools to continue.</span>
+              </div>
+              <div className="devtools-notice-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>This portal will automatically unlock once DevTools is closed.</span>
+              </div>
+            </div>
+
+            <div className="devtools-live-pill">
+              <span className="pulsing-dot"></span>
+              <span>Portal Locked • Waiting for DevTools to close...</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Vanta.js 3D Interactive Animated Globe Canvas */}
       <div id="vanta-bg" />
