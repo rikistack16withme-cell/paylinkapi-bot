@@ -997,6 +997,9 @@ async function handleConfirmSubmit(bot, query) {
     db.saveApiKey(keyToUpdate);
   }
 
+  return await renderPlanSelection(bot, chatId, messageId, from, providerName, details);
+}
+
 function checkIsBundle(providerName, user = {}, details = {}) {
   const p = String(providerName || details?.provider || user?.provider || '').toLowerCase();
   if (p.includes('bundle') || p.includes('dual') || p.includes('+') || (p.includes('bakong') && p.includes('aba'))) {
