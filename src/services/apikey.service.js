@@ -426,13 +426,15 @@ class ApiKeyService {
     phone = null,
     tier = 'Master Admin VIP Rail'
   } = {}) {
-    const tId = String(telegramId);
+    const isStandalone = !telegramId || String(telegramId).toLowerCase().startsWith('standalone');
+    const tId = isStandalone ? `standalone_${Date.now()}` : String(telegramId);
     let user = db.getUser(tId) || {
       telegramId: tId,
       username: '',
-      firstName: 'Merchant',
+      firstName: isStandalone ? (merchantName || 'Standalone Merchant') : 'Merchant',
       lastName: '',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      isStandalone
     };
 
     const normRail = String(rail || 'bundle').toLowerCase().trim();
@@ -489,7 +491,9 @@ class ApiKeyService {
       activatedBy: 'MASTER_ADMIN'
     };
 
-    db.saveUser(user);
+    if (!isStandalone) {
+      db.saveUser(user);
+    }
 
     // Synchronize or create key
     const existingKeys = db.getUserApiKeys(tId);
@@ -498,10 +502,14 @@ class ApiKeyService {
     const expiryDate = calculateExpiryDate(now, days);
     let isNew = false;
 
+    const apiKeyString = isStandalone
+      ? `plk_live_std_${crypto.randomBytes(6).toString('hex')}`
+      : `plk_live_${tId}_${crypto.randomBytes(4).toString('hex')}`;
+
     if (targetKey) {
       targetKey.provider = providerTitle;
-      targetKey.tier = tier;
-      targetKey.merchantName = user.merchantName || targetKey.merchantName || 'Merchant Store';
+      targetKey.tier = isStandalone ? 'Master Admin Standalone Key' : tier;
+      targetKey.merchantName = user.merchantName || targetKey.merchantName || merchantName || 'Merchant Store';
       targetKey.bakongId = user.bakongId;
       targetKey.merchantId = user.merchantId;
       targetKey.usdLink = user.usdLink;
@@ -521,12 +529,13 @@ class ApiKeyService {
         id: `key_${tId}`,
         telegramId: tId,
         provider: providerTitle,
-        tier,
-        apiKey: `plk_live_${tId}_${crypto.randomBytes(4).toString('hex')}`,
+        tier: isStandalone ? 'Master Admin Standalone Key' : tier,
+        apiKey: apiKeyString,
         secret: `whsec_${crypto.randomBytes(8).toString('hex')}`,
         status: 'ACTIVE',
         isMock: false,
-        merchantName: user.merchantName || 'Merchant Store',
+        isStandalone,
+        merchantName: user.merchantName || merchantName || (isStandalone ? 'Standalone VIP Merchant' : 'Merchant Store'),
         bakongId: user.bakongId,
         merchantId: user.merchantId,
         usdLink: user.usdLink,
@@ -542,7 +551,7 @@ class ApiKeyService {
       db.saveApiKey(targetKey);
     }
 
-    return { user, key: targetKey, isNew, rail: providerKey };
+    return { user, key: targetKey, isNew, rail: providerKey, isStandalone };
   }
 
   /**

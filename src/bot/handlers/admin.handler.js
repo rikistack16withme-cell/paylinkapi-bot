@@ -724,21 +724,24 @@ async function handleAdminKeyWizardStartPrompt(bot, chatId, messageId = null) {
   let text =
     `🔑 <b>ADMIN KEY GENERATOR & RAIL CONFIGURATION WIZARD</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
-    `You can configure or generate a production API key for any merchant, set their payment rail (Bakong Only, ABA Only, or Dual Suite), and set their validity days!\n\n` +
-    `<b>Option A: Tap a merchant below to launch interactive wizard</b>\n` +
-    `<b>Option B: Use fast command:</b>\n` +
-    `<code>/genkey &lt;telegramId&gt; [rail: bakong|aba|bundle] [days] [StoreName]</code>\n\n` +
-    `<b>Quick Command Examples:</b>\n` +
-    `• <code>/genkey 123456789</code> <i>(Interactive wizard)</i>\n` +
-    `• <code>/genkey 123456789 bakong 30 MyCoffee</code> <i>(Bakong Only, 30 Days)</i>\n` +
-    `• <code>/genkey 123456789 aba 365 SuperStore</code> <i>(ABA Only, 365 Days)</i>\n` +
-    `• <code>/genkey 123456789 bundle 365 MegaMall</code> <i>(Dual Suite, 1 Year)</i>\n\n` +
-    `<i>Tap a merchant below to configure their key:</i>`;
+    `You can generate a standalone production API key on-demand (no user required) OR configure a key for any registered merchant!\n\n` +
+    `• <b>Option 1 (Fast Standalone Key):</b> Tap <code>[ ⚡ Generate Key Without User ]</code> below.\n` +
+    `• <b>Option 2 (Pick Registered Merchant):</b> Tap any merchant name below.\n` +
+    `• <b>Option 3 (Slash Command):</b>\n` +
+    `  <code>/genkey</code> <i>(Interactive wizard)</i>\n` +
+    `  <code>/genkey standalone [rail] [days] [name]</code>\n` +
+    `  <code>/genkey &lt;telegramId&gt; [rail] [days] [name]</code>\n\n` +
+    `<i>Tap a button below to begin:</i>`;
 
-  const keyboardRows = [];
+  const keyboardRows = [
+    [
+      makeButton('⚡ Generate Key Without User (Instant Key) ❯', 'admin_wiz_key_standalone', 'crown', 'success')
+    ]
+  ];
+
   const pickButtons = recent.slice(0, 8).map(u => {
     const label = u.firstName || u.username || String(u.telegramId);
-    return makeButton(`🔑 ${label.substring(0, 13)}`, `admin_wiz_key_${u.telegramId}`, 'keys', 'primary');
+    return makeButton(`👤 ${label.substring(0, 13)}`, `admin_wiz_key_${u.telegramId}`, 'keys', 'primary');
   });
 
   for (let i = 0; i < pickButtons.length; i += 2) {
@@ -756,39 +759,56 @@ async function handleAdminKeyWizardStartPrompt(bot, chatId, messageId = null) {
 }
 
 /**
- * Step 1: Select payment rail for target user
+ * Step 1: Select payment rail for target user (or standalone)
  */
 async function handleAdminKeyWizardStep1(bot, chatId, targetId, messageId = null) {
-  const user = db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' };
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  let text = '';
 
-  const text =
-    `🔑 <b>STEP 1: SELECT PAYMENT RAIL FOR MERCHANT</b>\n` +
-    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `👤 <b>Target Merchant:</b> <b>${formatter.escapeHtml(name)}</b>\n` +
-    `🆔 <b>Telegram ID:</b> <code>${targetId}</code>\n\n` +
-    `<i>Select what payment rail this merchant should use:</i>\n\n` +
-    `• 🔴 <b>NBC Bakong Only:</b>\n` +
-    `  National KHQR QR standard. Customer payments deposit into the merchant's registered Bakong account. Clears ABA links.\n\n` +
-    `• 🔵 <b>ABA PayWay Gateway Only:</b>\n` +
-    `  ABA PayWay direct gateway. Customer payments deposit via their ABA KHR/USD payment links. Clears Bakong ID.\n\n` +
-    `• 🟣 <b>Dual Suite (Bakong + ABA):</b>\n` +
-    `  Universal automated clearing for both Bakong KHQR and ABA PayWay USD ($) and KHR (៛).\n\n` +
-    `<i>Tap your choice below to proceed to validity duration:</i>`;
+  if (isStandalone) {
+    text =
+      `⚡ <b>GENERATE STANDALONE API KEY (NO USER REQUIRED)</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+      `• <b>Mode:</b> <code>Direct / Unassigned Production Key</code>\n` +
+      `• No Telegram merchant registration required.\n` +
+      `• The key will be generated immediately and sent to you here with a PDF Guide!\n\n` +
+      `<i>Select what payment rail this key should support:</i>\n\n` +
+      `• 🔴 <b>NBC Bakong Only:</b> National KHQR standard deposits.\n` +
+      `• 🔵 <b>ABA PayWay Gateway Only:</b> ABA PayWay direct payment link.\n` +
+      `• 🟣 <b>Dual Suite (Bakong + ABA):</b> Both Bakong KHQR & ABA PayWay active.\n\n` +
+      `<i>Tap your choice below to proceed to validity duration:</i>`;
+  } else {
+    const user = db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' };
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+    text =
+      `🔑 <b>STEP 1: SELECT PAYMENT RAIL FOR MERCHANT</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+      `👤 <b>Target Merchant:</b> <b>${formatter.escapeHtml(name)}</b>\n` +
+      `🆔 <b>Telegram ID:</b> <code>${targetId}</code>\n\n` +
+      `<i>Select what payment rail this merchant should use:</i>\n\n` +
+      `• 🔴 <b>NBC Bakong Only:</b>\n` +
+      `  National KHQR QR standard. Customer payments deposit into merchant's Bakong.\n\n` +
+      `• 🔵 <b>ABA PayWay Gateway Only:</b>\n` +
+      `  ABA PayWay direct gateway. Clears Bakong ID.\n\n` +
+      `• 🟣 <b>Dual Suite (Bakong + ABA):</b>\n` +
+      `  Universal clearing for both Bakong KHQR and ABA PayWay USD & KHR.\n\n` +
+      `<i>Tap your choice below to proceed to validity duration:</i>`;
+  }
 
+  const cancelCb = isStandalone ? 'admin_wiz_start_prompt' : `admin_inspect_${targetId}`;
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton('🔴 NBC Bakong Only ❯', `admin_wstep_rail_bakong_${targetId}`, 'clearing', 'primary')
+        makeButton('🔴 NBC Bakong Only ❯', `admin_wstep_rail_${targetId}_bakong`, 'clearing', 'primary')
       ],
       [
-        makeButton('🔵 ABA PayWay Only ❯', `admin_wstep_rail_aba_${targetId}`, 'brand', 'primary')
+        makeButton('🔵 ABA PayWay Only ❯', `admin_wstep_rail_${targetId}_aba`, 'brand', 'primary')
       ],
       [
-        makeButton('🟣 Dual Suite (Bakong + ABA) ❯', `admin_wstep_rail_bundle_${targetId}`, 'crown', 'success')
+        makeButton('🟣 Dual Suite (Bakong + ABA) ❯', `admin_wstep_rail_${targetId}_bundle`, 'crown', 'success')
       ],
       [
-        makeButton('« Cancel & Return to Profile', `admin_inspect_${targetId}`, 'arrow_left', 'secondary')
+        makeButton('« Cancel', cancelCb, 'arrow_left', 'secondary')
       ]
     ]
   };
@@ -803,8 +823,9 @@ async function handleAdminKeyWizardStep1(bot, chatId, targetId, messageId = null
  * Step 2: Select duration / validity in days
  */
 async function handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId = null) {
-  const user = db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' };
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  const user = isStandalone ? { firstName: 'Standalone Merchant' } : (db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' });
+  const name = isStandalone ? 'Standalone Key (No User Required)' : ([user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`);
 
   let railName = 'Dual Suite (Bakong + ABA)';
   if (rail === 'bakong') railName = 'NBC Bakong National KHQR';
@@ -813,24 +834,26 @@ async function handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId 
   const text =
     `⏳ <b>STEP 2: SET KEY VALIDITY DURATION (DAYS)</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `👤 <b>Merchant:</b> <b>${formatter.escapeHtml(name)}</b> (<code>${targetId}</code>)\n` +
-    `🏦 <b>Chosen Rail:</b> <code>${railName}</code>\n\n` +
+    (isStandalone
+      ? `• ⚡ <b>Mode:</b> <code>Standalone Key (No User Attached)</code>\n`
+      : `• 👤 <b>Merchant:</b> <b>${formatter.escapeHtml(name)}</b> (<code>${targetId}</code>)\n`) +
+    `• 🏦 <b>Chosen Rail:</b> <code>${railName}</code>\n\n` +
     `<i>Choose how many days this API Key should remain active:</i>\n` +
     `<i>(You can extend or modify duration anytime with <code>/setdays</code>)</i>`;
 
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton('7 Days Trial ($0.10)', `admin_wstep_days_7_${targetId}_${rail}`, 'telemetry', 'primary'),
-        makeButton('30 Days Standard ($1.00)', `admin_wstep_days_30_${targetId}_${rail}`, 'brand', 'primary')
+        makeButton('7 Days Trial', `admin_wstep_days_${targetId}_${rail}_7`, 'telemetry', 'primary'),
+        makeButton('30 Days Standard', `admin_wstep_days_${targetId}_${rail}_30`, 'brand', 'primary')
       ],
       [
-        makeButton('90 Days Quarter ($3.00)', `admin_wstep_days_90_${targetId}_${rail}`, 'telemetry', 'primary'),
-        makeButton('180 Days Half-Year ($5.00)', `admin_wstep_days_180_${targetId}_${rail}`, 'brand', 'primary')
+        makeButton('90 Days Quarter', `admin_wstep_days_${targetId}_${rail}_90`, 'telemetry', 'primary'),
+        makeButton('180 Days Half-Year', `admin_wstep_days_${targetId}_${rail}_180`, 'brand', 'primary')
       ],
       [
-        makeButton('365 Days Enterprise ($10.00)', `admin_wstep_days_365_${targetId}_${rail}`, 'crown', 'success'),
-        makeButton('♾️ Permanent (9999 Days)', `admin_wstep_days_9999_${targetId}_${rail}`, 'verified', 'secondary')
+        makeButton('365 Days Enterprise', `admin_wstep_days_${targetId}_${rail}_365`, 'crown', 'success'),
+        makeButton('♾️ Permanent (9999 Days)', `admin_wstep_days_${targetId}_${rail}_9999`, 'verified', 'secondary')
       ],
       [
         makeButton('« Back to Rail Selection', `admin_wiz_key_${targetId}`, 'arrow_left', 'secondary')
@@ -848,8 +871,9 @@ async function handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId 
  * Step 3: Review and confirm key generation
  */
 async function handleAdminKeyWizardStep3(bot, chatId, targetId, rail, days, messageId = null) {
-  const user = db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' };
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  const user = isStandalone ? { firstName: 'Standalone Merchant' } : (db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' });
+  const name = isStandalone ? 'Standalone Key (No User Required)' : ([user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`);
 
   let railName = 'Dual Suite (Bakong + ABA)';
   if (rail === 'bakong') railName = 'NBC Bakong National KHQR';
@@ -858,111 +882,149 @@ async function handleAdminKeyWizardStep3(bot, chatId, targetId, rail, days, mess
   const durationDays = parseInt(days, 10) || 30;
   const expiryDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const bakongDisplay = rail === 'aba' ? '<i>N/A (ABA Only Rail)</i>' : (user.bakongId ? `<code>${user.bakongId}</code>` : '⚠️ <i>Not Set Yet (Configure with /setbakong)</i>');
-  const usdDisplay = rail === 'bakong' ? '<i>N/A (Bakong Only Rail)</i>' : (user.usdLink ? `<code>${user.usdLink.substring(0, 32)}...</code>` : '⚠️ <i>Not Set Yet (Configure with /setaba)</i>');
-  const khrDisplay = rail === 'bakong' ? '<i>N/A (Bakong Only Rail)</i>' : (user.khrLink ? `<code>${user.khrLink.substring(0, 32)}...</code>` : '⚠️ <i>Not Set Yet (Configure with /setaba)</i>');
+  const bakongDisplay = rail === 'aba' ? '<i>N/A (ABA Only Rail)</i>' : (user.bakongId ? `<code>${user.bakongId}</code>` : '⚠️ <i>Default Standard</i>');
+  const usdDisplay = rail === 'bakong' ? '<i>N/A (Bakong Only Rail)</i>' : (user.usdLink ? `<code>${user.usdLink.substring(0, 32)}...</code>` : '⚠️ <i>Default Standard</i>');
+  const khrDisplay = rail === 'bakong' ? '<i>N/A (Bakong Only Rail)</i>' : (user.khrLink ? `<code>${user.khrLink.substring(0, 32)}...</code>` : '⚠️ <i>Default Standard</i>');
 
   const text =
     `📋 <b>STEP 3: REVIEW & CONFIRM KEY PROVISIONING</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `• 👤 <b>Target Merchant:</b> <b>${formatter.escapeHtml(name)}</b>\n` +
-    `• 🆔 <b>Telegram ID:</b> <code>${targetId}</code>\n` +
+    (isStandalone
+      ? `• ⚡ <b>Mode:</b> <code>Standalone Key (No User Attached)</code>\n`
+      : `• 👤 <b>Target Merchant:</b> <b>${formatter.escapeHtml(name)}</b> (ID: <code>${targetId}</code>)\n`) +
     `• 🏦 <b>Payment Rail:</b> <b>${railName}</b>\n` +
     `• ⏳ <b>Validity Duration:</b> <b>${durationDays} Days</b> (Expires: <code>${expiryDate}</code>)\n` +
-    `• 🏪 <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || `${user.firstName || 'Merchant'}'s Store`)}</code>\n` +
-    `• 🔴 <b>Bakong Account:</b> ${bakongDisplay}\n` +
-    `• 🔵 <b>ABA USD Link:</b> ${usdDisplay}\n` +
-    `• 🔵 <b>ABA KHR Link:</b> ${khrDisplay}\n\n` +
+    `• 🏪 <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || (isStandalone ? 'VIP Standalone Store' : `${user.firstName || 'Merchant'}'s Store`))}</code>\n` +
+    (!isStandalone ? `• 🔴 <b>Bakong Account:</b> ${bakongDisplay}\n• 🔵 <b>ABA USD Link:</b> ${usdDisplay}\n• 🔵 <b>ABA KHR Link:</b> ${khrDisplay}\n\n` : '\n') +
     `⚡ <b>When you tap confirm below:</b>\n` +
-    `1. Live API Key & Webhook Secret will be generated and activated.\n` +
-    `2. User subscription will be set to <code>[ ACTIVE ]</code> with auto-expiry.\n` +
-    `3. An official credentials card with documentation & PDF button will be delivered directly to the user's Telegram DM!`;
+    `1. Live API Key & Webhook Secret will be generated immediately.\n` +
+    (isStandalone
+      ? `2. Complete credentials receipt + Integration Guide PDF will be sent directly to you here in Telegram!\n3. You can copy the key and deliver it to anyone via WhatsApp, Telegram, or Web.`
+      : `2. User subscription will be set to <code>[ ACTIVE ]</code> with auto-expiry.\n3. An official credentials card with documentation & PDF button will be delivered directly to the user's Telegram DM!`);
 
-  const keyboard = {
-    inline_keyboard: [
-      [
-        makeButton('✅ Confirm, Generate & Deliver Key ❯', `admin_wstep_confirm_${targetId}_${rail}_${days}`, 'keys', 'success')
-      ],
-      [
-        makeButton('🏦 Set Bank Accounts First', `admin_edit_bank_${targetId}`, 'clearing', 'secondary')
-      ],
-      [
-        makeButton('« Change Duration', `admin_wstep_rail_${rail}_${targetId}`, 'arrow_left', 'secondary'),
-        makeButton('❌ Cancel', `admin_inspect_${targetId}`, 'close', 'danger')
-      ]
+  const keyboardRows = [
+    [
+      makeButton(isStandalone ? '✅ Confirm & Generate Standalone Key ❯' : '✅ Confirm, Generate & Deliver Key ❯', `admin_wstep_confirm_${targetId}_${rail}_${days}`, 'keys', 'success')
     ]
-  };
+  ];
+
+  if (!isStandalone) {
+    keyboardRows.push([
+      makeButton('🏦 Set Bank Accounts First', `admin_edit_bank_${targetId}`, 'clearing', 'secondary')
+    ]);
+  }
+
+  keyboardRows.push([
+    makeButton('« Change Duration', `admin_wstep_rail_${targetId}_${rail}`, 'arrow_left', 'secondary'),
+    makeButton('❌ Cancel', isStandalone ? 'admin_wiz_start_prompt' : `admin_inspect_${targetId}`, 'close', 'danger')
+  ]);
 
   return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
     parse_mode: 'HTML',
-    reply_markup: keyboard
+    reply_markup: { inline_keyboard: keyboardRows }
   });
 }
 
 /**
  * Executes key creation, notifies user via DM, and reports back to Admin
  */
-async function handleAdminKeyWizardExecute(bot, chatId, targetId, rail, days, messageId = null) {
+async function handleAdminKeyWizardExecute(bot, chatId, targetId, rail, days, messageId = null, customStoreName = null) {
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
   const durationDays = parseInt(days, 10) || 365;
+
   const result = apiKeyService.configureAndIssueAdminKey(targetId, {
     rail,
-    durationDays
+    durationDays,
+    merchantName: customStoreName || (isStandalone ? 'VIP Standalone Store' : null)
   });
 
   const { user, key } = result;
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+  const name = isStandalone ? 'Standalone Merchant' : ([user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`);
 
-  // Deliver credentials receipt to merchant in Telegram DM
-  let delivered = false;
   let deliveryNote = '';
-  try {
-    const { issueUserCredentialsReceipt } = require('./wizard.handler');
-    const userObj = {
-      id: targetId,
-      first_name: user.firstName || 'Merchant',
-      username: user.username || ''
-    };
-    await issueUserCredentialsReceipt(bot, targetId, null, userObj, true);
-    delivered = true;
-    deliveryNote = '✅ Delivered to user\'s Telegram DM';
-  } catch (err) {
-    deliveryNote = `⚠️ DM delivery note: ${err.message}`;
+  if (!isStandalone) {
+    try {
+      const { issueUserCredentialsReceipt } = require('./wizard.handler');
+      const userObj = {
+        id: targetId,
+        first_name: user.firstName || 'Merchant',
+        username: user.username || ''
+      };
+      await issueUserCredentialsReceipt(bot, targetId, null, userObj, true);
+      deliveryNote = '✅ Delivered to user\'s Telegram DM';
+    } catch (err) {
+      deliveryNote = `⚠️ DM delivery note: ${err.message}`;
+    }
+  } else {
+    deliveryNote = '⚡ Standalone Key (Direct delivery to Admin)';
   }
 
   const text =
-    `🎉 <b>API KEY CONFIGURED & PROVISIONED SUCCESSFULLY!</b>\n` +
+    `🎉 <b>${isStandalone ? 'STANDALONE PRODUCTION API KEY GENERATED!' : 'API KEY CONFIGURED & PROVISIONED!'}</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `• 👤 <b>Merchant:</b> <b>${formatter.escapeHtml(name)}</b>\n` +
-    `• 🆔 <b>Telegram ID:</b> <code>${targetId}</code>\n` +
+    (isStandalone
+      ? `• ⚡ <b>Type:</b> <code>Standalone Key (No User Attached)</code>\n`
+      : `• 👤 <b>Merchant:</b> <b>${formatter.escapeHtml(name)}</b> (<code>${targetId}</code>)\n`) +
     `• 🏦 <b>Payment Rail:</b> <code>${key.provider}</code>\n` +
     `• ⏳ <b>Validity Duration:</b> <b>${durationDays} Days</b>\n` +
     `• 📅 <b>Expires At:</b> <code>${(key.expiresAt || '').slice(0, 10)}</code>\n` +
     `• 🏪 <b>Store Name:</b> <code>${formatter.escapeHtml(key.merchantName || 'Store')}</code>\n` +
-    `• 🔴 <b>Bakong ID:</b> <code>${key.bakongId || 'None'}</code>\n` +
-    `• 🔵 <b>ABA USD Link:</b> <code>${key.usdLink ? (key.usdLink.substring(0, 32) + '...') : 'None'}</code>\n` +
-    `• 🔵 <b>ABA KHR Link:</b> <code>${key.khrLink ? (key.khrLink.substring(0, 32) + '...') : 'None'}</code>\n\n` +
-    `🔑 <b>PRODUCTION API KEY:</b>\n` +
+    (!isStandalone ? `• 🔴 <b>Bakong ID:</b> <code>${key.bakongId || 'None'}</code>\n• 🔵 <b>ABA USD Link:</b> <code>${key.usdLink ? (key.usdLink.substring(0, 32) + '...') : 'None'}</code>\n• 🔵 <b>ABA KHR Link:</b> <code>${key.khrLink ? (key.khrLink.substring(0, 32) + '...') : 'None'}</code>\n\n` : '\n') +
+    `🔑 <b>PRODUCTION API KEY (TAP TO COPY):</b>\n` +
     `<code>${key.apiKey}</code>\n\n` +
     `🛡️ <b>WEBHOOK SECRET:</b>\n` +
     `<code>${key.secret}</code>\n\n` +
-    `📤 <b>Merchant Delivery Status:</b> ${deliveryNote}`;
+    `📤 <b>Status:</b> ${deliveryNote}`;
 
-  const keyboard = {
-    inline_keyboard: [
-      [
-        makeButton('👤 View User Profile', `admin_inspect_${targetId}`, 'users', 'primary'),
-        makeButton('📤 Re-send Credentials', `admin_deliver_key_${targetId}`, 'announcement', 'secondary')
-      ],
-      [
-        makeButton('« Back to Members List', 'admin_view_users', 'arrow_left', 'secondary')
-      ]
+  const keyboardRows = [
+    [
+      makeButton('🔑 Generate Another Key', 'admin_wiz_start_prompt', 'keys', 'primary')
     ]
-  };
+  ];
 
-  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+  if (!isStandalone) {
+    keyboardRows.push([
+      makeButton('👤 View User Profile', `admin_inspect_${targetId}`, 'users', 'secondary'),
+      makeButton('📤 Re-send Credentials', `admin_deliver_key_${targetId}`, 'announcement', 'secondary')
+    ]);
+  }
+  keyboardRows.push([
+    makeButton('« Back to Control Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')
+  ]);
+
+  const sentMsg = await safeSender.replaceOrSend(bot, chatId, messageId, text, {
     parse_mode: 'HTML',
-    reply_markup: keyboard
+    reply_markup: { inline_keyboard: keyboardRows }
   });
+
+  // If standalone, also automatically send the Integration Guide PDF to the admin!
+  if (isStandalone) {
+    try {
+      const pdfGenerator = require('../../services/pdf_generator.service');
+      const pdfPath = await pdfGenerator.generateIntegrationPdf({
+        telegramId: chatId,
+        userName: key.merchantName || 'Standalone Merchant',
+        baseUrl: process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com',
+        user: {
+          provider: key.provider,
+          merchantName: key.merchantName
+        },
+        apiKeys: [key]
+      });
+      await bot.sendDocument(chatId, pdfPath, {
+        caption: `📄 <b>STANDALONE INTEGRATION GUIDE (PDF)</b>\n\n` +
+          `• <b>API Key:</b> <code>${key.apiKey}</code>\n` +
+          `• <b>Rail:</b> <code>${key.provider}</code>\n` +
+          `• <b>Validity:</b> <code>${durationDays} Days</code>\n\n` +
+          `<i>Attached is the complete Developer Guide with the new AI coding prompt, QR code installation command, and currency switching!</i>`,
+        parse_mode: 'HTML'
+      });
+    } catch (pdfErr) {
+      console.error('[Admin Standalone PDF Error]:', pdfErr.message);
+    }
+  }
+
+  return sentMsg;
 }
 
 /**
@@ -1123,19 +1185,26 @@ async function handleAdminDeliverKeyToUser(bot, chatId, targetId) {
 async function handleAdminGenKeyCommand(bot, chatId, args) {
   const parts = String(args || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) {
-    return safeSender.sendMessage(
-      bot,
-      chatId,
-      `⚠️ <b>Usage:</b>\n` +
-      `• <code>/genkey &lt;telegramId&gt;</code> <i>(Opens interactive wizard)</i>\n` +
-      `• <code>/genkey &lt;telegramId&gt; &lt;bakong|aba|bundle&gt; [days] [StoreName]</code>\n\n` +
-      `<b>Examples:</b>\n` +
-      `• <code>/genkey 8665505824</code>\n` +
-      `• <code>/genkey 8665505824 bakong 30 CoffeeShop</code>\n` +
-      `• <code>/genkey 8665505824 aba 365 SuperMart</code>\n` +
-      `• <code>/genkey 8665505824 bundle 365 MegaMall</code>`,
-      { parse_mode: 'HTML' }
-    );
+    return await handleAdminKeyWizardStartPrompt(bot, chatId);
+  }
+
+  const firstArg = parts[0].toLowerCase();
+  if (['standalone', 'quick', 'new', 'bakong', 'aba', 'bundle'].includes(firstArg)) {
+    let rail = 'bundle';
+    let days = 365;
+    let storeName = null;
+
+    if (['bakong', 'aba', 'bundle'].includes(firstArg)) {
+      rail = firstArg;
+      days = parseInt(parts[1], 10) || 365;
+      storeName = parts.slice(2).join(' ') || null;
+    } else {
+      rail = ['bakong', 'aba', 'bundle'].includes((parts[1] || '').toLowerCase()) ? parts[1].toLowerCase() : 'bundle';
+      days = parseInt(parts[2], 10) || 365;
+      storeName = parts.slice(3).join(' ') || null;
+    }
+
+    return await handleAdminKeyWizardExecute(bot, chatId, 'standalone', rail, days, null, storeName);
   }
 
   const targetId = parts[0].replace('@', '');
@@ -1153,38 +1222,7 @@ async function handleAdminGenKeyCommand(bot, chatId, args) {
     : 'bundle';
   const durationDays = parseInt(daysArg, 10) || 365;
 
-  const result = apiKeyService.configureAndIssueAdminKey(targetId, {
-    rail: normRail,
-    durationDays,
-    merchantName: storeName
-  });
-
-  // Deliver to user
-  let delivered = false;
-  try {
-    const { issueUserCredentialsReceipt } = require('./wizard.handler');
-    const userObj = {
-      id: targetId,
-      first_name: result.user.firstName || 'Merchant',
-      username: result.user.username || ''
-    };
-    await issueUserCredentialsReceipt(bot, targetId, null, userObj, true);
-    delivered = true;
-  } catch (_) {}
-
-  return safeSender.sendMessage(
-    bot,
-    chatId,
-    `✅ <b>API Key Generated & Configured!</b>\n` +
-    `• Target User: <code>${targetId}</code>\n` +
-    `• Rail: <code>${result.key.provider}</code>\n` +
-    `• Validity: <code>${durationDays} Days</code> (Expires: <code>${result.key.expiresAt.slice(0, 10)}</code>)\n` +
-    `• Store: <code>${formatter.escapeHtml(result.key.merchantName || 'Store')}</code>\n` +
-    `• Key: <code>${result.key.apiKey}</code>\n` +
-    `• Secret: <code>${result.key.secret}</code>\n\n` +
-    `<i>${delivered ? 'Credentials receipt delivered to user\'s Telegram DM.' : 'Could not deliver DM (user has not started bot in private chat).'}</i>`,
-    { parse_mode: 'HTML' }
-  );
+  return await handleAdminKeyWizardExecute(bot, chatId, targetId, normRail, durationDays, null, storeName);
 }
 
 /**

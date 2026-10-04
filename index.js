@@ -765,12 +765,30 @@ bot.on('callback_query', async (query) => {
       }
       if (data && data.startsWith('admin_wstep_rail_')) {
         const rest = data.replace('admin_wstep_rail_', '');
-        const [targetId, rail] = rest.split('_');
+        const parts = rest.split('_');
+        let targetId, rail;
+        if (['bakong', 'aba', 'bundle'].includes(parts[0])) {
+          rail = parts[0];
+          targetId = parts.slice(1).join('_');
+        } else {
+          targetId = parts[0];
+          rail = parts[1];
+        }
         return await adminHandler.handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId);
       }
       if (data && data.startsWith('admin_wstep_days_')) {
         const rest = data.replace('admin_wstep_days_', '');
-        const [targetId, rail, days] = rest.split('_');
+        const parts = rest.split('_');
+        let targetId, rail, days;
+        if (!isNaN(parseInt(parts[0], 10)) && parts.length >= 3) {
+          days = parts[0];
+          targetId = parts[1];
+          rail = parts[2];
+        } else {
+          targetId = parts[0];
+          rail = parts[1];
+          days = parts[2];
+        }
         return await adminHandler.handleAdminKeyWizardStep3(bot, chatId, targetId, rail, days, messageId);
       }
       if (data && data.startsWith('admin_wstep_confirm_')) {
