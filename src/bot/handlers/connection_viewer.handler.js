@@ -79,7 +79,7 @@ function renderConnectionViewer(lang = 'en', selectedCodeLang = 'nodejs', userId
   let secret = 'whsec_test_live998';
 
   if (userId) {
-    const keys = apiKeyService.getOrCreateUserKeys(userId);
+    const keys = apiKeyService.getUserApiKeys(userId);
     if (keys && keys.length > 0) {
       apiKey = keys[0].apiKey;
       secret = keys[0].secret;

@@ -413,7 +413,7 @@ async function handleCustomAmountInput(bot, msg) {
 
   sessionManager.resetSession(from.id);
 
-  const userKeys = apiKeyService.getOrCreateUserKeys(from.id);
+  const userKeys = apiKeyService.getUserApiKeys(from.id);
   const activeKey = (userKeys && userKeys.length > 0) ? userKeys[0] : null;
   const user = userService.getUser(from.id) || {};
   const userProv = String(activeKey?.provider || user.provider || '').toLowerCase();

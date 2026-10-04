@@ -181,11 +181,8 @@ class ApiKeyService {
    */
   getUserApiKeys(telegramId) {
     const tId = String(telegramId);
-    let keys = db.getUserApiKeys(tId);
-    if (!keys || keys.length === 0) {
-      keys = this.getOrCreateUserKeys(tId);
-    }
-    return keys;
+    const keys = db.getUserApiKeys(tId);
+    return keys || [];
   }
 
   /**
@@ -246,7 +243,10 @@ class ApiKeyService {
    */
   renewApiKeySubscription(telegramId, planKey = '1w') {
     const tId = String(telegramId);
-    const keys = this.getUserApiKeys(tId);
+    let keys = this.getUserApiKeys(tId);
+    if (!keys || keys.length === 0) {
+      keys = this.getOrCreateUserKeys(tId);
+    }
     if (!keys || keys.length === 0) return null;
 
     const key = keys[0];

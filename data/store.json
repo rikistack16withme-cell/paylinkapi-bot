@@ -28,13 +28,7 @@
       "phone": null,
       "usdLink": null,
       "khrLink": null,
-      "subscription": {
-        "status": "ACTIVE",
-        "plan": "1w_free",
-        "durationDays": 7,
-        "activatedAt": "2026-10-04T10:00:00.000Z",
-        "expiresAt": "2026-10-11T17:15:00.000Z"
-      }
+      "subscription": null
     },
     "7283817695": {
       "telegramId": 7283817695,

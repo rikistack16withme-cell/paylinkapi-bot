@@ -19,7 +19,11 @@ async function handleApiKeys(bot, query) {
     `${tgEmoji('currency')} <b>${isKm ? 'រូបិយប័ណ្ណ:' : 'Currency Engine:'}</b> <code>${isKm ? 'USD ($) + KHR (៛) ដំណើរការរួមគ្នា' : 'USD ($) + KHR (៛) DUAL-ACTIVE'}</code>\n\n`;
 
   if (!userKeys || userKeys.length === 0) {
-    text += `${i18n.t('keys_empty', lang)}`;
+    text += isKm
+      ? `${tgEmoji('bulb')} <i>លោកអ្នកមិនទាន់មានកូដសម្ងាត់ API នៅឡើយទេ។ លោកអ្នកអាចទទួលបានការសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ ($0.00 Free Trial) បន្ទាប់ពីចុះឈ្មោះព័ត៌មាន Merchant រួចរាល់!</i>\n\n` +
+        `👉 សូមចុចប៊ូតុង <b>«✦ ភ្ជាប់ API (Get API)»</b> ខាងក្រោម ដើម្បីចុះឈ្មោះ និងបើកដំណើរការ Key របស់អ្នក។`
+      : `${tgEmoji('bulb')} <i>You do not have an active API Key yet. You can activate a 1-Week Free Trial ($0.00) after completing your merchant registration!</i>\n\n` +
+        `👉 Tap <b>"✦ Get Payment API"</b> below to register your merchant details and claim your key.`;
   } else {
     userKeys.forEach((key, index) => {
       const provIcon = (key.provider || '').includes('Bakong') ? tgEmoji('bakong') : tgEmoji('aba');
@@ -52,9 +56,21 @@ async function handleApiKeys(bot, query) {
     text += `<i>${isKm ? '💡 លោកអ្នកអាចចុច «🔄 បន្តគម្រោង» ដើម្បីបន្តសុពលភាព ឬចុច «តេស្ត API Key» ដើម្បីតេស្តជាក់ស្តែង។' : '💡 You can click "🔄 Renew Subscription" to extend validity or "Test Purchased API Key" to test live.'}</i>`;
   }
 
+  const { makeButton } = require('../../config/emojis');
+  const keyboard = (!userKeys || userKeys.length === 0)
+    ? {
+        reply_markup: {
+          inline_keyboard: [
+            [makeButton(i18n.t('btn_get_payment_api', lang), 'nav_get_api', 'get_api', 'success')],
+            [makeButton(i18n.t('btn_back', lang), 'nav_dashboard', null, 'danger')]
+          ]
+        }
+      }
+    : inlineKeyboards.apiKeys(lang);
+
   return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
     parse_mode: 'HTML',
-    ...inlineKeyboards.apiKeys(lang)
+    ...keyboard
   });
 }
 

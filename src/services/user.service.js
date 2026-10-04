@@ -8,7 +8,11 @@ class UserService {
 
   isRegistered(telegramId) {
     const user = db.getUser(telegramId);
-    return Boolean(user && user.status === 'ACTIVE');
+    if (!user) return false;
+    const keys = db.getUserApiKeys(telegramId);
+    const hasKeys = keys && keys.length > 0;
+    const hasBank = Boolean(user.bakongId || user.merchantId || user.usdLink || user.khrLink);
+    return Boolean(hasKeys || hasBank);
   }
 
   /**

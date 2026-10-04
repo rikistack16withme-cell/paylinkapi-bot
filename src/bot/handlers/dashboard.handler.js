@@ -34,6 +34,10 @@ async function renderDashboard(bot, chatId, messageId, from) {
         ? `<i>${tgEmoji('alert')} ${isKm ? 'គម្រោងបានផុតកំណត់! សូមចុច «កូដសម្ងាត់ (API Keys)» ដើម្បីបន្តគម្រោង។' : 'Subscription expired! Open "API Keys" to renew.'}</i>\n`
         : '') +
       `${formatter.divider}\n`;
+  } else {
+    subBanner = `\n` +
+      `${tgEmoji('bulb')} <i>${isKm ? 'ចំណាំ៖ លោកអ្នកអាចទទួលបានគម្រោងសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ ($0.00 Free Trial) បន្ទាប់ពីចុះឈ្មោះព័ត៌មាន Merchant រួចរាល់!' : 'Note: You can subscribe for a 1-Week Free Trial ($0.00) after completing your merchant registration!'}</i>\n` +
+      `${formatter.divider}\n`;
   }
 
   let text = `${formatter.telemetryCard(firstName, from.id, lang)}\n` +

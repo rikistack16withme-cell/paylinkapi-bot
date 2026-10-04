@@ -18,6 +18,7 @@ const translations = {
       `<b>SUPPORTED RAILS:</b>\n` +
       `• ${tgEmoji('bakong')} <b>Bakong KHQR:</b> <code>RED STANDARD</code> (NBC) — Unlimited verification! Enter only 1 Merchant ID + phone number; custom merchant store name fully supported in bot.\n` +
       `• ${tgEmoji('aba')} <b>ABA PayWay:</b> <code>BLUE GATEWAY</code> — Instant settlement! Enter USD & KHR links from your ABA Merchant App. <i>(Note: Store name must be set inside ABA Merchant App beforehand)</i>\n\n` +
+      `🎁 <b>1-WEEK FREE TRIAL:</b> <i>You can subscribe for a 1-Week Free Trial ($0.00) after completing your merchant registration!</i>\n\n` +
       `${tgEmoji('video')} <i>Tap <b>[ 🎬 Video Tutorial ]</b> below for a complete walkthrough!</i>\n\n` +
       `${tgEmoji('khmer_flag')} <i>(មិនចេះភាសាអង់គ្លេស? ចុចប៊ូតុង [ បកប្រែជាភាសាខ្មែរ ] ខាងក្រោម ឬវាយ /khmer)</i>`,
     welcome_features: 'Zero-Latency • Cryptographic Security • Dual Currency Automated',
@@ -171,6 +172,7 @@ const translations = {
       `<b>SUPPORTED RAILS:</b>\n` +
       `• ${tgEmoji('bakong')} <b>Bakong KHQR:</b> <code>RED STANDARD</code> (NBC) — ផ្ទៀងផ្ទាត់មិនកំណត់! ត្រូវការតែ Merchant ID តែមួយ + លេខទូរស័ព្ទ; អាចកំណត់ឈ្មោះហាងផ្ទាល់ខ្លួនក្នុង Bot នេះភ្លាមៗ។\n` +
       `• ${tgEmoji('aba')} <b>ABA PayWay:</b> <code>BLUE GATEWAY</code> — ដំណើរការរហ័ស! ត្រូវការ Link USD & KHR ពី ABA Merchant App។ <i>(ចំណាំ: ឈ្មោះហាងត្រូវកំណត់ក្នុង ABA App ជាមុន)</i>\n\n` +
+      `🎁 <b>សាកល្បងឥតគិតថ្លៃ (1-WEEK FREE TRIAL):</b> <i>លោកអ្នកអាចទទួលបានគម្រោងសាកល្បងឥតគិតថ្លៃ ១ សប្តាហ៍ ($0.00 Free Trial) បន្ទាប់ពីចុះឈ្មោះព័ត៌មាន Merchant រួចរាល់!</i>\n\n` +
       `${tgEmoji('video')} <i>ចុចប៊ូតុង <b>[ 🎬 វីដេអូបង្រៀន ]</b> ខាងក្រោម ដើម្បីទស្សនាការណែនាំលម្អិត!</i>\n\n` +
       `${tgEmoji('english_flag')} <i>(ចុច [ Switch to English ] ខាងក្រោម ឬវាយ /english ដើម្បីប្តូរភាសា)</i>`,
     welcome_features: 'សុវត្ថិភាពកម្រិតខ្ពស់ • ល្បឿនលឿនបំផុត • គាំទ្រ USD + KHR ដោយស្វ័យប្រវត្តិ',
