@@ -385,36 +385,47 @@ async function handleWizardTextInput(bot, msg) {
     return sent;
   }
 
-  const defaultBakongId = process.env.DEFAULT_BAKONG_ACCOUNT || 'hut_soksitchey1@aclb';
-  const defaultMerchantName = process.env.DEFAULT_MERCHANT_NAME || 'Rikidev';
   const cancelKeyboard = { inline_keyboard: navigationKeyboards.cancelOnly(lang) };
 
   // --- 1. Bakong Wizard States ---
   if (session.state === UserState.BAKONG_ENTER_MERCHANT_ID) {
-    let merchantId = rawText === '/skip' ? defaultBakongId : rawText;
-    let accountHolder = null;
-    if (rawText !== '/skip') {
-      const check = await verifyBakongAccountLive(merchantId);
-      if (!check.valid) {
-        const isNotFound = (check.errorEn || '').includes('NOT EXIST') || (check.errorEn || '').includes('FAKE');
-        const errPrompt = renderWarningCard({
-          title: isNotFound
-            ? (isKm ? 'រកមិនឃើញគណនី BAKONG' : 'BAKONG ACCOUNT NOT FOUND')
-            : (isKm ? 'ទម្រង់ BAKONG ID មិនត្រឹមត្រូវ' : 'INVALID BAKONG ID FORMAT'),
-          subtitle: isKm ? 'ប្រព័ន្ធធនាគារជាតិនៃកម្ពុជា NBC' : 'NBC Live Verification Rail',
-          error: isKm ? check.errorKm : check.errorEn,
-          advice: isKm
-            ? 'សូមបញ្ចូលគណនី Bakong ពិតប្រាកដរបស់អ្នកដែលមានទម្រង់ <code>ឈ្មោះ@ធនាគារ</code> (ឧទាហរណ៍: <code>sokha@aclb</code> ឬ <code>merchant@abaa</code>)។'
-            : 'Please enter your authentic Bakong account in format <code>username@bank</code> (e.g. <code>sokha@aclb</code> or <code>merchant@abaa</code>).',
-          currentPrompt: i18n.t('bakong_merchant_id_prompt', lang),
-          lang
-        });
-        await updateCard(errPrompt, cancelKeyboard);
-        return true;
-      }
-      merchantId = check.value;
-      accountHolder = check.fullName;
+    if (rawText === '/skip') {
+      const errPrompt = renderWarningCard({
+        title: isKm ? 'មិនអាចរំលងបានទេ' : 'CANNOT SKIP BAKONG ID',
+        subtitle: isKm ? 'តម្រូវឱ្យបញ្ចូលគណនី Bakong ផ្ទាល់ខ្លួន' : 'Your Own Bakong Account Required',
+        error: isKm ? 'ដើម្បីទទួលប្រាក់ទូទាត់ចូលគណនីរបស់អ្នកផ្ទាល់ អ្នកត្រូវតែបញ្ចូលគណនី Bakong របស់អ្នក។' : 'To receive customer payments directly into your account, you must enter your authentic Bakong ID.',
+        advice: isKm
+          ? 'សូមបញ្ចូលគណនី Bakong របស់អ្នក (ឧទាហរណ៍: <code>sokha@aclb</code> ឬ <code>merchant@abaa</code>) ឬចុច «បោះបង់ (Cancel)»។'
+          : 'Please enter your authentic Bakong account (e.g. <code>sokha@aclb</code> or <code>merchant@abaa</code>) or tap Cancel.',
+        currentPrompt: i18n.t('bakong_merchant_id_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
     }
+
+    let merchantId = rawText;
+    let accountHolder = null;
+    const check = await verifyBakongAccountLive(merchantId);
+    if (!check.valid) {
+      const isNotFound = (check.errorEn || '').includes('NOT EXIST') || (check.errorEn || '').includes('FAKE');
+      const errPrompt = renderWarningCard({
+        title: isNotFound
+          ? (isKm ? 'រកមិនឃើញគណនី BAKONG' : 'BAKONG ACCOUNT NOT FOUND')
+          : (isKm ? 'ទម្រង់ BAKONG ID មិនត្រឹមត្រូវ' : 'INVALID BAKONG ID FORMAT'),
+        subtitle: isKm ? 'ប្រព័ន្ធធនាគារជាតិនៃកម្ពុជា NBC' : 'NBC Live Verification Rail',
+        error: isKm ? check.errorKm : check.errorEn,
+        advice: isKm
+          ? 'សូមបញ្ចូលគណនី Bakong ពិតប្រាកដរបស់អ្នកដែលមានទម្រង់ <code>ឈ្មោះ@ធនាគារ</code> (ឧទាហរណ៍: <code>sokha@aclb</code> ឬ <code>merchant@abaa</code>)។'
+          : 'Please enter your authentic Bakong account in format <code>username@bank</code> (e.g. <code>sokha@aclb</code> or <code>merchant@abaa</code>).',
+        currentPrompt: i18n.t('bakong_merchant_id_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
+    }
+    merchantId = check.value;
+    accountHolder = check.fullName;
 
     sessionManager.setState(from.id, UserState.BAKONG_ENTER_MERCHANT_NAME, { merchantId, accountHolder });
     const prompt = `${formatter.header(isKm ? 'ការដំឡើង BAKONG KHQR' : 'BAKONG KHQR DEPLOYMENT')}\n\n` +
@@ -427,7 +438,7 @@ async function handleWizardTextInput(bot, msg) {
   }
 
   if (session.state === UserState.BAKONG_ENTER_MERCHANT_NAME) {
-    let merchantName = rawText === '/skip' ? defaultMerchantName : rawText;
+    let merchantName = rawText === '/skip' ? (from.first_name ? `${from.first_name}'s Store` : 'Merchant Store') : rawText;
     if (rawText !== '/skip') {
       const check = validateMerchantName(merchantName);
       if (!check.valid) {
@@ -457,7 +468,7 @@ async function handleWizardTextInput(bot, msg) {
   }
 
   if (session.state === UserState.BAKONG_ENTER_PHONE) {
-    let phone = rawText === '/skip' ? '0977416126' : rawText;
+    let phone = rawText === '/skip' ? null : rawText;
     if (rawText !== '/skip') {
       const check = validatePhoneNumber(phone);
       if (!check.valid) {
@@ -487,37 +498,50 @@ async function handleWizardTextInput(bot, msg) {
 
   // --- 2. ABA Wizard States ---
   if (session.state === UserState.ABA_ENTER_KHR_LINK) {
-    let khrLink = rawText === '/skip' ? DEFAULT_MERCHANT_LINK_KHR : rawText;
-    if (rawText !== '/skip') {
-      const check = await verifyAbaLinkLive(khrLink, 'KHR');
-      if (!check.valid) {
-        let title, subtitle, advice;
-        if (check.isCurrencyMismatch) {
-          title = isKm ? 'ច្រឡំរូបិយប័ណ្ណ KHR' : 'CURRENCY MISMATCH REJECTED';
-          subtitle = isKm ? 'តម្រូវឱ្យបញ្ចូល Link ប្រាក់រៀល (KHR ៛)' : 'Khmer Riel (KHR ៛) Link Required';
-          advice = isKm
-            ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់រៀល <b>Khmer Riel (KHR ៛)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
-            : 'Please open your <b>ABA Merchant App</b> > copy your <b>Khmer Riel (KHR ៛)</b> payment link, and paste it here.';
-        } else {
-          title = isKm ? 'តំណភ្ជាប់ ABA មិនត្រឹមត្រូវ' : 'INVALID ABA PAYWAY LINK';
-          subtitle = isKm ? 'ការផ្ទៀងផ្ទាត់ ABA Gateway មិនជោគជ័យ' : 'ABA Gateway Verification Failed';
-          advice = isKm
-            ? 'សូមពិនិត្យមើល ABA Merchant App របស់អ្នក ហើយចម្លង Link ផ្លូវការដែលមានទម្រង់ <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>។'
-            : 'Please check your ABA Merchant app and copy an authentic active link (e.g. <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>).';
-        }
-        const errPrompt = renderWarningCard({
-          title,
-          subtitle,
-          error: isKm ? check.errorKm : check.errorEn,
-          advice,
-          currentPrompt: i18n.t('aba_khr_link_prompt', lang),
-          lang
-        });
-        await updateCard(errPrompt, cancelKeyboard);
-        return true;
-      }
-      khrLink = check.value;
+    if (rawText === '/skip') {
+      const errPrompt = renderWarningCard({
+        title: isKm ? 'មិនអាចរំលងបានទេ' : 'CANNOT SKIP ABA LINK',
+        subtitle: isKm ? 'តម្រូវឱ្យបញ្ចូល Link ប្រាក់រៀល (KHR ៛)' : 'Khmer Riel (KHR ៛) Link Required',
+        error: isKm ? 'ដើម្បីទទួលប្រាក់ទូទាត់ចូល ABA របស់អ្នកផ្ទាល់ អ្នកត្រូវតែបញ្ចូលតំណភ្ជាប់ ABA PayWay KHR របស់អ្នក។' : 'To receive customer payments into your ABA account, you must enter your authentic ABA KHR payment link.',
+        advice: isKm
+          ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់រៀល <b>Khmer Riel (KHR ៛)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
+          : 'Please open your <b>ABA Merchant App</b> > copy your <b>Khmer Riel (KHR ៛)</b> payment link, and paste it here.',
+        currentPrompt: i18n.t('aba_khr_link_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
     }
+
+    let khrLink = rawText;
+    const check = await verifyAbaLinkLive(khrLink, 'KHR');
+    if (!check.valid) {
+      let title, subtitle, advice;
+      if (check.isCurrencyMismatch) {
+        title = isKm ? 'ច្រឡំរូបិយប័ណ្ណ KHR' : 'CURRENCY MISMATCH REJECTED';
+        subtitle = isKm ? 'តម្រូវឱ្យបញ្ចូល Link ប្រាក់រៀល (KHR ៛)' : 'Khmer Riel (KHR ៛) Link Required';
+        advice = isKm
+          ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់រៀល <b>Khmer Riel (KHR ៛)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
+          : 'Please open your <b>ABA Merchant App</b> > copy your <b>Khmer Riel (KHR ៛)</b> payment link, and paste it here.';
+      } else {
+        title = isKm ? 'តំណភ្ជាប់ ABA មិនត្រឹមត្រូវ' : 'INVALID ABA PAYWAY LINK';
+        subtitle = isKm ? 'ការផ្ទៀងផ្ទាត់ ABA Gateway មិនជោគជ័យ' : 'ABA Gateway Verification Failed';
+        advice = isKm
+          ? 'សូមពិនិត្យមើល ABA Merchant App របស់អ្នក ហើយចម្លង Link ផ្លូវការដែលមានទម្រង់ <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>។'
+          : 'Please check your ABA Merchant app and copy an authentic active link (e.g. <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>).';
+      }
+      const errPrompt = renderWarningCard({
+        title,
+        subtitle,
+        error: isKm ? check.errorKm : check.errorEn,
+        advice,
+        currentPrompt: i18n.t('aba_khr_link_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
+    }
+    khrLink = check.value;
 
     sessionManager.setState(from.id, UserState.ABA_ENTER_USD_LINK, { khrLink });
     const prompt = `${formatter.header(isKm ? 'ការដំឡើង ABA PAYWAY' : 'ABA PAYWAY DEPLOYMENT')}\n\n` +
@@ -529,37 +553,50 @@ async function handleWizardTextInput(bot, msg) {
   }
 
   if (session.state === UserState.ABA_ENTER_USD_LINK) {
-    let usdLink = rawText === '/skip' ? DEFAULT_MERCHANT_LINK_USD : rawText;
-    if (rawText !== '/skip') {
-      const check = await verifyAbaLinkLive(usdLink, 'USD');
-      if (!check.valid) {
-        let title, subtitle, advice;
-        if (check.isCurrencyMismatch) {
-          title = isKm ? 'ច្រឡំរូបិយប័ណ្ណ USD' : 'CURRENCY MISMATCH REJECTED';
-          subtitle = isKm ? 'តម្រូវឱ្យបញ្ចូល Link ប្រាក់ដុល្លារ (USD $)' : 'US Dollar (USD $) Link Required';
-          advice = isKm
-            ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់ដុល្លារ <b>US Dollar (USD $)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
-            : 'Please open your <b>ABA Merchant App</b> > copy your <b>US Dollar (USD $)</b> payment link, and paste it here.';
-        } else {
-          title = isKm ? 'តំណភ្ជាប់ ABA មិនត្រឹមត្រូវ' : 'INVALID ABA PAYWAY LINK';
-          subtitle = isKm ? 'ការផ្ទៀងផ្ទាត់ ABA Gateway មិនជោគជ័យ' : 'ABA Gateway Verification Failed';
-          advice = isKm
-            ? 'សូមពិនិត្យមើល ABA Merchant App របស់អ្នក ហើយចម្លង Link ផ្លូវការដែលមានទម្រង់ <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>។'
-            : 'Please check your ABA Merchant app and copy an authentic active link (e.g. <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>).';
-        }
-        const errPrompt = renderWarningCard({
-          title,
-          subtitle,
-          error: isKm ? check.errorKm : check.errorEn,
-          advice,
-          currentPrompt: i18n.t('aba_usd_link_prompt', lang),
-          lang
-        });
-        await updateCard(errPrompt, cancelKeyboard);
-        return true;
-      }
-      usdLink = check.value;
+    if (rawText === '/skip') {
+      const errPrompt = renderWarningCard({
+        title: isKm ? 'មិនអាចរំលងបានទេ' : 'CANNOT SKIP ABA LINK',
+        subtitle: isKm ? 'តម្រូវឱ្យបញ្ចូល Link ប្រាក់ដុល្លារ (USD $)' : 'US Dollar (USD $) Link Required',
+        error: isKm ? 'ដើម្បីទទួលប្រាក់ដុល្លារចូល ABA របស់អ្នកផ្ទាល់ អ្នកត្រូវតែបញ្ចូលតំណភ្ជាប់ ABA PayWay USD របស់អ្នក។' : 'To receive USD payments into your ABA account, you must enter your authentic ABA USD payment link.',
+        advice: isKm
+          ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់ដុល្លារ <b>US Dollar (USD $)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
+          : 'Please open your <b>ABA Merchant App</b> > copy your <b>US Dollar (USD $)</b> payment link, and paste it here.',
+        currentPrompt: i18n.t('aba_usd_link_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
     }
+
+    let usdLink = rawText;
+    const check = await verifyAbaLinkLive(usdLink, 'USD');
+    if (!check.valid) {
+      let title, subtitle, advice;
+      if (check.isCurrencyMismatch) {
+        title = isKm ? 'ច្រឡំរូបិយប័ណ្ណ USD' : 'CURRENCY MISMATCH REJECTED';
+        subtitle = isKm ? 'តម្រូវឱ្យបញ្ចូល Link ប្រាក់ដុល្លារ (USD $)' : 'US Dollar (USD $) Link Required';
+        advice = isKm
+          ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់ដុល្លារ <b>US Dollar (USD $)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
+          : 'Please open your <b>ABA Merchant App</b> > copy your <b>US Dollar (USD $)</b> payment link, and paste it here.';
+      } else {
+        title = isKm ? 'តំណភ្ជាប់ ABA មិនត្រឹមត្រូវ' : 'INVALID ABA PAYWAY LINK';
+        subtitle = isKm ? 'ការផ្ទៀងផ្ទាត់ ABA Gateway មិនជោគជ័យ' : 'ABA Gateway Verification Failed';
+        advice = isKm
+          ? 'សូមពិនិត្យមើល ABA Merchant App របស់អ្នក ហើយចម្លង Link ផ្លូវការដែលមានទម្រង់ <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>។'
+          : 'Please check your ABA Merchant app and copy an authentic active link (e.g. <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>).';
+      }
+      const errPrompt = renderWarningCard({
+        title,
+        subtitle,
+        error: isKm ? check.errorKm : check.errorEn,
+        advice,
+        currentPrompt: i18n.t('aba_usd_link_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
+    }
+    usdLink = check.value;
 
     sessionManager.setState(from.id, UserState.CONFIRM_SUBMISSION, { usdLink });
     const s = sessionManager.getSession(from.id);
@@ -571,30 +608,43 @@ async function handleWizardTextInput(bot, msg) {
 
   // --- 3. Bakong + ABA Bundle States ---
   if (session.state === UserState.BUNDLE_BAKONG_MERCHANT_ID) {
-    let merchantId = rawText === '/skip' ? defaultBakongId : rawText;
-    let accountHolder = null;
-    if (rawText !== '/skip') {
-      const check = await verifyBakongAccountLive(merchantId);
-      if (!check.valid) {
-        const isNotFound = (check.errorEn || '').includes('NOT EXIST') || (check.errorEn || '').includes('FAKE');
-        const errPrompt = renderWarningCard({
-          title: isNotFound
-            ? (isKm ? 'រកមិនឃើញគណនី BAKONG' : 'BAKONG ACCOUNT NOT FOUND')
-            : (isKm ? 'ទម្រង់ BAKONG ID មិនត្រឹមត្រូវ' : 'INVALID BAKONG ID FORMAT'),
-          subtitle: isKm ? 'ជំហាន ១/២: ការរៀបចំ Bakong (NBC)' : 'Step 1/2: Bakong Setup (NBC)',
-          error: isKm ? check.errorKm : check.errorEn,
-          advice: isKm
-            ? 'សូមបញ្ចូលគណនី Bakong ពិតប្រាកដរបស់អ្នកដែលមានទម្រង់ <code>ឈ្មោះ@ធនាគារ</code> (ឧទាហរណ៍: <code>sokha@aclb</code> ឬ <code>merchant@abaa</code>)។'
-            : 'Please enter your authentic Bakong account in format <code>username@bank</code> (e.g. <code>sokha@aclb</code> or <code>merchant@abaa</code>).',
-          currentPrompt: i18n.t('bakong_merchant_id_prompt', lang),
-          lang
-        });
-        await updateCard(errPrompt, cancelKeyboard);
-        return true;
-      }
-      merchantId = check.value;
-      accountHolder = check.fullName;
+    if (rawText === '/skip') {
+      const errPrompt = renderWarningCard({
+        title: isKm ? 'មិនអាចរំលងបានទេ' : 'CANNOT SKIP BAKONG ID',
+        subtitle: isKm ? 'ជំហាន ១/២: ការរៀបចំ Bakong (NBC)' : 'Step 1/2: Bakong Setup (NBC)',
+        error: isKm ? 'ដើម្បីទទួលប្រាក់ទូទាត់ចូលគណនីរបស់អ្នកផ្ទាល់ អ្នកត្រូវតែបញ្ចូលគណនី Bakong របស់អ្នក។' : 'To receive customer payments directly into your account, you must enter your authentic Bakong ID.',
+        advice: isKm
+          ? 'សូមបញ្ចូលគណនី Bakong ពិតប្រាកដរបស់អ្នកដែលមានទម្រង់ <code>ឈ្មោះ@ធនាគារ</code> (ឧទាហរណ៍: <code>sokha@aclb</code> ឬ <code>merchant@abaa</code>) ឬចុច «បោះបង់ (Cancel)»។'
+          : 'Please enter your authentic Bakong account in format <code>username@bank</code> (e.g. <code>sokha@aclb</code> or <code>merchant@abaa</code>) or tap Cancel.',
+        currentPrompt: i18n.t('bakong_merchant_id_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
     }
+
+    let merchantId = rawText;
+    let accountHolder = null;
+    const check = await verifyBakongAccountLive(merchantId);
+    if (!check.valid) {
+      const isNotFound = (check.errorEn || '').includes('NOT EXIST') || (check.errorEn || '').includes('FAKE');
+      const errPrompt = renderWarningCard({
+        title: isNotFound
+          ? (isKm ? 'រកមិនឃើញគណនី BAKONG' : 'BAKONG ACCOUNT NOT FOUND')
+          : (isKm ? 'ទម្រង់ BAKONG ID មិនត្រឹមត្រូវ' : 'INVALID BAKONG ID FORMAT'),
+        subtitle: isKm ? 'ជំហាន ១/២: ការរៀបចំ Bakong (NBC)' : 'Step 1/2: Bakong Setup (NBC)',
+        error: isKm ? check.errorKm : check.errorEn,
+        advice: isKm
+          ? 'សូមបញ្ចូលគណនី Bakong ពិតប្រាកដរបស់អ្នកដែលមានទម្រង់ <code>ឈ្មោះ@ធនាគារ</code> (ឧទាហរណ៍: <code>sokha@aclb</code> ឬ <code>merchant@abaa</code>)។'
+          : 'Please enter your authentic Bakong account in format <code>username@bank</code> (e.g. <code>sokha@aclb</code> or <code>merchant@abaa</code>).',
+        currentPrompt: i18n.t('bakong_merchant_id_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
+    }
+    merchantId = check.value;
+    accountHolder = check.fullName;
 
     sessionManager.setState(from.id, UserState.BUNDLE_BAKONG_MERCHANT_NAME, { merchantId, accountHolder });
     const prompt = `${formatter.header(isKm ? 'ការដំឡើងរួមគ្នា BAKONG + ABA' : 'BAKONG + ABA DUAL INTEGRATION')}\n\n` +
@@ -608,7 +658,7 @@ async function handleWizardTextInput(bot, msg) {
   }
 
   if (session.state === UserState.BUNDLE_BAKONG_MERCHANT_NAME) {
-    let merchantName = rawText === '/skip' ? defaultMerchantName : rawText;
+    let merchantName = rawText === '/skip' ? (from.first_name ? `${from.first_name}'s Store` : 'Merchant Store') : rawText;
     if (rawText !== '/skip') {
       const check = validateMerchantName(merchantName);
       if (!check.valid) {
@@ -617,8 +667,8 @@ async function handleWizardTextInput(bot, msg) {
           subtitle: isKm ? 'ជំហាន ១/២: ការរៀបចំ Bakong (2 ទៅ 50 តួអក្សរ)' : 'Step 1/2: Bakong Setup (2-50 chars)',
           error: isKm ? check.errorKm : check.errorEn,
           advice: isKm
-            ? 'សូមបញ្ចូលឈ្មោះហាងផ្ទាល់ខ្លួនពី 2 ទៅ 50 តួអក្សរ (ឧទាហរណ៍: <code>Rikidev Store</code>)។'
-            : 'Please enter a custom store name between 2 and 50 characters (e.g. <code>Rikidev Store</code>).',
+            ? 'សូមបញ្ចូលឈ្មោះហាងផ្ទាល់ខ្លួនពី 2 ទៅ 50 តួអក្សរ (ឧទាហរណ៍: <code>My Store</code>)។'
+            : 'Please enter a custom store name between 2 and 50 characters (e.g. <code>My Store</code>).',
           currentPrompt: i18n.t('bakong_merchant_name_prompt', lang),
           lang
         });
@@ -639,7 +689,7 @@ async function handleWizardTextInput(bot, msg) {
   }
 
   if (session.state === UserState.BUNDLE_BAKONG_PHONE) {
-    let phone = rawText === '/skip' ? '0977416126' : rawText;
+    let phone = rawText === '/skip' ? null : rawText;
     if (rawText !== '/skip') {
       const check = validatePhoneNumber(phone);
       if (!check.valid) {
@@ -662,7 +712,7 @@ async function handleWizardTextInput(bot, msg) {
     sessionManager.setState(from.id, UserState.BUNDLE_ABA_KHR_LINK, { phone });
     const prompt = `${formatter.header(isKm ? 'ការដំឡើងរួមគ្នា BAKONG + ABA' : 'BAKONG + ABA DUAL INTEGRATION')}\n\n` +
       `<b>${isKm ? 'ជំហាន ២/២: ការរៀបចំ ABA Gateway' : 'Step 2/2: ABA Gateway Setup'}</b>\n` +
-      `${tgEmoji('phone')} <b>${isKm ? 'លេខទូរស័ព្ទ Bakong:' : 'Bakong Phone:'}</b> <code>${formatter.escapeHtml(phone)}</code>\n\n` +
+      (phone ? `${tgEmoji('phone')} <b>${isKm ? 'លេខទូរស័ព្ទ Bakong:' : 'Bakong Phone:'}</b> <code>${formatter.escapeHtml(phone)}</code>\n\n` : `\n`) +
       `${i18n.t('aba_khr_link_prompt', lang)}`;
 
     await updateCard(prompt, cancelKeyboard);
@@ -670,37 +720,50 @@ async function handleWizardTextInput(bot, msg) {
   }
 
   if (session.state === UserState.BUNDLE_ABA_KHR_LINK) {
-    let khrLink = rawText === '/skip' ? DEFAULT_MERCHANT_LINK_KHR : rawText;
-    if (rawText !== '/skip') {
-      const check = await verifyAbaLinkLive(khrLink, 'KHR');
-      if (!check.valid) {
-        let title, subtitle, advice;
-        if (check.isCurrencyMismatch) {
-          title = isKm ? 'ច្រឡំរូបិយប័ណ្ណ KHR' : 'CURRENCY MISMATCH REJECTED';
-          subtitle = isKm ? 'ជំហាន ២/២: តម្រូវឱ្យបញ្ចូល Link ប្រាក់រៀល (KHR ៛)' : 'Step 2/2: Khmer Riel (KHR ៛) Link Required';
-          advice = isKm
-            ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់រៀល <b>Khmer Riel (KHR ៛)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
-            : 'Please open your <b>ABA Merchant App</b> > copy your <b>Khmer Riel (KHR ៛)</b> payment link, and paste it here.';
-        } else {
-          title = isKm ? 'តំណភ្ជាប់ ABA មិនត្រឹមត្រូវ' : 'INVALID ABA PAYWAY LINK';
-          subtitle = isKm ? 'ជំហាន ២/២: ការផ្ទៀងផ្ទាត់ ABA Gateway មិនជោគជ័យ' : 'Step 2/2: ABA Gateway Verification Failed';
-          advice = isKm
-            ? 'សូមពិនិត្យមើល ABA Merchant App របស់អ្នក ហើយចម្លង Link ផ្លូវការដែលមានទម្រង់ <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>។'
-            : 'Please check your ABA Merchant app and copy an authentic active link (e.g. <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>).';
-        }
-        const errPrompt = renderWarningCard({
-          title,
-          subtitle,
-          error: isKm ? check.errorKm : check.errorEn,
-          advice,
-          currentPrompt: i18n.t('aba_khr_link_prompt', lang),
-          lang
-        });
-        await updateCard(errPrompt, cancelKeyboard);
-        return true;
-      }
-      khrLink = check.value;
+    if (rawText === '/skip') {
+      const errPrompt = renderWarningCard({
+        title: isKm ? 'មិនអាចរំលងបានទេ' : 'CANNOT SKIP ABA LINK',
+        subtitle: isKm ? 'ជំហាន ២/២: តម្រូវឱ្យបញ្ចូល Link ប្រាក់រៀល (KHR ៛)' : 'Step 2/2: Khmer Riel (KHR ៛) Link Required',
+        error: isKm ? 'ដើម្បីទទួលប្រាក់ទូទាត់ចូល ABA របស់អ្នកផ្ទាល់ អ្នកត្រូវតែបញ្ចូលតំណភ្ជាប់ ABA PayWay KHR របស់អ្នក។' : 'To receive customer payments into your ABA account, you must enter your authentic ABA KHR payment link.',
+        advice: isKm
+          ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់រៀល <b>Khmer Riel (KHR ៛)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
+          : 'Please open your <b>ABA Merchant App</b> > copy your <b>Khmer Riel (KHR ៛)</b> payment link, and paste it here.',
+        currentPrompt: i18n.t('aba_khr_link_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
     }
+
+    let khrLink = rawText;
+    const check = await verifyAbaLinkLive(khrLink, 'KHR');
+    if (!check.valid) {
+      let title, subtitle, advice;
+      if (check.isCurrencyMismatch) {
+        title = isKm ? 'ច្រឡំរូបិយប័ណ្ណ KHR' : 'CURRENCY MISMATCH REJECTED';
+        subtitle = isKm ? 'ជំហាន ២/២: តម្រូវឱ្យបញ្ចូល Link ប្រាក់រៀល (KHR ៛)' : 'Step 2/2: Khmer Riel (KHR ៛) Link Required';
+        advice = isKm
+          ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់រៀល <b>Khmer Riel (KHR ៛)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
+          : 'Please open your <b>ABA Merchant App</b> > copy your <b>Khmer Riel (KHR ៛)</b> payment link, and paste it here.';
+      } else {
+        title = isKm ? 'តំណភ្ជាប់ ABA មិនត្រឹមត្រូវ' : 'INVALID ABA PAYWAY LINK';
+        subtitle = isKm ? 'ជំហាន ២/២: ការផ្ទៀងផ្ទាត់ ABA Gateway មិនជោគជ័យ' : 'Step 2/2: ABA Gateway Verification Failed';
+        advice = isKm
+          ? 'សូមពិនិត្យមើល ABA Merchant App របស់អ្នក ហើយចម្លង Link ផ្លូវការដែលមានទម្រង់ <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>។'
+          : 'Please check your ABA Merchant app and copy an authentic active link (e.g. <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>).';
+      }
+      const errPrompt = renderWarningCard({
+        title,
+        subtitle,
+        error: isKm ? check.errorKm : check.errorEn,
+        advice,
+        currentPrompt: i18n.t('aba_khr_link_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
+    }
+    khrLink = check.value;
 
     sessionManager.setState(from.id, UserState.BUNDLE_ABA_USD_LINK, { khrLink });
     const prompt = `${formatter.header(isKm ? 'ការដំឡើងរួមគ្នា BAKONG + ABA' : 'BAKONG + ABA DUAL INTEGRATION')}\n\n` +
@@ -713,37 +776,50 @@ async function handleWizardTextInput(bot, msg) {
   }
 
   if (session.state === UserState.BUNDLE_ABA_USD_LINK) {
-    let usdLink = rawText === '/skip' ? DEFAULT_MERCHANT_LINK_USD : rawText;
-    if (rawText !== '/skip') {
-      const check = await verifyAbaLinkLive(usdLink, 'USD');
-      if (!check.valid) {
-        let title, subtitle, advice;
-        if (check.isCurrencyMismatch) {
-          title = isKm ? 'ច្រឡំរូបិយប័ណ្ណ USD' : 'CURRENCY MISMATCH REJECTED';
-          subtitle = isKm ? 'ជំហាន ២/២: តម្រូវឱ្យបញ្ចូល Link ប្រាក់ដុល្លារ (USD $)' : 'Step 2/2: US Dollar (USD $) Link Required';
-          advice = isKm
-            ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់ដុល្លារ <b>US Dollar (USD $)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
-            : 'Please open your <b>ABA Merchant App</b> > copy your <b>US Dollar (USD $)</b> payment link, and paste it here.';
-        } else {
-          title = isKm ? 'តំណភ្ជាប់ ABA មិនត្រឹមត្រូវ' : 'INVALID ABA PAYWAY LINK';
-          subtitle = isKm ? 'ជំហាន ២/២: ការផ្ទៀងផ្ទាត់ ABA Gateway មិនជោគជ័យ' : 'Step 2/2: ABA Gateway Verification Failed';
-          advice = isKm
-            ? 'សូមពិនិត្យមើល ABA Merchant App របស់អ្នក ហើយចម្លង Link ផ្លូវការដែលមានទម្រង់ <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>។'
-            : 'Please check your ABA Merchant app and copy an authentic active link (e.g. <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>).';
-        }
-        const errPrompt = renderWarningCard({
-          title,
-          subtitle,
-          error: isKm ? check.errorKm : check.errorEn,
-          advice,
-          currentPrompt: i18n.t('aba_usd_link_prompt', lang),
-          lang
-        });
-        await updateCard(errPrompt, cancelKeyboard);
-        return true;
-      }
-      usdLink = check.value;
+    if (rawText === '/skip') {
+      const errPrompt = renderWarningCard({
+        title: isKm ? 'មិនអាចរំលងបានទេ' : 'CANNOT SKIP ABA LINK',
+        subtitle: isKm ? 'ជំហាន ២/២: តម្រូវឱ្យបញ្ចូល Link ប្រាក់ដុល្លារ (USD $)' : 'Step 2/2: US Dollar (USD $) Link Required',
+        error: isKm ? 'ដើម្បីទទួលប្រាក់ដុល្លារចូល ABA របស់អ្នកផ្ទាល់ អ្នកត្រូវតែបញ្ចូលតំណភ្ជាប់ ABA PayWay USD របស់អ្នក។' : 'To receive USD payments into your ABA account, you must enter your authentic ABA USD payment link.',
+        advice: isKm
+          ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់ដុល្លារ <b>US Dollar (USD $)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
+          : 'Please open your <b>ABA Merchant App</b> > copy your <b>US Dollar (USD $)</b> payment link, and paste it here.',
+        currentPrompt: i18n.t('aba_usd_link_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
     }
+
+    let usdLink = rawText;
+    const check = await verifyAbaLinkLive(usdLink, 'USD');
+    if (!check.valid) {
+      let title, subtitle, advice;
+      if (check.isCurrencyMismatch) {
+        title = isKm ? 'ច្រឡំរូបិយប័ណ្ណ USD' : 'CURRENCY MISMATCH REJECTED';
+        subtitle = isKm ? 'ជំហាន ២/២: តម្រូវឱ្យបញ្ចូល Link ប្រាក់ដុល្លារ (USD $)' : 'Step 2/2: US Dollar (USD $) Link Required';
+        advice = isKm
+          ? 'សូមចូលទៅកាន់ <b>ABA Merchant App</b> > Copy Link គណនីប្រាក់ដុល្លារ <b>US Dollar (USD $)</b> របស់អ្នក រួចយកមកដាក់ទីនេះ។'
+          : 'Please open your <b>ABA Merchant App</b> > copy your <b>US Dollar (USD $)</b> payment link, and paste it here.';
+      } else {
+        title = isKm ? 'តំណភ្ជាប់ ABA មិនត្រឹមត្រូវ' : 'INVALID ABA PAYWAY LINK';
+        subtitle = isKm ? 'ជំហាន ២/២: ការផ្ទៀងផ្ទាត់ ABA Gateway មិនជោគជ័យ' : 'Step 2/2: ABA Gateway Verification Failed';
+        advice = isKm
+          ? 'សូមពិនិត្យមើល ABA Merchant App របស់អ្នក ហើយចម្លង Link ផ្លូវការដែលមានទម្រង់ <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>។'
+          : 'Please check your ABA Merchant app and copy an authentic active link (e.g. <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>).';
+      }
+      const errPrompt = renderWarningCard({
+        title,
+        subtitle,
+        error: isKm ? check.errorKm : check.errorEn,
+        advice,
+        currentPrompt: i18n.t('aba_usd_link_prompt', lang),
+        lang
+      });
+      await updateCard(errPrompt, cancelKeyboard);
+      return true;
+    }
+    usdLink = check.value;
 
     sessionManager.setState(from.id, UserState.CONFIRM_SUBMISSION, { usdLink });
     const s = sessionManager.getSession(from.id);
@@ -765,15 +841,16 @@ async function handleWizardSandboxQuickFill(bot, query, type) {
   const from = query.from;
   const lang = userService.getUserLanguage(from.id);
   const isKm = lang === 'km';
+  const testStoreName = from.first_name ? `${from.first_name}'s Sandbox Store` : 'Sandbox Test Store';
 
   if (type === 'bakong') {
     const data = {
       provider: 'Bakong KHQR',
       providerKey: 'bakong',
       currency: 'USD ($) + KHR (៛) Dual Mode',
-      merchantId: process.env.DEFAULT_BAKONG_ACCOUNT || 'hut_soksitchey1@aclb',
-      merchantName: process.env.DEFAULT_MERCHANT_NAME || 'Rikidev',
-      phone: '0977416126'
+      merchantId: 'sandbox_test@bakong',
+      merchantName: testStoreName,
+      phone: '012000000'
     };
     sessionManager.setState(from.id, UserState.CONFIRM_SUBMISSION, data);
     const reviewText = renderBakongReviewCard(data, lang);
@@ -791,8 +868,8 @@ async function handleWizardSandboxQuickFill(bot, query, type) {
       provider: 'ABA PayWay Gateway',
       providerKey: 'aba',
       currency: 'USD ($) + KHR (៛) Dual Mode',
-      khrLink: process.env.DEFAULT_ABA_KHR_LINK || 'https://link.payway.com.kh/ABAPAYk8523640S',
-      usdLink: process.env.DEFAULT_ABA_USD_LINK || 'https://link.payway.com.kh/ABAPAY86523639G'
+      khrLink: 'https://link.payway.com.kh/ABAPAYsandboxkhr',
+      usdLink: 'https://link.payway.com.kh/ABAPAYsandboxusd'
     };
     sessionManager.setState(from.id, UserState.CONFIRM_SUBMISSION, data);
     const reviewText = renderAbaReviewCard(data, lang);
@@ -810,11 +887,11 @@ async function handleWizardSandboxQuickFill(bot, query, type) {
       provider: 'Bakong + ABA Dual Suite',
       providerKey: 'bundle',
       currency: 'USD ($) + KHR (៛) Dual Mode',
-      merchantId: process.env.DEFAULT_BAKONG_ACCOUNT || 'hut_soksitchey1@aclb',
-      merchantName: process.env.DEFAULT_MERCHANT_NAME || 'Rikidev',
-      phone: '0977416126',
-      khrLink: process.env.DEFAULT_ABA_KHR_LINK || 'https://link.payway.com.kh/ABAPAYk8523640S',
-      usdLink: process.env.DEFAULT_ABA_USD_LINK || 'https://link.payway.com.kh/ABAPAY86523639G'
+      merchantId: 'sandbox_test@bakong',
+      merchantName: testStoreName,
+      phone: '012000000',
+      khrLink: 'https://link.payway.com.kh/ABAPAYsandboxkhr',
+      usdLink: 'https://link.payway.com.kh/ABAPAYsandboxusd'
     };
     sessionManager.setState(from.id, UserState.CONFIRM_SUBMISSION, data);
     const reviewText = renderBundleReviewCard(data, lang);
@@ -1494,7 +1571,7 @@ async function handleBackToPlans(bot, query) {
   const isKm = lang === 'km';
 
   const user = userService.getUser(from.id) || {};
-  const merchantName = user.merchantName || 'Rikidev';
+  const merchantName = user.merchantName || (from?.first_name ? `${from.first_name}'s Store` : 'Merchant Store');
 
   stopSubscriptionAutoChecker(chatId);
   await bot.answerCallbackQuery(query.id).catch(() => {});
@@ -1553,7 +1630,7 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
   const countdown = apiKeyService.getExpiryCountdown(activeKeyObj, lang);
 
   const user = userService.getUser(from.id) || {};
-  const merchantName = user.merchantName || 'Rikidev';
+  const merchantName = user.merchantName || (from?.first_name ? `${from.first_name}'s Store` : 'Merchant Store');
   const userProv = String(user.provider || activeKeyObj?.provider || '').toLowerCase();
   const isBakongOnly = userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual');
   const isAbaOnly = userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual');

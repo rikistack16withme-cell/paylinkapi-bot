@@ -22,7 +22,7 @@ services:
       - key: DEFAULT_BAKONG_ACCOUNT
         value: hut_soksitchey1@aclb
       - key: DEFAULT_MERCHANT_NAME
-        value: Rikidev
+        value: PaylinkApi
       - key: DEFAULT_ABA_USD_LINK
         value: https://link.payway.com.kh/ABAPAY86523639G
       - key: DEFAULT_ABA_KHR_LINK

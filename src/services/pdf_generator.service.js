@@ -185,7 +185,7 @@ class PdfGeneratorService {
         const sampleKey = primaryKey.apiKey || 'plk_live_your_api_key';
         const sampleSecret = primaryKey.secret || 'whsec_sample_secret';
         const sampleMerchant = primaryKey.merchantName || user.merchantName || userName || 'Merchant Store';
-        const sampleBakongId = user.bakongId || primaryKey.bakongId || 'ryjinn@aclb';
+        const sampleBakongId = user.bakongId || primaryKey.bakongId || 'merchant@bakong';
 
         let railTitle = 'NBC BAKONG KHQR & ABA PAYWAY DUAL-RAIL';
         let railBadge = 'DUAL ENGINE (KHQR & ABA)';

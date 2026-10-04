@@ -30,7 +30,7 @@ export default function RegisterPortal() {
   const [step, setStep] = useState(1);
 
   // Form State
-  const [telegramId, setTelegramId] = useState('7283817695');
+  const [telegramId, setTelegramId] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [paymentRail, setPaymentRail] = useState('bundle'); // 'bundle', 'bakong', 'aba'
   const [payMethod, setPayMethod] = useState('aba'); // 'aba' or 'bakong' for subscription checkout
@@ -158,11 +158,11 @@ export default function RegisterPortal() {
 
   // Auto-fill verified test credentials if user explicitly clicks
   const handleAutoFill = () => {
-    setBakongAccount('hut_soksitchey1@aclb');
-    setStoreName('Rikidev');
-    setPhone('0977416126');
-    setAbaUsdLink('https://link.payway.com.kh/ABAPAY86523639G');
-    setAbaKhrLink('https://link.payway.com.kh/ABAPAYk8523640S');
+    setBakongAccount('sandbox_demo@bakong');
+    setStoreName('Demo Store');
+    setPhone('012345678');
+    setAbaUsdLink('https://link.payway.com.kh/ABAPAYsandboxusd');
+    setAbaKhrLink('https://link.payway.com.kh/ABAPAYsandboxkhr');
   };
 
   // Plan Prices helper
@@ -181,6 +181,12 @@ export default function RegisterPortal() {
   const handleGenerateCheckout = async () => {
     setIsLoading(true);
     setErrorMessage('');
+
+    if (!telegramId || !String(telegramId).trim()) {
+      setErrorMessage('Please enter your Telegram User ID (e.g. from /start in Telegram bot).');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const planInfo = getPlanPrice(plan, currency);
@@ -346,6 +352,25 @@ export default function RegisterPortal() {
             </button>
           </div>
 
+          {/* Telegram User ID */}
+          <div className="form-group" style={{ marginBottom: '18px' }}>
+            <label className="field-label">
+              <span>Your Telegram User ID</span>
+              <span className="field-badge">Required</span>
+            </label>
+            <input
+              type="text"
+              className="input-text font-mono"
+              placeholder="e.g. 123456789 (get from /start in Telegram)"
+              value={telegramId}
+              onChange={(e) => setTelegramId(e.target.value.trim())}
+              required
+            />
+            <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+              Links your active API key and routes instant payment notifications to your Telegram account.
+            </span>
+          </div>
+
           {/* Rail Selector: 3 Options */}
           <div className="form-group">
             <label className="field-label">Select Payment Rail</label>
@@ -442,7 +467,7 @@ export default function RegisterPortal() {
                 <input
                   type="text"
                   className="input-text"
-                  placeholder="e.g. hut_soksitchey1@aclb"
+                  placeholder="e.g. your_account@aclb"
                   value={bakongAccount}
                   onChange={(e) => setBakongAccount(e.target.value)}
                 />
@@ -456,7 +481,7 @@ export default function RegisterPortal() {
                 <input
                   type="text"
                   className="input-text"
-                  placeholder="e.g. Rikidev"
+                  placeholder="e.g. My Store"
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
                 />
@@ -478,7 +503,7 @@ export default function RegisterPortal() {
                 <input
                   type="tel"
                   className="input-text"
-                  placeholder="e.g. 0977416126"
+                  placeholder="e.g. 012345678"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
@@ -501,7 +526,7 @@ export default function RegisterPortal() {
                 <input
                   type="text"
                   className="input-text"
-                  placeholder="e.g. https://link.payway.com.kh/ABAPAY86523639G"
+                  placeholder="e.g. https://link.payway.com.kh/ABAPAYxxxxxx"
                   value={abaUsdLink}
                   onChange={(e) => setAbaUsdLink(e.target.value)}
                 />
@@ -515,7 +540,7 @@ export default function RegisterPortal() {
                 <input
                   type="text"
                   className="input-text"
-                  placeholder="e.g. https://link.payway.com.kh/ABAPAYk8523640S"
+                  placeholder="e.g. https://link.payway.com.kh/ABAPAYyyyyyy"
                   value={abaKhrLink}
                   onChange={(e) => setAbaKhrLink(e.target.value)}
                 />

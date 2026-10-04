@@ -10,14 +10,11 @@ const safeSender = require('../../utils/safe_sender');
 const formatter = require('../../utils/formatter');
 const { tgEmoji, makeButton } = require('../../config/emojis');
 
-const MASTER_ADMIN_IDS = ['7283817695', '8665505824', '866558524'];
-if (config.masterAdminId && !MASTER_ADMIN_IDS.includes(String(config.masterAdminId))) {
-  MASTER_ADMIN_IDS.push(String(config.masterAdminId));
-}
-if (process.env.MASTER_ADMIN_ID && !MASTER_ADMIN_IDS.includes(String(process.env.MASTER_ADMIN_ID))) {
-  MASTER_ADMIN_IDS.push(String(process.env.MASTER_ADMIN_ID));
-}
-
+const configuredMasters = String(process.env.MASTER_ADMIN_ID || config.masterAdminId || '7283817695')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+const MASTER_ADMIN_IDS = configuredMasters.length > 0 ? configuredMasters : ['7283817695'];
 const MASTER_ADMIN_ID = MASTER_ADMIN_IDS[0];
 const ADMIN_CHAT_ID = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
 
@@ -79,7 +76,7 @@ function isAuthorizedGroup(chatId) {
 function isAdminChat(chatId, fromId) {
   const cId = String(chatId);
   const fId = String(fromId);
-  return isAuthorizedGroup(cId) || fId === MASTER_ADMIN_ID;
+  return isAuthorizedGroup(cId) || isMasterAdmin(fId);
 }
 
 /**

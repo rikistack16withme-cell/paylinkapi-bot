@@ -33,16 +33,19 @@ function getAcquiringBankName(accountId) {
 function generateBakongKhqrCore({
   amount = 0.10,
   currency = 'USD',
-  merchantId = DEFAULT_BAKONG_ACCOUNT,
+  merchantId = null,
   merchantName = DEFAULT_STORE_NAME,
-  phone = '0977416126',
+  phone = null,
   tranId = null,
   expiryHours = 24
 } = {}) {
   const curr = String(currency || 'USD').toUpperCase().trim();
   const rawAmt = parseFloat(amount);
   const amtNum = (!isNaN(rawAmt) && rawAmt > 0) ? rawAmt : (curr === 'KHR' ? 400 : 0.10);
-  const accountId = (merchantId && String(merchantId).trim()) || DEFAULT_BAKONG_ACCOUNT;
+  const accountId = merchantId && String(merchantId).trim();
+  if (!accountId) {
+    throw new Error('Merchant Bakong Account ID is required to generate Bakong KHQR.');
+  }
   const storeName = ((merchantName && String(merchantName).trim()) || DEFAULT_STORE_NAME).slice(0, 25);
   
   // Preserve original tranId for merchant tracking and order reconciliation

@@ -443,7 +443,7 @@ router.post(['/payment/generate-qr', '/qr/generate', '/payment/create'], authent
       }
 
       const merchantName = payload.merchantName || req.auth?.merchantName || 'Merchant Store';
-      const phone = payload.phone || req.auth?.phone || '0977416126';
+      const phone = payload.phone || req.auth?.phone || null;
 
       const result = generateBakongKhqrCore({
         amount,
@@ -456,7 +456,7 @@ router.post(['/payment/generate-qr', '/qr/generate', '/payment/create'], authent
       });
 
       orderService.savePaymentTransaction({
-        telegramId: req.auth?.telegramId || '8665505824',
+        telegramId: req.auth?.telegramId || 'api_client',
         bank: 'BAKONG',
         amount: result.amount,
         amountFormatted: result.amountFormatted,
@@ -487,8 +487,17 @@ router.post(['/payment/generate-qr', '/qr/generate', '/payment/create'], authent
     } else {
       // ABA PayWay Flow
       const merchantLink = currency === 'KHR'
-        ? (payload.merchantLink || req.auth?.khrLink || DEFAULT_MERCHANT_LINK_KHR)
-        : (payload.merchantLink || req.auth?.usdLink || DEFAULT_MERCHANT_LINK_USD);
+        ? (payload.merchantLink || req.auth?.khrLink)
+        : (payload.merchantLink || req.auth?.usdLink);
+
+      if (!merchantLink) {
+        return res.status(400).json({
+          success: false,
+          bank: 'ABA',
+          code: 'ABA_MERCHANT_NOT_CONFIGURED',
+          error: `No ABA PayWay ${currency} checkout link configured for this API Key. Please configure your ABA link or provide merchantLink in request body.`
+        });
+      }
 
       const result = await generateAbaQrCore({
         amount,
@@ -497,7 +506,7 @@ router.post(['/payment/generate-qr', '/qr/generate', '/payment/create'], authent
       });
 
       orderService.savePaymentTransaction({
-        telegramId: req.auth?.telegramId || '8665505824',
+        telegramId: req.auth?.telegramId || 'api_client',
         bank: 'ABA',
         amount: result.amount || amount,
         amountFormatted: result.amountFormatted,
@@ -559,12 +568,13 @@ router.post('/bakong/generate-qr', authenticateApiKey, async (req, res) => {
       return res.status(400).json({
         success: false,
         bank: 'BAKONG',
+        code: 'BAKONG_MERCHANT_NOT_CONFIGURED',
         error: 'No Bakong Account ID configured for this API Key. Please configure your Bakong ID or provide merchantId in request body.'
       });
     }
 
     const merchantName = payload.merchantName || req.auth?.merchantName || 'Merchant Store';
-    const phone = payload.phone || req.auth?.phone || '0977416126';
+    const phone = payload.phone || req.auth?.phone || null;
 
     const result = generateBakongKhqrCore({
       amount,
@@ -622,7 +632,7 @@ router.all(['/payment/check', '/payment/check/:tranId'], authenticateApiKey, asy
     const bank = (tx?.bank || (md5 && !tx?.details?.clientId ? 'BAKONG' : 'ABA')).toUpperCase();
     const targetTelegramId = (tx?.telegramId && String(tx.telegramId) !== 'api_client')
       ? tx.telegramId
-      : (req.auth?.telegramId || '8665505824');
+      : (req.auth?.telegramId || null);
 
     if (bank === 'BAKONG') {
       const searchMd5 = md5 || tx?.details?.md5 || tx?.md5;
@@ -769,7 +779,7 @@ router.all(['/payment/check', '/payment/check/:tranId'], authenticateApiKey, asy
 router.post(['/payment/test-alert', '/aba/test-alert'], authenticateApiKey, async (req, res) => {
   try {
     const payload = req.body || {};
-    const targetTelegramId = req.auth?.telegramId || payload.telegramId || '8665505824';
+    const targetTelegramId = req.auth?.telegramId || payload.telegramId || null;
     const amount = payload.amount || 1.00;
     const currency = (payload.currency || 'USD').toUpperCase();
     const bank = payload.bank || 'ABA PayWay Gateway';
@@ -819,7 +829,7 @@ router.get('/bakong/check/:md5', authenticateApiKey, checkBakongStatus);
 router.post('/web/register-and-subscribe', async (req, res) => {
   try {
     const {
-      telegramId = '7283817695',
+      telegramId = null,
       amount = null,
       currency = 'USD',
       plan = '1w',
@@ -829,7 +839,15 @@ router.post('/web/register-and-subscribe', async (req, res) => {
       payMethod = 'bakong' // 'bakong' or 'aba'
     } = req.body;
 
-    const tId = String(telegramId || '7283817695');
+    if (!telegramId) {
+      return res.status(400).json({
+        success: false,
+        code: 'MISSING_TELEGRAM_ID',
+        error: 'Telegram ID is required for merchant registration.'
+      });
+    }
+
+    const tId = String(telegramId);
     const curr = String(currency || 'USD').toUpperCase();
     const isKhr = curr === 'KHR';
 
@@ -851,13 +869,13 @@ router.post('/web/register-and-subscribe', async (req, res) => {
     if (regRail === 'bundle') providerName = 'Bakong + ABA Dual Suite';
 
     const user = userService.getUser(tId) || {};
-    const storeName = merchantData.merchantName || user.merchantName || DEFAULT_STORE_NAME || 'Rikidev';
+    const storeName = merchantData.merchantName || user.merchantName || (user.firstName ? `${user.firstName}'s Store` : 'Merchant Store');
 
     const updateData = {
       provider: providerName,
       providerKey: regRail,
       merchantName: storeName,
-      phone: merchantData.phone || user.phone || '0977416126'
+      phone: merchantData.phone || user.phone || null
     };
 
     if (regRail === 'bakong') {
@@ -1126,7 +1144,9 @@ router.get(['/user/download-pdf', '/user/pdf-guide', '/download-pdf'], async (re
       }
     }
 
-    targetTid = targetTid || '8665505824';
+    if (!targetTid) {
+      return res.status(400).json({ success: false, error: 'Telegram ID is required to generate integration PDF.' });
+    }
     const userKeys = apiKeyService.getUserApiKeys(targetTid);
     const user = userService.getUser(targetTid) || {};
     const pdfGeneratorService = require('../services/pdf_generator.service');

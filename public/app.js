@@ -77,7 +77,11 @@ function initVantaGlobe() {
 document.addEventListener('DOMContentLoaded', () => {
   // Parse Telegram ID from URL parameters
   const params = new URLSearchParams(window.location.search);
-  state.telegramId = params.get('tg_id') || params.get('telegramId') || '7283817695';
+  state.telegramId = params.get('tg_id') || params.get('telegramId') || '';
+  const tgInput = document.getElementById('telegramIdInput');
+  if (tgInput && state.telegramId) {
+    tgInput.value = state.telegramId;
+  }
 
   initVantaGlobe();
   initRailSelector();
@@ -197,11 +201,11 @@ function initQuickFill() {
     const currentRail = state.provider || 'bundle';
     if (window.applyRail) window.applyRail(currentRail);
 
-    if (document.getElementById('merchantId')) document.getElementById('merchantId').value = 'hut_soksitchey1@aclb';
-    if (document.getElementById('merchantName')) document.getElementById('merchantName').value = 'Rikidev';
-    if (document.getElementById('phone')) document.getElementById('phone').value = '0977416126';
-    if (document.getElementById('khrLink')) document.getElementById('khrLink').value = 'https://link.payway.com.kh/ABAPAYk8523640S';
-    if (document.getElementById('usdLink')) document.getElementById('usdLink').value = 'https://link.payway.com.kh/ABAPAY86523639G';
+    if (document.getElementById('merchantId')) document.getElementById('merchantId').value = 'sandbox_test@bakong';
+    if (document.getElementById('merchantName')) document.getElementById('merchantName').value = 'Sandbox Merchant';
+    if (document.getElementById('phone')) document.getElementById('phone').value = '012345678';
+    if (document.getElementById('khrLink')) document.getElementById('khrLink').value = 'https://link.payway.com.kh/ABAPAYsandboxkhr';
+    if (document.getElementById('usdLink')) document.getElementById('usdLink').value = 'https://link.payway.com.kh/ABAPAYsandboxusd';
 
     showToast('Verified test credentials auto-filled.');
   });
@@ -221,6 +225,13 @@ function initFormSubmission() {
       showToast('Please select a payment rail first.');
       return;
     }
+
+    const enteredTgId = document.getElementById('telegramIdInput')?.value.trim() || state.telegramId;
+    if (!enteredTgId) {
+      showToast('Please enter your Telegram User ID.');
+      return;
+    }
+    state.telegramId = enteredTgId;
 
     state.merchantData = {
       telegramId: state.telegramId,

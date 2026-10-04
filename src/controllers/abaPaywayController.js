@@ -356,7 +356,7 @@ async function generateAbaQr(req, res) {
       const amount = parseFloat(payload.amount) || 1.00;
       const merchantId = payload.merchantId || req.auth.bakongId || req.auth.merchantId;
       const merchantName = payload.merchantName || req.auth.merchantName || 'Merchant Store';
-      const phone = payload.phone || req.auth.phone || '0977416126';
+      const phone = payload.phone || req.auth.phone || null;
 
       const bakongResult = generateBakongKhqrCore({
         amount,
@@ -368,7 +368,7 @@ async function generateAbaQr(req, res) {
       });
 
       const orderService = require('../services/order.service');
-      const targetTelegramId = req.auth?.telegramId || payload.telegramId || '8665505824';
+      const targetTelegramId = req.auth?.telegramId || payload.telegramId || null;
       orderService.savePaymentTransaction({
         telegramId: targetTelegramId,
         bank: 'BAKONG',
@@ -391,7 +391,14 @@ async function generateAbaQr(req, res) {
       });
     }
 
-    const merchantLink = payload.merchantLink || (curr === 'KHR' ? req.auth.khrLink : req.auth.usdLink) || (curr === 'KHR' ? DEFAULT_MERCHANT_LINK_KHR : DEFAULT_MERCHANT_LINK_USD);
+    const merchantLink = payload.merchantLink || (curr === 'KHR' ? req.auth?.khrLink : req.auth?.usdLink);
+    if (!merchantLink) {
+      return res.status(400).json({
+        success: false,
+        bank: 'ABA',
+        error: `No ABA PayWay ${curr} checkout link configured for this API Key. Please configure your ABA link or provide merchantLink in request body.`
+      });
+    }
 
     const result = await generateAbaQrCore({
       ...payload,
@@ -402,7 +409,7 @@ async function generateAbaQr(req, res) {
     // Save transaction to database for real-time status tracking
     try {
       const orderService = require('../services/order.service');
-      const targetTelegramId = req.auth?.telegramId || payload.telegramId || '8665505824';
+      const targetTelegramId = req.auth?.telegramId || payload.telegramId || null;
       orderService.savePaymentTransaction({
         telegramId: targetTelegramId,
         bank: 'ABA',
@@ -462,10 +469,10 @@ async function checkAbaPayment(req, res) {
       }
     }
 
-    // Determine target Telegram ID to notify (defaulting to primary merchant 8665505824)
+    // Determine target Telegram ID to notify
     const targetTelegramId = (tx && tx.telegramId && String(tx.telegramId) !== 'api_client')
       ? tx.telegramId
-      : (req.auth?.telegramId || payload.telegramId || '8665505824');
+      : (req.auth?.telegramId || payload.telegramId || null);
 
     // Support Developer Test / Simulation Mode:
     // If payload contains simulatePaid, test, or mock, simulate instant payment settlement

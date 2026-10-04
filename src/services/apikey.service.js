@@ -323,11 +323,11 @@ class ApiKeyService {
         valid: true,
         tier: 'Sandbox Staging',
         isSandbox: true,
-        bakongId: 'hut_soksitchey1@aclb',
-        merchantId: 'hut_soksitchey1@aclb',
-        phone: '0977416126',
-        khrLink: 'https://link.payway.com.kh/ABAPAYk8523640S',
-        usdLink: 'https://link.payway.com.kh/ABAPAY86523639G',
+        bakongId: 'sandbox_merchant@bakong',
+        merchantId: 'sandbox_merchant@bakong',
+        phone: null,
+        khrLink: 'https://link.payway.com.kh/ABAPAYsandboxkhr',
+        usdLink: 'https://link.payway.com.kh/ABAPAYsandboxusd',
         merchantName: 'PaylinkApi Sandbox Store',
         provider: 'NBC Bakong KHQR & ABA PayWay Dual Rail'
       };
@@ -369,7 +369,7 @@ class ApiKeyService {
       const resolvedKhr = !isBakongOnly ? (user.khrLink || match.khrLink || null) : null;
       const resolvedUsd = !isBakongOnly ? (user.usdLink || match.usdLink || null) : null;
       const resolvedName = user.merchantName || match.merchantName || (user.firstName ? `${user.firstName}'s Store` : 'Merchant Store');
-      const resolvedPhone = user.phone || match.phone || '0977416126';
+      const resolvedPhone = user.phone || match.phone || null;
 
       return {
         valid: true,

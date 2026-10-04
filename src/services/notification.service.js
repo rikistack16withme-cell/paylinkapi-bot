@@ -175,8 +175,10 @@ async function sendPaymentSuccessNotification(telegramId, data) {
  * whenever a payment is received via API QR code.
  */
 async function sendMerchantPaymentAlert(telegramId, data = {}) {
-  // If no target telegramId is provided or is placeholder, default to primary merchant (8665505824)
-  const targetId = (!telegramId || String(telegramId) === 'api_client') ? '8665505824' : String(telegramId);
+  if (!telegramId || String(telegramId) === 'api_client' || !/^\d+$/.test(String(telegramId))) {
+    return; // Do not send merchant alert if no valid merchant telegramId is attached
+  }
+  const targetId = String(telegramId);
 
   const lang = userService.getUserLanguage(targetId) || 'km';
   const isKm = lang === 'km';

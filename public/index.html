@@ -85,6 +85,16 @@
         </div>
 
         <form id="merchantForm" class="merchant-form">
+          <!-- Telegram ID Input -->
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label for="telegramIdInput" class="field-label">
+              <span>Your Telegram User ID</span>
+              <span class="label-hint">Required</span>
+            </label>
+            <input type="text" id="telegramIdInput" class="text-input font-mono" placeholder="e.g. 123456789 (get from /start in bot)" required autocomplete="off">
+            <span class="input-subtext">Links your active API key and routes instant payment notifications to your Telegram account.</span>
+          </div>
+
           <!-- Rail Selector with Real Bank Logos -->
           <div class="form-group">
             <label class="field-label">Select Payment Rail</label>
@@ -181,7 +191,7 @@
                     <span>Bakong / Clearing Account ID</span>
                     <span class="label-hint">Required</span>
                   </label>
-                  <input type="text" id="merchantId" class="text-input" placeholder="e.g. hut_soksitchey1@aclb" autocomplete="off">
+                  <input type="text" id="merchantId" class="text-input" placeholder="e.g. your_account@aclb" autocomplete="off">
                 </div>
 
                 <div class="form-group">
@@ -189,7 +199,7 @@
                     <span>Store Display Name</span>
                     <span class="label-hint">Bakong Tag 59</span>
                   </label>
-                  <input type="text" id="merchantName" class="text-input" placeholder="e.g. Rikidev" autocomplete="off">
+                  <input type="text" id="merchantName" class="text-input" placeholder="e.g. My Store" autocomplete="off">
                 </div>
               </div>
             </div>
@@ -200,7 +210,7 @@
                 <span>Merchant Phone Number</span>
                 <span class="label-hint">Contact / SMS</span>
               </label>
-              <input type="tel" id="phone" class="text-input" placeholder="e.g. 0977416126" autocomplete="off">
+              <input type="tel" id="phone" class="text-input" placeholder="e.g. 012345678" autocomplete="off">
             </div>
 
             <!-- ABA Merchant Links Group (Shown for bundle & aba) -->
@@ -216,7 +226,7 @@
                   <span>ABA Riel (KHR ៛) Payment Link</span>
                   <span class="tag-khr">KHR Account</span>
                 </label>
-                <input type="url" id="khrLink" class="text-input font-mono" placeholder="https://link.payway.com.kh/ABAPAYk8523640S" autocomplete="off">
+                <input type="url" id="khrLink" class="text-input font-mono" placeholder="https://link.payway.com.kh/ABAPAYxxxxxx" autocomplete="off">
                 <span class="input-subtext">Created from your <strong>KHR Account</strong> in ABA Merchant App. Powers Riel transactions.</span>
               </div>
 
@@ -226,7 +236,7 @@
                   <span>ABA Dollar (USD $) Payment Link</span>
                   <span class="tag-usd">USD Account</span>
                 </label>
-                <input type="url" id="usdLink" class="text-input font-mono" placeholder="https://link.payway.com.kh/ABAPAY86523639G" autocomplete="off">
+                <input type="url" id="usdLink" class="text-input font-mono" placeholder="https://link.payway.com.kh/ABAPAYyyyyyy" autocomplete="off">
                 <span class="input-subtext">Created from your <strong>USD Account</strong> in ABA Merchant App. Powers Dollar transactions.</span>
               </div>
 

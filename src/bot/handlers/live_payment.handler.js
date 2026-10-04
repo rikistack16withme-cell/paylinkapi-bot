@@ -514,7 +514,7 @@ async function handleExecuteLivePay(bot, query, currency = 'USD', customAmount =
 
   const merchantName = activeKey?.merchantName || user.merchantName || 'Merchant Store';
   const bakongId = allowBakong ? (activeKey?.bakongId || activeKey?.merchantId || user.merchantId || user.bakongId || null) : null;
-  const phone = activeKey?.phone || user.phone || '0977416126';
+  const phone = activeKey?.phone || user.phone || null;
   const usdLink = allowAba ? (activeKey?.usdLink || user.usdLink || null) : null;
   const khrLink = allowAba ? (activeKey?.khrLink || user.khrLink || null) : null;
 
