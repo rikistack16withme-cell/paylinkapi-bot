@@ -194,6 +194,30 @@ const safeSender = {
     }, fileOptions);
   },
 
+  replaceOrSendVideo: async (bot, chatId, messageId, video, caption, options = {}, fileOptions = {}) => {
+    const secureCaption = safeCaption(caption);
+    if (messageId) {
+      try {
+        return await safeSender.editMessageCaption(bot, secureCaption, {
+          chat_id: chatId,
+          message_id: messageId,
+          ...options
+        });
+      } catch (err) {
+        if (err.message && err.message.includes('message is not modified')) {
+          return;
+        }
+        // If editCaption fails (e.g. previous message was text/photo, not a video),
+        // delete previous message and send fresh video cleanly
+        await bot.deleteMessage(chatId, messageId).catch(() => {});
+      }
+    }
+    return await safeSender.sendVideo(bot, chatId, video, {
+      caption: secureCaption,
+      ...options
+    }, fileOptions);
+  },
+
   replaceOrSend: async (bot, chatId, messageId, text, options = {}) => {
     if (messageId) {
       try {

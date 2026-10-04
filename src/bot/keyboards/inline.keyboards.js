@@ -8,7 +8,6 @@ const inlineKeyboards = {
     reply_markup: {
       inline_keyboard: [
         [makeButton(i18n.t('btn_get_started', lang), 'start_register', 'rocket', 'success')],
-        [makeButton(i18n.t('btn_video_tutorial', lang), 'nav_video_tutorial', 'video', 'primary')],
         [
           makeButton(i18n.t('btn_pricing', lang), 'nav_pricing', 'pricing', 'primary'),
           makeButton(i18n.t('btn_documentation', lang), 'nav_docs', 'docs', 'primary')
@@ -34,7 +33,6 @@ const inlineKeyboards = {
       inline_keyboard: [
         [makeButton(i18n.t('btn_get_payment_api', lang), 'nav_get_api', 'get_api', 'primary')],
         [makeButton(i18n.t('btn_test_live_payment', lang), 'start_live_pay_test', 'rocket', 'success')],
-        [makeButton(i18n.t('btn_video_tutorial', lang), 'nav_video_tutorial', 'video', 'primary')],
         [
           makeButton(i18n.t('btn_my_api_keys', lang), 'nav_api_keys', 'keys', 'primary'),
           makeButton(i18n.t('btn_my_orders', lang), 'nav_orders', 'orders', 'primary')

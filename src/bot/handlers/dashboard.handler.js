@@ -44,26 +44,28 @@ async function renderDashboard(bot, chatId, messageId, from) {
     text += `\n\n${tgEmoji('bulb')} <i>Tip: Set a Telegram @username in settings so administrators and customers can contact you directly!</i>`;
   }
 
-  const logoPath = path.join(process.cwd(), 'public', 'logo.png');
-  const cachedLogo = db.getSetting('bot_logo_file_id', null);
-  const logoSource = cachedLogo || (fs.existsSync(logoPath) ? logoPath : null);
+  const cachedVideoId = db.getSetting('tutorial_video_file_id', null);
+  const mp4Path = path.join(process.cwd(), 'videoteach', 'tutorial.mp4');
+  const movPath = path.join(process.cwd(), 'videoteach', 'IMG_5873.MOV');
+  const videoFile = fs.existsSync(mp4Path) ? mp4Path : (fs.existsSync(movPath) ? movPath : null);
+  const videoSource = cachedVideoId || videoFile;
 
-  if (logoSource) {
+  if (videoSource) {
     try {
-      const sent = await safeSender.replaceOrSendPhoto(bot, chatId, messageId, logoSource, text, {
+      const sent = await safeSender.replaceOrSendVideo(bot, chatId, messageId, videoSource, text, {
         parse_mode: 'HTML',
         ...inlineKeyboards.dashboard(lang)
       }, {
-        filename: 'paylinkapi_logo.png',
-        contentType: 'image/png'
+        filename: 'paylinkapi_tutorial.mp4',
+        contentType: 'video/mp4'
       });
 
-      if (sent?.photo && sent.photo.length > 0) {
-        db.setSetting('bot_logo_file_id', sent.photo[sent.photo.length - 1].file_id);
+      if (sent?.video?.file_id) {
+        db.setSetting('tutorial_video_file_id', sent.video.file_id);
       }
       return sent;
     } catch (_) {
-      // If photo send encounters error, gracefully fallback to text message
+      // Graceful fallback to text message if video send encounters issue
     }
   }
 

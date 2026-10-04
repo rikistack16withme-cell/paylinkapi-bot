@@ -22,26 +22,28 @@ async function renderWelcome(bot, chatId, messageId, from) {
     welcomeText += `\n\n${tgEmoji('bulb')} <i>Tip: You don't have a Telegram @username set. Setting one in Telegram Settings helps merchants and support connect with you directly!</i>`;
   }
 
-  const logoPath = path.join(process.cwd(), 'public', 'logo.png');
-  const cachedLogo = db.getSetting('bot_logo_file_id', null);
-  const logoSource = cachedLogo || (fs.existsSync(logoPath) ? logoPath : null);
+  const cachedVideoId = db.getSetting('tutorial_video_file_id', null);
+  const mp4Path = path.join(process.cwd(), 'videoteach', 'tutorial.mp4');
+  const movPath = path.join(process.cwd(), 'videoteach', 'IMG_5873.MOV');
+  const videoFile = fs.existsSync(mp4Path) ? mp4Path : (fs.existsSync(movPath) ? movPath : null);
+  const videoSource = cachedVideoId || videoFile;
 
-  if (logoSource) {
+  if (videoSource) {
     try {
-      const sent = await safeSender.replaceOrSendPhoto(bot, chatId, messageId, logoSource, welcomeText, {
+      const sent = await safeSender.replaceOrSendVideo(bot, chatId, messageId, videoSource, welcomeText, {
         parse_mode: 'HTML',
         ...inlineKeyboards.welcome(lang)
       }, {
-        filename: 'paylinkapi_logo.png',
-        contentType: 'image/png'
+        filename: 'paylinkapi_tutorial.mp4',
+        contentType: 'video/mp4'
       });
 
-      if (sent?.photo && sent.photo.length > 0) {
-        db.setSetting('bot_logo_file_id', sent.photo[sent.photo.length - 1].file_id);
+      if (sent?.video?.file_id) {
+        db.setSetting('tutorial_video_file_id', sent.video.file_id);
       }
       return sent;
     } catch (_) {
-      // Graceful fallback to text if photo send fails
+      // Graceful fallback to text if video send fails
     }
   }
 
@@ -111,20 +113,12 @@ async function handleStart(bot, msg) {
     }
   }
 
-  // 1. Deliver the Video Tutorial right into the chat on /start so user can watch directly!
-  try {
-    const { handleTutorialVideo } = require('./tutorial_video.handler');
-    await handleTutorialVideo(bot, chatId, null, from);
-  } catch (vidErr) {
-    // If video auto-send encounters transient issue, continue to dashboard
-  }
-
-  // 2. Deliver the Official Logo Photo Dashboard Console!
+  // Deliver the Video Dashboard Console (Single message only!)
   if (userService.isRegistered(from.id)) {
     return await renderDashboard(bot, chatId, null, from);
   }
 
-  // Otherwise, show Welcome / Start Board with Logo
+  // Otherwise, show Welcome / Start Board with Video (Single message only!)
   return await renderWelcome(bot, chatId, null, from);
 }
 
