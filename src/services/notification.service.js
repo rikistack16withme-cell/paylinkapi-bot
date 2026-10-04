@@ -62,8 +62,6 @@ async function sendPaymentSuccessNotification(telegramId, data) {
     `<code>${data.secret}</code>\n` +
     `<code>─────────────────────────────</code>\n\n`;
 
-  const userService = require('./user.service');
-  const apiKeyService = require('./apikey.service');
   const user = userService.getUser(telegramId) || {};
   const userKeys = apiKeyService.getUserApiKeys(telegramId);
   const activeKeyObj = userKeys[0] || {};
