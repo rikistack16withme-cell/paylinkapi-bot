@@ -268,7 +268,8 @@ bot.on('message', async (msg) => {
     // Interactive Admin Key Wizard inputs (Bakong ID, ABA Links, Store Name)
     // Run early so active interactive wizard typing is NEVER dropped or forwarded!
     const isGroupAuth = adminHandler.isAuthorizedGroup(chatId);
-    if ((isMaster || isGroupAuth) && text && !cmdText.startsWith('/')) {
+    const isWizardCmd = /^\/(set|bakong|input|account|key|aba|store)\b/i.test(cmdText);
+    if ((isMaster || isGroupAuth) && text && (!cmdText.startsWith('/') || isWizardCmd)) {
       const handledByAdminWizard = await adminHandler.handleAdminWizardTextInput(bot, msg);
       if (handledByAdminWizard) {
         middleware.logAction('ADMIN_WIZARD_INPUT', msg.from, text);

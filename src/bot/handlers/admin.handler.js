@@ -1127,18 +1127,32 @@ async function handleAdminWizardTextInput(bot, msg) {
   // Delete typed message to keep group chat clean
   await bot.deleteMessage(chatId, msg.message_id).catch(() => {});
 
+  const cleanText = text.replace(/^\/(set|bakong|input|account|key|aba|store)(@\w+)?\s*/i, '').trim();
+  const tokens = cleanText.split(/[\s,]+/).filter(Boolean);
+  if (tokens.length === 0) return false;
+
   if (state === UserState.ADMIN_INPUT_BAKONG) {
-    const parts = text.split(/\s+/);
-    const bakongId = parts[0];
-    const storeName = parts.slice(1).join(' ') || null;
+    const bakongId = tokens[0];
+    let phone = null;
+    let storeParts = [];
+    for (let i = 1; i < tokens.length; i++) {
+      if (/^0\d{8,10}$/.test(tokens[i]) && !phone) {
+        phone = tokens[i];
+      } else {
+        storeParts.push(tokens[i]);
+      }
+    }
+    const storeName = storeParts.join(' ') || null;
 
     draft.bakongId = bakongId;
+    if (phone) draft.phone = phone;
     if (storeName) draft.merchantName = storeName;
 
     if (!isStandalone) {
       const user = db.getUser(targetId) || { telegramId: targetId };
       user.bakongId = bakongId;
       user.merchantId = bakongId;
+      if (phone) user.phone = phone;
       if (storeName) user.merchantName = storeName;
       db.saveUser(user);
     }
@@ -1148,21 +1162,24 @@ async function handleAdminWizardTextInput(bot, msg) {
     sessionManager.resetSession(chatId);
     sessionManager.resetSession(fromId);
 
+    if (promptMessageId) {
+      await bot.deleteMessage(chatId, promptMessageId).catch(() => {});
+    }
+
     if (rail === 'bundle') {
-      return await handleAdminPromptInputAba(bot, chatId, targetId, 'USD', promptMessageId, fromId);
+      return await handleAdminPromptInputAba(bot, chatId, targetId, 'USD', null, fromId);
     }
 
     if (storeName) {
-      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, promptMessageId);
+      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, null);
     }
 
-    return await handleAdminPromptInputStoreName(bot, chatId, targetId, promptMessageId, fromId);
+    return await handleAdminPromptInputStoreName(bot, chatId, targetId, null, fromId);
   }
 
   if (state === UserState.ADMIN_INPUT_ABA_USD) {
-    const parts = text.split(/\s+/);
-    const link = parts[0];
-    const storeName = parts.slice(1).join(' ') || null;
+    const link = tokens[0];
+    const storeName = tokens.slice(1).join(' ') || null;
 
     draft.usdLink = link;
     if (storeName) draft.merchantName = storeName;
@@ -1179,16 +1196,19 @@ async function handleAdminWizardTextInput(bot, msg) {
     sessionManager.resetSession(chatId);
     sessionManager.resetSession(fromId);
 
-    if (storeName || draft.merchantName) {
-      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, promptMessageId);
+    if (promptMessageId) {
+      await bot.deleteMessage(chatId, promptMessageId).catch(() => {});
     }
 
-    return await handleAdminPromptInputStoreName(bot, chatId, targetId, promptMessageId, fromId);
+    if (storeName || draft.merchantName) {
+      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, null);
+    }
+
+    return await handleAdminPromptInputStoreName(bot, chatId, targetId, null, fromId);
   }
 
   if (state === UserState.ADMIN_INPUT_ABA_KHR) {
-    const parts = text.split(/\s+/);
-    const link = parts[0];
+    const link = tokens[0];
 
     draft.khrLink = link;
     if (!isStandalone) {
@@ -1202,18 +1222,23 @@ async function handleAdminWizardTextInput(bot, msg) {
     sessionManager.resetSession(chatId);
     sessionManager.resetSession(fromId);
 
-    if (draft.merchantName) {
-      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, promptMessageId);
+    if (promptMessageId) {
+      await bot.deleteMessage(chatId, promptMessageId).catch(() => {});
     }
 
-    return await handleAdminPromptInputStoreName(bot, chatId, targetId, promptMessageId, fromId);
+    if (draft.merchantName) {
+      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, null);
+    }
+
+    return await handleAdminPromptInputStoreName(bot, chatId, targetId, null, fromId);
   }
 
   if (state === UserState.ADMIN_INPUT_STORE_NAME) {
-    draft.merchantName = text;
+    const storeName = cleanText;
+    draft.merchantName = storeName;
     if (!isStandalone) {
       const user = db.getUser(targetId) || { telegramId: targetId };
-      user.merchantName = text;
+      user.merchantName = storeName;
       db.saveUser(user);
     }
 
@@ -1222,7 +1247,11 @@ async function handleAdminWizardTextInput(bot, msg) {
     sessionManager.resetSession(chatId);
     sessionManager.resetSession(fromId);
 
-    return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, promptMessageId);
+    if (promptMessageId) {
+      await bot.deleteMessage(chatId, promptMessageId).catch(() => {});
+    }
+
+    return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, null);
   }
 
   return false;
