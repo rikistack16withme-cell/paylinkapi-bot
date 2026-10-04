@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Premium Telegram Bot Board for Payment API Platform (Phase 1 Skeleton)",
   "main": "index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "start": "node index.js",
     "build": "next build",

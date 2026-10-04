@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "20"
       - key: NODE_OPTIONS
         value: "--dns-result-order=ipv4first"
       - key: BRAND_NAME
@@ -20,7 +22,7 @@ services:
       - key: DEFAULT_BAKONG_ACCOUNT
         value: hut_soksitchey1@aclb
       - key: DEFAULT_MERCHANT_NAME
-        value: PaylinkApi
+        value: Rikidev
       - key: DEFAULT_ABA_USD_LINK
         value: https://link.payway.com.kh/ABAPAY86523639G
       - key: DEFAULT_ABA_KHR_LINK
