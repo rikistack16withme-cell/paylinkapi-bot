@@ -344,98 +344,122 @@ class PdfGeneratorService {
         // PAGE 2: AI VIBE CODING PROMPT (FOR CURSOR, CHATGPT, CLAUDE, V0, BOLT)
         // =========================================================================
         doc.addPage();
-        this.drawHeader(doc, 'PAYLINKAPI GATEWAY', `AI VIBE CODING MASTER PROMPT (${railBadge})`, 2, totalPages, userName, telegramId);
+        this.drawHeader(doc, 'BANKING API GATEWAY', `AI CODING MASTER PROMPT (${railBadge})`, 2, totalPages, userName, telegramId);
 
-        let p2Y = 96;
+        let p2Y = 94;
 
         p2Y = this.drawSectionHeader(doc, 'AI PROMPT FOR VIBE CODING (CURSOR / CLAUDE / CHATGPT / V0)', p2Y);
 
         // Explain callout (with vector badge, ZERO broken emojis)
-        doc.roundedRect(40, p2Y, 515, 42, 6).fillAndStroke('#EFF6FF', '#93C5FD');
-        doc.roundedRect(50, p2Y + 7, 56, 13, 3).fill('#2563EB');
-        doc.fillColor('#FFFFFF').fontSize(7).font('Helvetica-Bold')
-          .text('PRO TIP', 50, p2Y + 9, { align: 'center', width: 56 });
+        doc.roundedRect(40, p2Y, 515, 34, 4).fillAndStroke('#EFF6FF', '#93C5FD');
+        doc.roundedRect(48, p2Y + 6, 52, 12, 3).fill('#2563EB');
+        doc.fillColor('#FFFFFF').fontSize(6.5).font('Helvetica-Bold')
+          .text('PRO TIP', 48, p2Y + 8, { align: 'center', width: 52 });
 
-        doc.fillColor('#1D4ED8').fontSize(8.5).font('Helvetica-Bold')
-          .text('How to use with AI Vibe Coding (Cursor, Claude, ChatGPT, v0):', 114, p2Y + 8);
-        doc.fillColor('#334155').fontSize(7.8).font('Helvetica')
+        doc.fillColor('#1D4ED8').fontSize(8).font('Helvetica-Bold')
+          .text('How to use with AI Vibe Coding (Cursor, Claude, ChatGPT, v0):', 108, p2Y + 7);
+        doc.fillColor('#334155').fontSize(7.2).font('Helvetica')
           .text(
-            'Copy the entire prompt below and paste it directly into Cursor, Claude 3.7 / Sonnet, ChatGPT 4o, Bolt.new, Windsurf, or v0.dev.\nThe AI will automatically generate complete checkout components, KHQR display modal, and payment auto-check logic for your app!',
-            52, p2Y + 23, { width: 491, lineGap: 1.5 }
+            'Copy the entire prompt below and paste it into Cursor, Claude 3.7, ChatGPT 4o, Bolt.new, or v0.dev. The AI will generate complete checkout components with QR code installation and currency switching!',
+            48, p2Y + 20, { width: 498, lineGap: 1.2 }
           );
 
-        p2Y += 50;
+        p2Y += 40;
 
         let aiRailInstruction = '';
         let aiEndpointsInstruction = '';
         if (isBakongOnly) {
           aiRailInstruction =
-`   - Merchant Rail: NBC BAKONG KHQR ONLY (Account: ${sampleBakongId})
+`   - TOTAL AUTHORIZED BANKS: 1 BANK RAIL ONLY (NBC Bakong KHQR)
    - CRITICAL REQUIREMENT FOR AI:
-     This merchant is registered EXCLUSIVELY for NBC Bakong KHQR. All customer payments MUST route directly to the merchant's Bakong ID (${sampleBakongId}). DO NOT generate ABA PayWay merchant links or ABA-only checkout. Customers can scan the generated KHQR using ANY Cambodian banking app (Bakong App, ACLEDA, ABA Mobile, Wing, Canadia, TrueMoney, Sathapana, FTB, etc.).`;
+     This API key has ONLY 1 bank registered: NBC Bakong KHQR.
+     You MUST integrate ONLY NBC Bakong KHQR for this merchant!
+     DO NOT add ABA PayWay options, buttons, or links!
+     All customer payments MUST route directly to the merchant's Bakong ID (${sampleBakongId}).
+     Customers can scan the generated KHQR with ANY Cambodian banking app (Bakong App, ACLEDA, ABA Mobile, Wing, Canadia, Sathapana, etc.).`;
           aiEndpointsInstruction =
 `   - Endpoint: POST ${effectiveBaseUrl}/api/payment/generate-qr  (or /api/bakong/generate-qr)
      Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<UNIQUE_ORDER_ID>" }`;
         } else if (isAbaOnly) {
           aiRailInstruction =
-`   - Merchant Rail: ABA PAYWAY ONLY
+`   - TOTAL AUTHORIZED BANKS: 1 BANK RAIL ONLY (ABA PayWay)
    - CRITICAL REQUIREMENT FOR AI:
-     This merchant is registered EXCLUSIVELY for ABA PayWay Gateway. All customer payments MUST generate ABA PayWay QR codes and deeplinks for ABA Mobile banking. DO NOT generate Bakong-only payloads.`;
+     This API key has ONLY 1 bank registered: ABA PayWay Gateway.
+     You MUST integrate ONLY ABA PayWay for this merchant!
+     DO NOT add Bakong KHQR options, buttons, or payload generation!
+     All customer payments MUST generate ABA PayWay QR codes and direct deeplinks for ABA Mobile app payments.`;
           aiEndpointsInstruction =
 `   - Endpoint: POST ${effectiveBaseUrl}/api/payment/generate-qr  (or /api/aba/generate-qr)
      Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<UNIQUE_ORDER_ID>" }`;
         } else {
           aiRailInstruction =
-`   - Merchant Rail: DUAL-RAIL (NBC Bakong KHQR & ABA PayWay)
+`   - TOTAL AUTHORIZED BANKS: 2 BANK RAILS (NBC Bakong KHQR AND ABA PayWay)
    - CRITICAL REQUIREMENT FOR AI:
-     This merchant supports BOTH Bakong KHQR (for all Cambodian banking apps) AND ABA PayWay (for ABA Mobile). Use the unified auto-routing endpoint.`;
+     This API key has BOTH 2 banks registered: NBC Bakong KHQR AND ABA PayWay.
+     You MUST integrate BOTH payment methods into the checkout for this merchant:
+     1. NBC Bakong KHQR (scannable by all Cambodian banking apps: Bakong, ACLEDA, Wing, Canadia, etc.)
+     2. ABA PayWay (direct ABA Mobile deeplink & ABA QR code)
+     Provide clean selector tabs or buttons so customers can choose between Bakong KHQR and ABA PayWay!`;
           aiEndpointsInstruction =
 `   - Endpoint: POST ${effectiveBaseUrl}/api/payment/generate-qr
      Body: { "amount": <amount>, "currency": "USD" | "KHR", "orderId": "<UNIQUE_ORDER_ID>" }`;
         }
 
         const vibePrompt = 
-`You are an expert full-stack engineer. Build a Cambodian Payment Checkout integration using PaylinkApi Gateway with the following exact specifications:
+`You are an expert full-stack engineer. Build a Cambodian Payment Checkout integration using the Cambodian Banking API Gateway with the following exact specifications:
 
 1. CONFIGURATION & MERCHANT CREDENTIALS:
    - Live Base URL: "${effectiveBaseUrl}"
    - Production API Key: "${sampleKey}"
    - Webhook Secret: "${sampleSecret}"
-   - Merchant Name: "${sampleMerchant}"
+   - Merchant Store Name: "${sampleMerchant}"
    - Authorization Header: "Bearer ${sampleKey}"
 ${aiRailInstruction}
    - Anti-DDoS Rate Limit: 60 req/min per IP (Firewall active)
 
-2. STEP 1: INITIALIZE PAYMENT (GENERATE QR CODE)
+2. QR CODE LIBRARY INSTALLATION (COMMAND REQUIRED):
+   Instruct the developer to run the package installation command:
+   * Node.js / React / Next.js / Vite:  npm install qrcode  (or npm install qrcode.react)
+   * Python / Flask / FastAPI:          pip install qrcode[pil] pillow
+   * Vanilla HTML / JavaScript:         <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+   Render the generated "qrString" onto canvas: QRCode.toCanvas(canvasElement, qrString);
+
+3. DUAL-CURRENCY ENGINE & CURRENCY SWITCHING (USD $ & KHR ៛):
+   The API gateway fully supports instant currency switching between US Dollars and Khmer Riel:
+   * For USD: send "currency": "USD", "amount": 1.50 (decimal dollar format)
+   * For KHR: send "currency": "KHR", "amount": 6000 (integer Khmer Riel format)
+   Provide a Currency Toggle / Dropdown (USD $ / KHR ៛) in the checkout UI so the customer or merchant can switch currency on the fly before generating the QR code. Format the displayed price with '$' or '៛'.
+
+4. STEP 1: INITIALIZE PAYMENT (GENERATE QR CODE):
 ${aiEndpointsInstruction}
    - Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${sampleKey}" }
    - Response contains:
-     { "success": true, "qrString": "<EMV_QR_STRING>", "tranId": "<TRAN_ID>", "deepLink": "<BANK_DEEPLINK>" }
+     { "success": true, "qrString": "<EMV_STRING>", "tranId": "<TRAN_ID>", "deepLink": "<BANK_DEEPLINK>" }
 
-3. STEP 2: RENDER PAYMENT MODAL & KHQR
+5. STEP 2: RENDER PAYMENT MODAL & KHQR:
    - Display a modern checkout modal with:
-     a) QR Code rendered from "qrString" (using 'qrcode.react' or standard QR canvas).
-     b) Formatted price ($ USD and KHR), Store Name ("${sampleMerchant}"), and Order ID.
+     a) QR Code rendered from "qrString" using the installed 'qrcode' library.
+     b) Formatted price ($ USD or KHR ៛), Store Name ("${sampleMerchant}"), and Order ID.
      c) Mobile Deep Link button: <a href="deepLink">Open Banking App to Pay</a>.
 
-4. STEP 3: AUTOMATED SETTLEMENT VERIFICATION & TELEGRAM ALERTS
+6. STEP 3: AUTOMATED SETTLEMENT VERIFICATION & TELEGRAM ALERTS:
    - Set an automated 2-3 second polling interval:
      POST ${effectiveBaseUrl}/api/payment/check
      Headers: { "Content-Type": "application/json", "Authorization": "Bearer ${sampleKey}" }
      Body: { "tranId": "<TRAN_ID>" }
    - When response { "status": "PAID", "paid": true }:
      a) Clear interval, display success checkmark, and complete the customer order.
-     b) PaylinkApi automatically sends an instant transaction alert to your Telegram Bot!
+     b) Gateway automatically sends an instant transaction settlement alert!
    - If { "status": "PENDING" }, continue polling until 5-minute timeout.
 
-5. STEP 4: OPTIONAL WEBHOOK LISTENER (BACKEND)
+7. STEP 4: OPTIONAL WEBHOOK LISTENER (BACKEND):
    - Listen for POST /api/webhook and verify 'X-Signature' header:
      const expected = crypto.createHmac('sha256', '${sampleSecret}').update(rawBody).digest('hex');
      if (req.headers['x-signature'] === expected) { /* fulfill order */ }`;
 
         p2Y = this.drawCodeBox(doc, 'AI VIBE PROMPT (COPY & PASTE)', vibePrompt, p2Y, {
-          fontSize: 7.0,
-          lineGap: 1.5,
+          fontSize: 6.2,
+          lineGap: 1.2,
           codeColor: '#67E8F9'
         });
 
