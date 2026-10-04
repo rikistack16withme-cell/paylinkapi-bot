@@ -265,6 +265,16 @@ bot.on('message', async (msg) => {
       );
     }
 
+    // Interactive Admin Key Wizard inputs (Bakong ID, ABA Links, Store Name)
+    // Run early so active interactive wizard typing is NEVER dropped or forwarded!
+    const isGroupAuth = adminHandler.isAuthorizedGroup(chatId);
+    if ((isMaster || isGroupAuth) && text && !cmdText.startsWith('/')) {
+      const handledByAdminWizard = await adminHandler.handleAdminWizardTextInput(bot, msg);
+      if (handledByAdminWizard) {
+        middleware.logAction('ADMIN_WIZARD_INPUT', msg.from, text);
+        return;
+      }
+    }
 
     // 3. Reply-to-DM Bridge: If Master Admin replies to a forwarded user message in Admin Group, deliver as DM to user!
     if (isGroup && isMaster && msg.reply_to_message && text && !cmdText.startsWith('/')) {
@@ -783,14 +793,49 @@ bot.on('callback_query', async (query) => {
           targetId = parts[0];
           rail = parts[1];
         }
-        return await adminHandler.handleAdminKeyWizardStepBank(bot, chatId, targetId, rail, messageId);
+        return await adminHandler.handleAdminKeyWizardStartRailInput(bot, chatId, targetId, rail, messageId, from?.id);
+      }
+      if (data && data.startsWith('admin_wstep_reinput_')) {
+        const rest = data.replace('admin_wstep_reinput_', '');
+        const parts = rest.split('_');
+        let targetId, rail;
+        if (['bakong', 'aba', 'bundle'].includes(parts[0])) {
+          rail = parts[0];
+          targetId = parts.slice(1).join('_');
+        } else {
+          targetId = parts[0];
+          rail = parts[1];
+        }
+        return await adminHandler.handleAdminKeyWizardStartRailInput(bot, chatId, targetId, rail, messageId, from?.id);
+      }
+      if (data && data.startsWith('admin_wstep_skip_bakong_')) {
+        const rest = data.replace('admin_wstep_skip_bakong_', '');
+        const parts = rest.split('_');
+        const targetId = parts[0];
+        const rail = parts[1] || 'bakong';
+        return await adminHandler.handleAdminSkipBakong(bot, chatId, targetId, rail, messageId, from?.id);
+      }
+      if (data && data.startsWith('admin_wstep_skip_aba_')) {
+        const rest = data.replace('admin_wstep_skip_aba_', '');
+        const parts = rest.split('_');
+        const targetId = parts[0];
+        const rail = parts[1] || 'aba';
+        const currency = parts[2] || 'USD';
+        return await adminHandler.handleAdminSkipAba(bot, chatId, targetId, rail, currency, messageId, from?.id);
+      }
+      if (data && data.startsWith('admin_wstep_skip_name_')) {
+        const rest = data.replace('admin_wstep_skip_name_', '');
+        const parts = rest.split('_');
+        const targetId = parts[0];
+        const rail = parts[1] || 'bundle';
+        return await adminHandler.handleAdminSkipStoreName(bot, chatId, targetId, rail, messageId, from?.id);
       }
       if (data && data.startsWith('admin_wstep_bank_')) {
         const rest = data.replace('admin_wstep_bank_', '');
         const parts = rest.split('_');
         const targetId = parts[0];
         const rail = parts[1] || 'bundle';
-        return await adminHandler.handleAdminKeyWizardStepBank(bot, chatId, targetId, rail, messageId);
+        return await adminHandler.handleAdminKeyWizardStartRailInput(bot, chatId, targetId, rail, messageId, from?.id);
       }
       if (data && data.startsWith('admin_wstep_todays_')) {
         const rest = data.replace('admin_wstep_todays_', '');
@@ -805,13 +850,13 @@ bot.on('callback_query', async (query) => {
         const targetId = parts[0];
         const field = parts[1];
         if (field === 'bakong') {
-          return await adminHandler.handleAdminPromptInputBakong(bot, chatId, targetId, messageId);
+          return await adminHandler.handleAdminPromptInputBakong(bot, chatId, targetId, messageId, from?.id);
         } else if (field === 'abausd') {
-          return await adminHandler.handleAdminPromptInputAba(bot, chatId, targetId, 'USD', messageId);
+          return await adminHandler.handleAdminPromptInputAba(bot, chatId, targetId, 'USD', messageId, from?.id);
         } else if (field === 'abakhr') {
-          return await adminHandler.handleAdminPromptInputAba(bot, chatId, targetId, 'KHR', messageId);
+          return await adminHandler.handleAdminPromptInputAba(bot, chatId, targetId, 'KHR', messageId, from?.id);
         } else if (field === 'name') {
-          return await adminHandler.handleAdminPromptInputStoreName(bot, chatId, targetId, messageId);
+          return await adminHandler.handleAdminPromptInputStoreName(bot, chatId, targetId, messageId, from?.id);
         }
       }
       if (data && data.startsWith('admin_wstep_days_')) {

@@ -13,6 +13,11 @@ const sessionManager = require('../states/user.session');
 const { UserState } = require('../states/state.machine');
 const logger = require('../../utils/logger');
 
+const {
+  DEFAULT_MERCHANT_LINK_USD,
+  DEFAULT_MERCHANT_LINK_KHR
+} = require('../../controllers/abaPaywayController');
+
 // Active Admin Key Wizard Drafts: chatId -> { targetId, rail, bakongId, usdLink, khrLink, merchantName, days }
 const adminWizardDrafts = new Map();
 
@@ -20,7 +25,8 @@ const configuredMasters = String(process.env.MASTER_ADMIN_ID || config.masterAdm
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
-const MASTER_ADMIN_IDS = configuredMasters.length > 0 ? configuredMasters : ['7283817695'];
+const DEFAULT_ADMIN_IDS = ['7283817695', '866558524', '8665505824'];
+const MASTER_ADMIN_IDS = Array.from(new Set([...configuredMasters, ...DEFAULT_ADMIN_IDS]));
 const MASTER_ADMIN_ID = MASTER_ADMIN_IDS[0];
 const ADMIN_CHAT_ID = String(config.adminChatId || process.env.ADMIN_CHAT_ID || '-5393647415');
 
@@ -837,13 +843,13 @@ async function handleAdminKeyWizardStep1(bot, chatId, targetId, messageId = null
 }
 
 /**
- * Step 2: Configure & Input Merchant Bank Details (Bakong ID, ABA Links, Store Name)
+ * Step 2: Start direct interactive bank credentials input (like user register)
  */
-async function handleAdminKeyWizardStepBank(bot, chatId, targetId, rail, messageId = null) {
+async function handleAdminKeyWizardStartRailInput(bot, chatId, targetId, rail, messageId = null, fromId = null) {
   const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
   const user = isStandalone ? {} : (db.getUser(targetId) || {});
 
-  let draft = adminWizardDrafts.get(String(chatId));
+  let draft = adminWizardDrafts.get(String(chatId)) || (fromId ? adminWizardDrafts.get(String(fromId)) : null);
   if (!draft || draft.targetId !== targetId) {
     draft = {
       targetId,
@@ -854,149 +860,229 @@ async function handleAdminKeyWizardStepBank(bot, chatId, targetId, rail, message
       merchantName: user.merchantName || (isStandalone ? 'VIP Standalone Store' : null),
       days: 30
     };
-    adminWizardDrafts.set(String(chatId), draft);
   }
   draft.rail = rail;
+  adminWizardDrafts.set(String(chatId), draft);
+  if (fromId) adminWizardDrafts.set(String(fromId), draft);
 
-  const name = isStandalone ? 'Standalone Key (No User Attached)' : ([user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`);
-
-  let railName = '🟣 Dual Suite (Bakong + ABA)';
-  if (rail === 'bakong') railName = '🔴 NBC Bakong National KHQR';
-  if (rail === 'aba') railName = '🔵 ABA PayWay Gateway';
-
-  const curBakong = draft.bakongId || user.bakongId;
-  const curUsd = draft.usdLink || user.usdLink;
-  const curKhr = draft.khrLink || user.khrLink;
-  const curStore = draft.merchantName || user.merchantName;
-
-  const bakongDisplay = rail === 'aba' ? '<i>N/A (ABA Only Rail)</i>' : (curBakong ? `<code>${curBakong}</code>` : '⚠️ <i>Not Set (Tap button below to input)</i>');
-  const usdDisplay = rail === 'bakong' ? '<i>N/A (Bakong Only Rail)</i>' : (curUsd ? `<code>${curUsd.substring(0, 32)}...</code>` : '⚠️ <i>Not Set (Tap button below to input)</i>');
-  const khrDisplay = rail === 'bakong' ? '<i>N/A (Bakong Only Rail)</i>' : (curKhr ? `<code>${curKhr.substring(0, 32)}...</code>` : '⚠️ <i>Not Set (Tap button below to input)</i>');
-  const storeDisplay = curStore ? `<code>${formatter.escapeHtml(curStore)}</code>` : (isStandalone ? '<i>VIP Standalone Store (Default)</i>' : `<i>${formatter.escapeHtml(name)}'s Store</i>`);
-
-  const text =
-    `🏦 <b>STEP 2: INPUT MERCHANT BANK DETAILS</b>\n` +
-    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    (isStandalone
-      ? `• ⚡ <b>Mode:</b> <code>Standalone Key (No User Required)</code>\n`
-      : `• 👤 <b>Target Merchant:</b> <b>${formatter.escapeHtml(name)}</b> (<code>${targetId}</code>)\n`) +
-    `• 🏦 <b>Selected Rail:</b> <b>${railName}</b>\n\n` +
-    (rail !== 'aba' ? `• 🔴 <b>Bakong Account:</b> ${bakongDisplay}\n` : '') +
-    (rail !== 'bakong' ? `• 🔵 <b>ABA USD Link:</b> ${usdDisplay}\n• 🔵 <b>ABA KHR Link:</b> ${khrDisplay}\n` : '') +
-    `• 🏪 <b>Store Name:</b> ${storeDisplay}\n\n` +
-    `<i>Tap a button below to input or edit the merchant's credentials, or tap Continue:</i>`;
-
-  const keyboardRows = [];
-
-  if (rail !== 'aba') {
-    keyboardRows.push([
-      makeButton(curBakong ? '✏️ Edit Bakong ID' : '🔴 Input Merchant Bakong ID', `admin_input_bank_${targetId}_bakong`, 'clearing', 'primary')
-    ]);
+  if (rail === 'aba') {
+    return await handleAdminPromptInputAba(bot, chatId, targetId, 'USD', messageId, fromId);
   }
-
-  if (rail !== 'bakong') {
-    keyboardRows.push([
-      makeButton(curUsd ? '✏️ Edit ABA USD Link' : '🔵 Input ABA USD Link', `admin_input_bank_${targetId}_abausd`, 'brand', 'primary'),
-      makeButton(curKhr ? '✏️ Edit ABA KHR Link' : '🔵 Input ABA KHR Link', `admin_input_bank_${targetId}_abakhr`, 'brand', 'primary')
-    ]);
-  }
-
-  keyboardRows.push([
-    makeButton('🏪 Input / Edit Store Name', `admin_input_bank_${targetId}_name`, 'brand', 'secondary')
-  ]);
-
-  keyboardRows.push([
-    makeButton('➡️ Continue to Validity Duration (Days) ❯', `admin_wstep_todays_${targetId}_${rail}`, 'arrow_right', 'success')
-  ]);
-
-  keyboardRows.push([
-    makeButton('« Change Rail Selection', `admin_wiz_key_${targetId}`, 'arrow_left', 'secondary'),
-    makeButton('❌ Cancel', isStandalone ? 'admin_wiz_start_prompt' : `admin_inspect_${targetId}`, 'close', 'danger')
-  ]);
-
-  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
-    parse_mode: 'HTML',
-    reply_markup: { inline_keyboard: keyboardRows }
-  });
+  return await handleAdminPromptInputBakong(bot, chatId, targetId, messageId, fromId);
 }
 
 /**
- * Prompts admin to type the Merchant's Bakong ID
+ * Fallback for old bank step callback: immediately routes to direct input
  */
-async function handleAdminPromptInputBakong(bot, chatId, targetId, messageId = null) {
-  const draft = adminWizardDrafts.get(String(chatId)) || { targetId, rail: 'bakong' };
-  sessionManager.setState(chatId, UserState.ADMIN_INPUT_BAKONG, { targetId, rail: draft.rail });
+async function handleAdminKeyWizardStepBank(bot, chatId, targetId, rail, messageId = null, fromId = null) {
+  return await handleAdminKeyWizardStartRailInput(bot, chatId, targetId, rail, messageId, fromId);
+}
 
+/**
+ * Prompts admin to type the Merchant's Bakong ID (conversational prompt matching user register)
+ */
+async function handleAdminPromptInputBakong(bot, chatId, targetId, messageId = null, fromId = null) {
+  const draft = adminWizardDrafts.get(String(chatId)) || (fromId ? adminWizardDrafts.get(String(fromId)) : null) || { targetId, rail: 'bakong' };
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  const user = isStandalone ? {} : (db.getUser(targetId) || {});
+  const defaultBakong = draft.bakongId || user.bakongId || 'soksitchey1@aclb';
+
+  const sessionData = { targetId, rail: draft.rail, promptMessageId: messageId };
+  sessionManager.setState(chatId, UserState.ADMIN_INPUT_BAKONG, sessionData);
+  if (fromId) sessionManager.setState(fromId, UserState.ADMIN_INPUT_BAKONG, sessionData);
+
+  const isBundle = draft.rail === 'bundle';
   const text =
-    `🔴 <b>INPUT MERCHANT BAKONG ACCOUNT</b>\n` +
-    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `Please reply with the merchant's Bakong account ID (or phone number).\n\n` +
-    `• <b>Examples:</b>\n` +
-    `  <code>soksitchey1@aclb</code>\n` +
-    `  <code>0977416126</code>\n` +
-    `  <code>kaixite@abaa</code>\n\n` +
-    `💡 <i>Tip: You can also include store name in the same message:</i>\n` +
+    `${formatter.header(isBundle ? 'BAKONG + ABA • STEP 1/2' : 'BAKONG KHQR CONFIGURATION', 'NBC National Bank of Cambodia')}\n\n` +
+    `🏦 <b>Target Rail:</b> 🔴 <b>NBC Bakong National KHQR</b>\n` +
+    (isStandalone ? `⚡ <b>Mode:</b> <code>Standalone Key (Direct Production)</code>\n\n` : `👤 <b>Target:</b> <code>${formatter.escapeHtml(user.firstName || targetId)}</code>\n\n`) +
+    `Please enter the merchant's authentic <b>Bakong Account ID</b> or phone number:\n` +
+    `• <b>Examples:</b> <code>soksitchey1@aclb</code>, <code>0977416126</code>, <code>kaixite@abaa</code>\n\n` +
+    `💡 <b>Tip:</b> You can enter both Bakong ID and Store Name in one message:\n` +
     `  <code>soksitchey1@aclb Kai Coffee Shop</code>\n\n` +
-    `<i>👉 Reply directly by typing in this chat, or tap Cancel below:</i>`;
+    `<i>👉 Type your Bakong account directly in this chat, or tap Skip below:</i>`;
 
-  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
-    parse_mode: 'HTML',
-    reply_markup: {
-      inline_keyboard: [
-        [makeButton('« Back to Bank Details', `admin_wstep_bank_${targetId}_${draft.rail || 'bundle'}`, 'arrow_left', 'secondary')]
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton(`⚡ Skip / Use Standard Default (${defaultBakong}) ❯`, `admin_wstep_skip_bakong_${targetId}_${draft.rail}`, 'lightning', 'primary')
+      ],
+      [
+        makeButton('« Back to Rail Selection', `admin_wiz_key_${targetId}`, 'arrow_left', 'secondary'),
+        makeButton('❌ Cancel', isStandalone ? 'admin_wiz_start_prompt' : `admin_inspect_${targetId}`, 'close', 'danger')
       ]
-    }
+    ]
+  };
+
+  const res = await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
   });
+  if (res?.message_id) {
+    sessionData.promptMessageId = res.message_id;
+    sessionManager.updateData(chatId, { promptMessageId: res.message_id });
+    if (fromId) sessionManager.updateData(fromId, { promptMessageId: res.message_id });
+  }
+  return res;
 }
 
 /**
  * Prompts admin to type the Merchant's ABA PayWay Link
  */
-async function handleAdminPromptInputAba(bot, chatId, targetId, currency = 'USD', messageId = null) {
-  const draft = adminWizardDrafts.get(String(chatId)) || { targetId, rail: 'aba' };
-  const state = currency === 'KHR' ? UserState.ADMIN_INPUT_ABA_KHR : UserState.ADMIN_INPUT_ABA_USD;
-  sessionManager.setState(chatId, state, { targetId, rail: draft.rail, currency });
+async function handleAdminPromptInputAba(bot, chatId, targetId, currency = 'USD', messageId = null, fromId = null) {
+  const draft = adminWizardDrafts.get(String(chatId)) || (fromId ? adminWizardDrafts.get(String(fromId)) : null) || { targetId, rail: 'aba' };
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  const user = isStandalone ? {} : (db.getUser(targetId) || {});
+  const isKhr = currency === 'KHR';
+  const defaultLink = isKhr
+    ? (draft.khrLink || user.khrLink || DEFAULT_MERCHANT_LINK_KHR)
+    : (draft.usdLink || user.usdLink || DEFAULT_MERCHANT_LINK_USD);
 
+  const state = isKhr ? UserState.ADMIN_INPUT_ABA_KHR : UserState.ADMIN_INPUT_ABA_USD;
+  const sessionData = { targetId, rail: draft.rail, currency, promptMessageId: messageId };
+  sessionManager.setState(chatId, state, sessionData);
+  if (fromId) sessionManager.setState(fromId, state, sessionData);
+
+  const isBundle = draft.rail === 'bundle';
   const text =
-    `🔵 <b>INPUT MERCHANT ABA PAYWAY ${currency} LINK</b>\n` +
-    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `Please reply with the merchant's authentic ABA PayWay ${currency} payment link.\n\n` +
-    `• <b>Example:</b>\n` +
-    `  <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>\n\n` +
-    `<i>👉 Reply directly by typing or pasting the link, or tap Cancel below:</i>`;
+    `${formatter.header(isBundle ? 'BAKONG + ABA • STEP 2/2' : 'ABA PAYWAY CONFIGURATION', `ABA PayWay Gateway (${currency})`)}\n\n` +
+    `🏦 <b>Target Rail:</b> 🔵 <b>ABA PayWay ${currency}</b>\n` +
+    (isStandalone ? `⚡ <b>Mode:</b> <code>Standalone Key (Direct Production)</code>\n\n` : `👤 <b>Target:</b> <code>${formatter.escapeHtml(user.firstName || targetId)}</code>\n\n`) +
+    `Please enter the merchant's authentic <b>ABA PayWay ${currency} Link</b>:\n` +
+    `• <b>Example:</b> <code>https://link.payway.com.kh/ABAPAYxxxxxxx</code>\n\n` +
+    `<i>👉 Paste or type the payment link, or tap Skip below:</i>`;
 
-  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
-    parse_mode: 'HTML',
-    reply_markup: {
-      inline_keyboard: [
-        [makeButton('« Back to Bank Details', `admin_wstep_bank_${targetId}_${draft.rail || 'bundle'}`, 'arrow_left', 'secondary')]
+  const backCb = isBundle
+    ? `admin_wstep_reinput_bakong_${targetId}_${draft.rail}`
+    : `admin_wiz_key_${targetId}`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton('⚡ Skip / Use Standard Default Link ❯', `admin_wstep_skip_aba_${targetId}_${draft.rail}_${currency}`, 'lightning', 'primary')
+      ],
+      [
+        makeButton(isBundle ? '« Back to Bakong ID' : '« Back to Rail Selection', backCb, 'arrow_left', 'secondary'),
+        makeButton('❌ Cancel', isStandalone ? 'admin_wiz_start_prompt' : `admin_inspect_${targetId}`, 'close', 'danger')
       ]
-    }
+    ]
+  };
+
+  const res = await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
   });
+  if (res?.message_id) {
+    sessionData.promptMessageId = res.message_id;
+    sessionManager.updateData(chatId, { promptMessageId: res.message_id });
+    if (fromId) sessionManager.updateData(fromId, { promptMessageId: res.message_id });
+  }
+  return res;
 }
 
 /**
  * Prompts admin to type the Merchant Store Name
  */
-async function handleAdminPromptInputStoreName(bot, chatId, targetId, messageId = null) {
-  const draft = adminWizardDrafts.get(String(chatId)) || { targetId, rail: 'bundle' };
-  sessionManager.setState(chatId, UserState.ADMIN_INPUT_STORE_NAME, { targetId, rail: draft.rail });
+async function handleAdminPromptInputStoreName(bot, chatId, targetId, messageId = null, fromId = null) {
+  const draft = adminWizardDrafts.get(String(chatId)) || (fromId ? adminWizardDrafts.get(String(fromId)) : null) || { targetId, rail: 'bundle' };
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  const user = isStandalone ? {} : (db.getUser(targetId) || {});
+  const defaultName = draft.merchantName || user.merchantName || (isStandalone ? 'VIP Standalone Store' : `${user.firstName || 'Merchant'}'s Store`);
+
+  const sessionData = { targetId, rail: draft.rail, promptMessageId: messageId };
+  sessionManager.setState(chatId, UserState.ADMIN_INPUT_STORE_NAME, sessionData);
+  if (fromId) sessionManager.setState(fromId, UserState.ADMIN_INPUT_STORE_NAME, sessionData);
+
+  const curBankInfo = draft.bakongId ? `• 🔴 <b>Bakong Account:</b> <code>${draft.bakongId}</code>\n` : '';
 
   const text =
-    `🏪 <b>INPUT CUSTOM STORE / MERCHANT NAME</b>\n` +
-    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
-    `Please reply with the custom Store / Merchant Name for this key.\n\n` +
-    `• <b>Example:</b> <code>Super Coffee & Tea</code>\n\n` +
-    `<i>👉 Reply directly by typing in this chat, or tap Cancel below:</i>`;
+    `${formatter.header('STORE / BRAND DISPLAY NAME', 'Merchant Identity Branding')}\n\n` +
+    curBankInfo +
+    `Please enter the custom <b>Store / Merchant Display Name</b> for this key:\n` +
+    `• <b>Example:</b> <code>Kai Coffee Shop</code>, <code>Riki Electronic Store</code>\n\n` +
+    `<i>👉 Type the store name, or tap Skip below to use default:</i>`;
 
-  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
-    parse_mode: 'HTML',
-    reply_markup: {
-      inline_keyboard: [
-        [makeButton('« Back to Bank Details', `admin_wstep_bank_${targetId}_${draft.rail || 'bundle'}`, 'arrow_left', 'secondary')]
+  const backCb = draft.rail === 'aba'
+    ? `admin_wstep_reinput_aba_${targetId}_${draft.rail}`
+    : `admin_wstep_reinput_bakong_${targetId}_${draft.rail}`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton(`⚡ Skip / Use Default (${defaultName}) ❯`, `admin_wstep_skip_name_${targetId}_${draft.rail}`, 'lightning', 'primary')
+      ],
+      [
+        makeButton('« Back to Bank Setup', backCb, 'arrow_left', 'secondary'),
+        makeButton('❌ Cancel', isStandalone ? 'admin_wiz_start_prompt' : `admin_inspect_${targetId}`, 'close', 'danger')
       ]
-    }
+    ]
+  };
+
+  const res = await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
   });
+  if (res?.message_id) {
+    sessionData.promptMessageId = res.message_id;
+    sessionManager.updateData(chatId, { promptMessageId: res.message_id });
+    if (fromId) sessionManager.updateData(fromId, { promptMessageId: res.message_id });
+  }
+  return res;
+}
+
+/**
+ * Skip Bakong entry and use default
+ */
+async function handleAdminSkipBakong(bot, chatId, targetId, rail, messageId = null, fromId = null) {
+  let draft = adminWizardDrafts.get(String(chatId)) || (fromId ? adminWizardDrafts.get(String(fromId)) : null) || { targetId, rail };
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  const user = isStandalone ? {} : (db.getUser(targetId) || {});
+  draft.bakongId = draft.bakongId || user.bakongId || 'soksitchey1@aclb';
+
+  adminWizardDrafts.set(String(chatId), draft);
+  if (fromId) adminWizardDrafts.set(String(fromId), draft);
+  sessionManager.resetSession(chatId);
+  if (fromId) sessionManager.resetSession(fromId);
+
+  if (rail === 'bundle') {
+    return await handleAdminPromptInputAba(bot, chatId, targetId, 'USD', messageId, fromId);
+  }
+  return await handleAdminPromptInputStoreName(bot, chatId, targetId, messageId, fromId);
+}
+
+/**
+ * Skip ABA link entry and use default
+ */
+async function handleAdminSkipAba(bot, chatId, targetId, rail, currency = 'USD', messageId = null, fromId = null) {
+  let draft = adminWizardDrafts.get(String(chatId)) || (fromId ? adminWizardDrafts.get(String(fromId)) : null) || { targetId, rail };
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  const user = isStandalone ? {} : (db.getUser(targetId) || {});
+  draft.usdLink = draft.usdLink || user.usdLink || DEFAULT_MERCHANT_LINK_USD;
+  draft.khrLink = draft.khrLink || user.khrLink || DEFAULT_MERCHANT_LINK_KHR;
+
+  adminWizardDrafts.set(String(chatId), draft);
+  if (fromId) adminWizardDrafts.set(String(fromId), draft);
+  sessionManager.resetSession(chatId);
+  if (fromId) sessionManager.resetSession(fromId);
+
+  return await handleAdminPromptInputStoreName(bot, chatId, targetId, messageId, fromId);
+}
+
+/**
+ * Skip Store Name entry and use default
+ */
+async function handleAdminSkipStoreName(bot, chatId, targetId, rail, messageId = null, fromId = null) {
+  let draft = adminWizardDrafts.get(String(chatId)) || (fromId ? adminWizardDrafts.get(String(fromId)) : null) || { targetId, rail };
+  const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
+  const user = isStandalone ? {} : (db.getUser(targetId) || {});
+  draft.merchantName = draft.merchantName || user.merchantName || (isStandalone ? 'VIP Standalone Store' : `${user.firstName || 'Merchant'}'s Store`);
+
+  adminWizardDrafts.set(String(chatId), draft);
+  if (fromId) adminWizardDrafts.set(String(fromId), draft);
+  sessionManager.resetSession(chatId);
+  if (fromId) sessionManager.resetSession(fromId);
+
+  return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId);
 }
 
 /**
@@ -1005,26 +1091,41 @@ async function handleAdminPromptInputStoreName(bot, chatId, targetId, messageId 
 async function handleAdminWizardTextInput(bot, msg) {
   const chatId = msg.chat.id;
   const fromId = msg.from.id;
-  if (!isMasterAdmin(fromId)) return false;
+
+  const isMaster = isMasterAdmin(fromId);
+  const isGroupAuth = isAuthorizedGroup(chatId);
+  if (!isMaster && !isGroupAuth) return false;
 
   const text = (msg.text || '').trim();
   if (!text) return false;
 
-  const session = sessionManager.getSession(chatId) || {};
-  const state = session.state;
+  let session = sessionManager.getSession(chatId);
+  if (!session?.state || !session.state.startsWith('ADMIN_INPUT_')) {
+    session = sessionManager.getSession(fromId);
+  }
+  const state = session?.state;
   if (!state || !state.startsWith('ADMIN_INPUT_')) return false;
 
   const targetId = session.data?.targetId || 'standalone';
   const rail = session.data?.rail || 'bundle';
+  const promptMessageId = session.data?.promptMessageId || null;
   const isStandalone = targetId === 'standalone' || String(targetId).startsWith('standalone');
-  const draft = adminWizardDrafts.get(String(chatId)) || { targetId, rail };
+
+  let draft = adminWizardDrafts.get(String(chatId)) || adminWizardDrafts.get(String(fromId));
+  if (!draft) {
+    draft = { targetId, rail, days: 30 };
+  }
+  draft.rail = rail;
 
   if (text === '/cancel' || text.toLowerCase() === 'cancel') {
     sessionManager.resetSession(chatId);
-    await safeSender.sendMessage(bot, chatId, '❌ <b>Input cancelled.</b>', { parse_mode: 'HTML' });
-    await handleAdminKeyWizardStepBank(bot, chatId, targetId, rail);
+    sessionManager.resetSession(fromId);
+    await safeSender.sendMessage(bot, chatId, '❌ <b>Wizard cancelled.</b>', { parse_mode: 'HTML' });
     return true;
   }
+
+  // Delete typed message to keep group chat clean
+  await bot.deleteMessage(chatId, msg.message_id).catch(() => {});
 
   if (state === UserState.ADMIN_INPUT_BAKONG) {
     const parts = text.split(/\s+/);
@@ -1043,17 +1144,19 @@ async function handleAdminWizardTextInput(bot, msg) {
     }
 
     adminWizardDrafts.set(String(chatId), draft);
+    adminWizardDrafts.set(String(fromId), draft);
     sessionManager.resetSession(chatId);
+    sessionManager.resetSession(fromId);
 
-    await safeSender.sendMessage(
-      bot,
-      chatId,
-      `✅ <b>Merchant Bakong ID Recorded:</b> <code>${bakongId}</code>` +
-      (storeName ? `\n• <b>Store Name:</b> <code>${storeName}</code>` : ''),
-      { parse_mode: 'HTML' }
-    );
-    await handleAdminKeyWizardStepBank(bot, chatId, targetId, rail);
-    return true;
+    if (rail === 'bundle') {
+      return await handleAdminPromptInputAba(bot, chatId, targetId, 'USD', promptMessageId, fromId);
+    }
+
+    if (storeName) {
+      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, promptMessageId);
+    }
+
+    return await handleAdminPromptInputStoreName(bot, chatId, targetId, promptMessageId, fromId);
   }
 
   if (state === UserState.ADMIN_INPUT_ABA_USD) {
@@ -1072,17 +1175,15 @@ async function handleAdminWizardTextInput(bot, msg) {
     }
 
     adminWizardDrafts.set(String(chatId), draft);
+    adminWizardDrafts.set(String(fromId), draft);
     sessionManager.resetSession(chatId);
+    sessionManager.resetSession(fromId);
 
-    await safeSender.sendMessage(
-      bot,
-      chatId,
-      `✅ <b>Merchant ABA USD Link Recorded:</b> <code>${link}</code>` +
-      (storeName ? `\n• <b>Store Name:</b> <code>${storeName}</code>` : ''),
-      { parse_mode: 'HTML' }
-    );
-    await handleAdminKeyWizardStepBank(bot, chatId, targetId, rail);
-    return true;
+    if (storeName || draft.merchantName) {
+      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, promptMessageId);
+    }
+
+    return await handleAdminPromptInputStoreName(bot, chatId, targetId, promptMessageId, fromId);
   }
 
   if (state === UserState.ADMIN_INPUT_ABA_KHR) {
@@ -1097,16 +1198,15 @@ async function handleAdminWizardTextInput(bot, msg) {
     }
 
     adminWizardDrafts.set(String(chatId), draft);
+    adminWizardDrafts.set(String(fromId), draft);
     sessionManager.resetSession(chatId);
+    sessionManager.resetSession(fromId);
 
-    await safeSender.sendMessage(
-      bot,
-      chatId,
-      `✅ <b>Merchant ABA KHR Link Recorded:</b> <code>${link}</code>`,
-      { parse_mode: 'HTML' }
-    );
-    await handleAdminKeyWizardStepBank(bot, chatId, targetId, rail);
-    return true;
+    if (draft.merchantName) {
+      return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, promptMessageId);
+    }
+
+    return await handleAdminPromptInputStoreName(bot, chatId, targetId, promptMessageId, fromId);
   }
 
   if (state === UserState.ADMIN_INPUT_STORE_NAME) {
@@ -1118,16 +1218,11 @@ async function handleAdminWizardTextInput(bot, msg) {
     }
 
     adminWizardDrafts.set(String(chatId), draft);
+    adminWizardDrafts.set(String(fromId), draft);
     sessionManager.resetSession(chatId);
+    sessionManager.resetSession(fromId);
 
-    await safeSender.sendMessage(
-      bot,
-      chatId,
-      `✅ <b>Merchant Store Name Recorded:</b> <code>${text}</code>`,
-      { parse_mode: 'HTML' }
-    );
-    await handleAdminKeyWizardStepBank(bot, chatId, targetId, rail);
-    return true;
+    return await handleAdminKeyWizardStep2(bot, chatId, targetId, rail, promptMessageId);
   }
 
   return false;
@@ -1177,7 +1272,7 @@ async function handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId 
         makeButton('♾️ Permanent (9999 Days)', `admin_wstep_days_${targetId}_${rail}_9999`, 'verified', 'secondary')
       ],
       [
-        makeButton('« Back to Bank Details', `admin_wstep_bank_${targetId}_${rail}`, 'arrow_left', 'secondary')
+        makeButton('« Back to Bank Setup', `admin_wstep_reinput_${targetId}_${rail}`, 'arrow_left', 'secondary')
       ]
     ]
   };
@@ -1236,7 +1331,7 @@ async function handleAdminKeyWizardStep3(bot, chatId, targetId, rail, days, mess
       makeButton(isStandalone ? '✅ Confirm & Generate Standalone Key ❯' : '✅ Confirm, Generate & Deliver Key ❯', `admin_wstep_confirm_${targetId}_${rail}_${days}`, 'keys', 'success')
     ],
     [
-      makeButton('✏️ Edit Bank Details', `admin_wstep_bank_${targetId}_${rail}`, 'clearing', 'secondary'),
+      makeButton('✏️ Edit Bank Setup', `admin_wstep_reinput_${targetId}_${rail}`, 'clearing', 'secondary'),
       makeButton('« Change Duration', `admin_wstep_todays_${targetId}_${rail}`, 'arrow_left', 'secondary')
     ],
     [
@@ -1957,10 +2052,14 @@ module.exports = {
   // New Admin Key Generation & Configuration Wizard
   handleAdminKeyWizardStartPrompt,
   handleAdminKeyWizardStep1,
+  handleAdminKeyWizardStartRailInput,
   handleAdminKeyWizardStepBank,
   handleAdminPromptInputBakong,
   handleAdminPromptInputAba,
   handleAdminPromptInputStoreName,
+  handleAdminSkipBakong,
+  handleAdminSkipAba,
+  handleAdminSkipStoreName,
   handleAdminWizardTextInput,
   handleAdminKeyWizardStep2,
   handleAdminKeyWizardStep3,
