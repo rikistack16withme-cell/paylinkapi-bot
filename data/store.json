@@ -561,6 +561,7 @@
   "systemSettings": {
     "maintenance_mode": false,
     "admin_group_id": "-5393647415",
-    "admin_group_title": "Alertpayment&key_PaylinkAPI"
+    "admin_group_title": "Alertpayment&key_PaylinkAPI",
+    "tutorial_video_file_id": "BAACAgUAAxkDAAIDymrCKtEM3ofNvGi8irMmnWsaPFLTAALQIwACA7EQVglJ85y6pMwBPQQ"
   }
 }

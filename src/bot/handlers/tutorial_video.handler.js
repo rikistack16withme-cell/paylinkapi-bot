@@ -21,7 +21,8 @@ async function handleTutorialVideo(bot, chatId, messageId, from, query = null) {
 
   await bot.sendChatAction(chatId, 'upload_video').catch(() => {});
 
-  const cachedFileId = db.getSetting('tutorial_video_file_id', null);
+  const DEFAULT_TUTORIAL_VIDEO_FILE_ID = 'BAACAgUAAxkDAAIDymrCKtEM3ofNvGi8irMmnWsaPFLTAALQIwACA7EQVglJ85y6pMwBPQQ';
+  const cachedFileId = db.getSetting('tutorial_video_file_id', DEFAULT_TUTORIAL_VIDEO_FILE_ID);
 
   // If we already have a cached Telegram file_id, sending is instantaneous (~100ms)
   if (cachedFileId) {

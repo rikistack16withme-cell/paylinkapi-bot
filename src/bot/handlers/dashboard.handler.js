@@ -44,7 +44,8 @@ async function renderDashboard(bot, chatId, messageId, from) {
     text += `\n\n${tgEmoji('bulb')} <i>Tip: Set a Telegram @username in settings so administrators and customers can contact you directly!</i>`;
   }
 
-  const cachedVideoId = db.getSetting('tutorial_video_file_id', null);
+  const DEFAULT_TUTORIAL_VIDEO_FILE_ID = 'BAACAgUAAxkDAAIDymrCKtEM3ofNvGi8irMmnWsaPFLTAALQIwACA7EQVglJ85y6pMwBPQQ';
+  const cachedVideoId = db.getSetting('tutorial_video_file_id', DEFAULT_TUTORIAL_VIDEO_FILE_ID);
   const mp4Path = path.join(process.cwd(), 'videoteach', 'tutorial.mp4');
   const movPath = path.join(process.cwd(), 'videoteach', 'IMG_5873.MOV');
   const videoFile = fs.existsSync(mp4Path) ? mp4Path : (fs.existsSync(movPath) ? movPath : null);
