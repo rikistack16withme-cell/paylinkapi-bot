@@ -283,15 +283,15 @@ function initPlanSelection() {
 async function selectPlan(plan) {
   state.selectedPlan = plan;
 
-  let amount = 0.10;
-  let label = '1 Week ($0.10)';
+  let amount = 0.50;
+  let label = '1 Week ($0.50)';
 
   if (plan === '1m') {
-    amount = 1.00;
-    label = '1 Month ($1.00)';
+    amount = 2.50;
+    label = '1 Month ($2.50)';
   } else if (plan === '1y') {
-    amount = 10.00;
-    label = '1 Year ($10.00)';
+    amount = 15.00;
+    label = '1 Year ($15.00)';
   }
 
   state.selectedAmount = amount;
@@ -365,11 +365,11 @@ function initCurrencyToggle() {
 
     // Recalculate amount based on plan
     const plan = state.selectedPlan || '1w';
-    let amt = 0.10;
+    let amt = 0.50;
     if (curr === 'KHR') {
-      amt = (plan === '1m') ? 4000 : (plan === '1y') ? 40000 : 400;
+      amt = (plan === '1m') ? 10000 : (plan === '1y') ? 60000 : 2000;
     } else {
-      amt = (plan === '1m') ? 1.00 : (plan === '1y') ? 10.00 : 0.10;
+      amt = (plan === '1m') ? 2.50 : (plan === '1y') ? 15.00 : 0.50;
     }
     state.selectedAmount = amt;
 

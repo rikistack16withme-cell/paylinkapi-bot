@@ -88,9 +88,9 @@ const translations = {
     // Pricing
     pricing_title: `<b>◈ DEVELOPER SUBSCRIPTION TIERS</b>`,
     pricing_subtitle: 'Select an infrastructure tier for your production workloads:',
-    pricing_plan1: `${tgEmoji('rocket')} <b>1 Week Pass (1w) — Popular Test Plan</b>\n• Dual-Rail: <code>USD ($) + KHR (៛)</code>\n• Dynamic KHQR &amp; Real-time status\n• 1 Production Live API Key\n• Tier: <code>Quick Test Rail</code>\n• Price: <b>$0.10 / week</b> <i>(≈ 400 ៛ KHR)</i>`,
-    pricing_plan2: `${tgEmoji('brand')} <b>1 Month Pro (1m)</b>\n• Full NBC Bakong &amp; ABA PayWay Gateway\n• Unlimited Payment Invoices\n• Instant Webhook Dispatch (~180ms)\n• Tier: <code>Professional Production</code>\n• Price: <b>$1.00 / month</b> <i>(≈ 4,000 ៛ KHR)</i>`,
-    pricing_plan3: `${tgEmoji('verified')} <b>1 Year Enterprise (1y) — Best Value</b>\n• Unified Cambodian Financial Infrastructure\n• Automated dual-currency routing (USD + KHR)\n• 24/7 Dedicated Infrastructure SLA\n• Tier: <code>Ultimate Enterprise</code>\n• Price: <b>$10.00 / year</b> <i>(≈ 40,000 ៛ KHR)</i>`,
+    pricing_plan1: `${tgEmoji('rocket')} <b>1 Week Pass (1w) — Popular Test Plan</b>\n• Dual-Rail: <code>USD ($) + KHR (៛)</code>\n• Dynamic KHQR &amp; Real-time status\n• 1 Production Live API Key\n• Tier: <code>Quick Test Rail</code>\n• Price: <b>$0.50 / week</b> <i>(≈ 2,000 ៛ KHR)</i>`,
+    pricing_plan2: `${tgEmoji('brand')} <b>1 Month Pro (1m)</b>\n• Full NBC Bakong &amp; ABA PayWay Gateway\n• Unlimited Payment Invoices\n• Instant Webhook Dispatch (~180ms)\n• Tier: <code>Professional Production</code>\n• Price: <b>$2.50 / month</b> <i>(≈ 10,000 ៛ KHR)</i>`,
+    pricing_plan3: `${tgEmoji('verified')} <b>1 Year Enterprise (1y) — Best Value</b>\n• Unified Cambodian Financial Infrastructure\n• Automated dual-currency routing (USD + KHR)\n• 24/7 Dedicated Infrastructure SLA\n• Tier: <code>Ultimate Enterprise</code>\n• Price: <b>$15.00 / year</b> <i>(≈ 60,000 ៛ KHR)</i>`,
 
     // Orders
     orders_title: `<b>◈ INTEGRATION PIPELINES &amp; ORDERS</b>`,
@@ -223,9 +223,9 @@ const translations = {
     // Pricing
     pricing_title: `<b>◈ កញ្ចប់តម្លៃ DEVELOPER TIERS</b>`,
     pricing_subtitle: 'ជម្រើស Infrastructure សម្រាប់អាជីវកម្មរបស់អ្នក:',
-    pricing_plan1: `${tgEmoji('rocket')} <b>កញ្ចប់ ១ សប្តាហ៍ (1 Week) — សម្រាប់តេស្តសាកល្បង</b>\n• ប្រព័ន្ធពីរ: <code>USD ($) + KHR (៛) ដំណើរការរួមគ្នា</code>\n• បង្កើត KHQR Dynamic &amp; ពិនិត្យទូទាត់ភ្លាមៗ\n• កូដ API Key ដំណើរការជាក់ស្តែង ១\n• កម្រិត: <code>Fast Staging &amp; Test</code>\n• តម្លៃ: <b>$0.10 / ១សប្តាហ៍</b> <i>(ត្រឹមតែ ~៤០០ រៀល)</i>`,
-    pricing_plan2: `${tgEmoji('brand')} <b>កញ្ចប់ ១ ខែ (1 Month Pro)</b>\n• ប្រព័ន្ធធនាគារ NBC Bakong &amp; ABA PayWay ពេញលេញ\n• បង្កើត Invoice ទូទាត់មិនកំណត់\n• Webhook ជូនដំណឹងភ្លាមៗ (~180ms)\n• កម្រិត: <code>Professional Production</code>\n• តម្លៃ: <b>$1.00 / ១ខែ</b> <i>(ត្រឹមតែ ~៤,០០០ រៀល)</i>`,
-    pricing_plan3: `${tgEmoji('verified')} <b>កញ្ចប់ ១ ឆ្នាំ (1 Year Enterprise) — ចំណេញបំផុត</b>\n• ហេដ្ឋារចនាសម្ព័ន្ធទូទាត់កម្ពុជាកម្រិតខ្ពស់ពេញលេញ\n• រូបិយប័ណ្ណពីរស្វ័យប្រវត្តិ (USD + KHR)\n• ប្រព័ន្ធដំណើរការ 99.99% 24/7 Support\n• កម្រិត: <code>Ultimate Enterprise</code>\n• តម្លៃ: <b>$10.00 / ១ឆ្នាំ</b> <i>(ត្រឹមតែ ~៤០,០០០ រៀល)</i>`,
+    pricing_plan1: `${tgEmoji('rocket')} <b>កញ្ចប់ ១ សប្តាហ៍ (1 Week) — សម្រាប់តេស្តសាកល្បង</b>\n• ប្រព័ន្ធពីរ: <code>USD ($) + KHR (៛) ដំណើរការរួមគ្នា</code>\n• បង្កើត KHQR Dynamic &amp; ពិនិត្យទូទាត់ភ្លាមៗ\n• កូដ API Key ដំណើរការជាក់ស្តែង ១\n• កម្រិត: <code>Fast Staging &amp; Test</code>\n• តម្លៃ: <b>$0.50 / ១សប្តាហ៍</b> <i>(ត្រឹមតែ ~២,០០០ រៀល)</i>`,
+    pricing_plan2: `${tgEmoji('brand')} <b>កញ្ចប់ ១ ខែ (1 Month Pro)</b>\n• ប្រព័ន្ធធនាគារ NBC Bakong &amp; ABA PayWay ពេញលេញ\n• បង្កើត Invoice ទូទាត់មិនកំណត់\n• Webhook ជូនដំណឹងភ្លាមៗ (~180ms)\n• កម្រិត: <code>Professional Production</code>\n• តម្លៃ: <b>$2.50 / ១ខែ</b> <i>(ត្រឹមតែ ~១០,០០០ រៀល)</i>`,
+    pricing_plan3: `${tgEmoji('verified')} <b>កញ្ចប់ ១ ឆ្នាំ (1 Year Enterprise) — ចំណេញបំផុត</b>\n• ហេដ្ឋារចនាសម្ព័ន្ធទូទាត់កម្ពុជាកម្រិតខ្ពស់ពេញលេញ\n• រូបិយប័ណ្ណពីរស្វ័យប្រវត្តិ (USD + KHR)\n• ប្រព័ន្ធដំណើរការ 99.99% 24/7 Support\n• កម្រិត: <code>Ultimate Enterprise</code>\n• តម្លៃ: <b>$15.00 / ១ឆ្នាំ</b> <i>(ត្រឹមតែ ~៦០,០០០ រៀល)</i>`,
 
     // Orders
     orders_title: `<b>◈ ប្រតិបត្តិការ &amp; ការបញ្ជាទិញ</b>`,

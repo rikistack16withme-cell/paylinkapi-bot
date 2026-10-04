@@ -1045,19 +1045,19 @@ async function handleAdminPickDays(bot, chatId, targetId, messageId = null) {
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton('7 Days ($0.10)', `admin_do_set_days_7_${targetId}`, 'telemetry', 'primary'),
+        makeButton('7 Days ($0.50)', `admin_do_set_days_7_${targetId}`, 'telemetry', 'primary'),
         makeButton('14 Days (2 Weeks)', `admin_do_set_days_14_${targetId}`, 'telemetry', 'primary')
       ],
       [
-        makeButton('30 Days ($1.00)', `admin_do_set_days_30_${targetId}`, 'brand', 'primary'),
+        makeButton('30 Days ($2.50)', `admin_do_set_days_30_${targetId}`, 'brand', 'primary'),
         makeButton('60 Days (2 Months)', `admin_do_set_days_60_${targetId}`, 'brand', 'primary')
       ],
       [
-        makeButton('90 Days ($3.00)', `admin_do_set_days_90_${targetId}`, 'brand', 'primary'),
-        makeButton('180 Days ($5.00)', `admin_do_set_days_180_${targetId}`, 'brand', 'primary')
+        makeButton('90 Days ($5.00)', `admin_do_set_days_90_${targetId}`, 'brand', 'primary'),
+        makeButton('180 Days ($8.00)', `admin_do_set_days_180_${targetId}`, 'brand', 'primary')
       ],
       [
-        makeButton('365 Days 1-Year ($10.00)', `admin_do_set_days_365_${targetId}`, 'crown', 'success'),
+        makeButton('365 Days 1-Year ($15.00)', `admin_do_set_days_365_${targetId}`, 'crown', 'success'),
         makeButton('♾️ Permanent (9999 Days)', `admin_do_set_days_9999_${targetId}`, 'verified', 'secondary')
       ],
       [

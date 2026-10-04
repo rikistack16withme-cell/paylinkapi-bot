@@ -855,9 +855,9 @@ router.post('/web/register-and-subscribe', async (req, res) => {
     let amt = (amount !== null && amount !== undefined) ? parseFloat(amount) : null;
     if (!amt || isNaN(amt) || (isKhr && amt < 100) || (!isKhr && amt >= 100)) {
       if (isKhr) {
-        amt = plan === '1w' ? 400 : plan === '1m' ? 4000 : 40000;
+        amt = plan === '1w' ? 2000 : plan === '1m' ? 10000 : 60000;
       } else {
-        amt = plan === '1w' ? 0.10 : plan === '1m' ? 1.00 : 10.00;
+        amt = plan === '1w' ? 0.50 : plan === '1m' ? 2.50 : 15.00;
       }
     }
 
@@ -975,7 +975,7 @@ router.post('/web/register-and-subscribe', async (req, res) => {
       // OPTION 2: ABA PAYWAY (Blue Card) with Real Merchant Name
       // ----------------------------------------------------
       let billCurr = curr;
-      // ABA PayWay USD minimum is $1.00. For $0.10 test plans in USD, route to 400 KHR seamlessly
+      // ABA PayWay USD minimum is $1.00. For $0.50 test plans in USD, route to 2,000 KHR seamlessly
       if (amt < 1.00 && billCurr === 'USD') {
         billCurr = 'KHR';
         amt = Math.max(100, Math.round(amt * 4000));

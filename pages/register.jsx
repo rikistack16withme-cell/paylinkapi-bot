@@ -168,13 +168,13 @@ export default function RegisterPortal() {
   // Plan Prices helper
   const getPlanPrice = (planKey, curr) => {
     if (curr === 'KHR') {
-      if (planKey === '1w') return { amount: 400, label: '400 ៛', period: '7 Days Trial' };
-      if (planKey === '1m') return { amount: 4000, label: '4,000 ៛', period: '30 Days Standard' };
-      return { amount: 40000, label: '40,000 ៛', period: '1 Year Enterprise' };
+      if (planKey === '1w') return { amount: 2000, label: '2,000 ៛', period: '7 Days Trial' };
+      if (planKey === '1m') return { amount: 10000, label: '10,000 ៛', period: '30 Days Standard' };
+      return { amount: 60000, label: '60,000 ៛', period: '1 Year Enterprise' };
     }
-    if (planKey === '1w') return { amount: 0.10, label: '$0.10', period: '7 Days Trial' };
-    if (planKey === '1m') return { amount: 1.00, label: '$1.00', period: '30 Days Standard' };
-    return { amount: 10.00, label: '$10.00', period: '1 Year Enterprise' };
+    if (planKey === '1w') return { amount: 0.50, label: '$0.50', period: '7 Days Trial' };
+    if (planKey === '1m') return { amount: 2.50, label: '$2.50', period: '30 Days Standard' };
+    return { amount: 15.00, label: '$15.00', period: '1 Year Enterprise' };
   };
 
   // Generate KHQR & Register

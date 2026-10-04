@@ -1015,20 +1015,20 @@ async function handleConfirmSubmit(bot, query) {
     (details.merchantName ? `• ${tgEmoji('brand')} <b>Merchant:</b> <code>${formatter.escapeHtml(details.merchantName)}</code>\n` : '') +
     `• ${tgEmoji('currency')} <b>Engine:</b> <code>USD ($) + KHR (៛) Dual Mode</code>\n\n` +
     `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីបង្កើត Styled QR Card និងបើកដំណើរការ Production API Key:' : 'Select a subscription plan to generate your styled KHQR payment card and activate your Production API Key:'}</i>\n\n` +
-    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.10 USD</code> <i>(~៤០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$1.00 USD</code> <i>(~៤,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$10.00 USD</code> <i>(~៤០,០០០ ៛ KHR)</i>`;
+    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.50 USD</code> <i>(~២,០០០ ៛ KHR)</i>\n` +
+    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$2.50 USD</code> <i>(~១០,០០០ ៛ KHR)</i>\n` +
+    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$15.00 USD</code> <i>(~៦០,០០០ ៛ KHR)</i>`;
 
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.10 USD) ❯' : '1 Week Pass ($0.10 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
+        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.50 USD) ❯' : '1 Week Pass ($0.50 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($1.00 USD) ❯' : '1 Month Pro ($1.00 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
+        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($2.50 USD) ❯' : '1 Month Pro ($2.50 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($10.00 USD) ❯' : '1 Year Enterprise ($10.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
+        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($15.00 USD) ❯' : '1 Year Enterprise ($15.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
       ],
       [
         makeButton(i18n.t('btn_back', lang), 'nav_dashboard', 'brand', 'danger')
@@ -1069,20 +1069,20 @@ async function handleBackToPlans(bot, query) {
     (user.merchantName ? `• ${tgEmoji('brand')} <b>Merchant:</b> <code>${formatter.escapeHtml(user.merchantName)}</code>\n` : '') +
     `• ${tgEmoji('currency')} <b>Engine:</b> <code>USD ($) + KHR (៛) Dual Mode</code>\n\n` +
     `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីបង្កើត Styled QR Card និងបើកដំណើរការ Production API Key:' : 'Select a subscription plan to generate your styled KHQR payment card and activate your Production API Key:'}</i>\n\n` +
-    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.10 USD</code> <i>(~៤០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$1.00 USD</code> <i>(~៤,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$10.00 USD</code> <i>(~៤០,០០០ ៛ KHR)</i>`;
+    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.50 USD</code> <i>(~២,០០០ ៛ KHR)</i>\n` +
+    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$2.50 USD</code> <i>(~១០,០០០ ៛ KHR)</i>\n` +
+    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$15.00 USD</code> <i>(~៦០,០០០ ៛ KHR)</i>`;
 
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.10 USD) ❯' : '1 Week Pass ($0.10 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
+        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.50 USD) ❯' : '1 Week Pass ($0.50 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($1.00 USD) ❯' : '1 Month Pro ($1.00 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
+        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($2.50 USD) ❯' : '1 Month Pro ($2.50 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($10.00 USD) ❯' : '1 Year Enterprise ($10.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
+        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($15.00 USD) ❯' : '1 Year Enterprise ($15.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
       ],
       [
         makeButton(i18n.t('btn_back', lang), 'nav_dashboard', 'brand', 'danger')
@@ -1105,16 +1105,16 @@ async function handleSelectRegistrationPlan(bot, query, planKey) {
   const lang = userService.getUserLanguage(from.id);
   const isKm = lang === 'km';
 
-  let usdAmount = 0.10;
-  let khrAmount = 400;
+  let usdAmount = 0.50;
+  let khrAmount = 2000;
   let planTitle = '1 Week Pass';
   if (planKey === '1m') {
-    usdAmount = 1.00;
-    khrAmount = 4000;
+    usdAmount = 2.50;
+    khrAmount = 10000;
     planTitle = '1 Month Pro';
   } else if (planKey === '1y') {
-    usdAmount = 10.00;
-    khrAmount = 40000;
+    usdAmount = 15.00;
+    khrAmount = 60000;
     planTitle = '1 Year Enterprise';
   }
 
@@ -1176,13 +1176,13 @@ async function handleExecuteSubPayment(bot, query, planKey, bank, currency = 'US
   let amount;
   let planTitle = '1 Week Pass';
   if (planKey === '1m') {
-    amount = isKhr ? 4000 : 1.00;
+    amount = isKhr ? 10000 : 2.50;
     planTitle = '1 Month Pro';
   } else if (planKey === '1y') {
-    amount = isKhr ? 40000 : 10.00;
+    amount = isKhr ? 60000 : 15.00;
     planTitle = '1 Year Enterprise';
   } else {
-    amount = isKhr ? 400 : 0.10;
+    amount = isKhr ? 2000 : 0.50;
     planTitle = '1 Week Pass';
   }
 
@@ -1583,20 +1583,20 @@ async function handleBackToPlans(bot, query) {
     (merchantName ? `• ${tgEmoji('brand')} <b>Merchant:</b> <code>${formatter.escapeHtml(merchantName)}</code>\n` : '') +
     `• ${tgEmoji('currency')} <b>Engine:</b> <code>USD ($) + KHR (៛) Dual Mode</code>\n\n` +
     `<i>${tgEmoji('rocket')} ${isKm ? 'សូមជ្រើសរើសកញ្ចប់ Subscription ដើម្បីបង្កើត Styled QR Card និងបើកដំណើរការ Production API Key:' : 'Select a subscription plan to generate your styled KHQR payment card and activate your Production API Key:'}</i>\n\n` +
-    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.10 USD</code> <i>(~៤០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$1.00 USD</code> <i>(~៤,០០០ ៛ KHR)</i>\n` +
-    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$10.00 USD</code> <i>(~៤០,០០០ ៛ KHR)</i>`;
+    `• ${tgEmoji('telemetry')} <b>1 Week Pass:</b> <code>$0.50 USD</code> <i>(~២,០០០ ៛ KHR)</i>\n` +
+    `• ${tgEmoji('brand')} <b>1 Month Pro:</b> <code>$2.50 USD</code> <i>(~១០,០០០ ៛ KHR)</i>\n` +
+    `• ${tgEmoji('crown')} <b>1 Year Enterprise:</b> <code>$15.00 USD</code> <i>(~៦០,០០០ ៛ KHR)</i>`;
 
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.10 USD) ❯' : '1 Week Pass ($0.10 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
+        makeButton(isKm ? 'កញ្ចប់ 1 Week Pass ($0.50 USD) ❯' : '1 Week Pass ($0.50 USD) ❯', 'reg_plan_1w', 'telemetry', 'success')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($1.00 USD) ❯' : '1 Month Pro ($1.00 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
+        makeButton(isKm ? 'កញ្ចប់ 1 Month Pro ($2.50 USD) ❯' : '1 Month Pro ($2.50 USD) ❯', 'reg_plan_1m', 'brand', 'primary')
       ],
       [
-        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($10.00 USD) ❯' : '1 Year Enterprise ($10.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
+        makeButton(isKm ? 'កញ្ចប់ 1 Year Enterprise ($15.00 USD) ❯' : '1 Year Enterprise ($15.00 USD) ❯', 'reg_plan_1y', 'crown', 'primary')
       ],
       [
         makeButton(i18n.t('btn_back', lang), 'nav_dashboard', null, 'danger')
@@ -1645,7 +1645,7 @@ async function issueUserCredentialsReceipt(bot, chatId, messageId, from, isPaid 
   const orderService = require('../../services/order.service');
   const userOrders = orderService.getUserOrders(from.id) || [];
   const latestTx = userOrders.filter(o => o.status === 'PAID').sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0];
-  const paidAmount = latestTx?.amountFormatted || (latestTx?.amount ? (latestTx.currency === 'KHR' ? `${Number(latestTx.amount).toLocaleString()} ៛ KHR` : `$${Number(latestTx.amount).toFixed(2)} USD`) : (activeKeyObj.plan === '1y' ? '$10.00 USD' : (activeKeyObj.plan === '1m' ? '$1.00 USD' : '$0.10 USD')));
+  const paidAmount = latestTx?.amountFormatted || (latestTx?.amount ? (latestTx.currency === 'KHR' ? `${Number(latestTx.amount).toLocaleString()} ៛ KHR` : `$${Number(latestTx.amount).toFixed(2)} USD`) : (activeKeyObj.plan === '1y' ? '$15.00 USD' : (activeKeyObj.plan === '1m' ? '$2.50 USD' : '$0.50 USD')));
 
   // Broadcast real-time payment & key release alert to Admin Group (-5393647415)
   const { sendAdminAlert } = require('../../services/notification.service');

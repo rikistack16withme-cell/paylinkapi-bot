@@ -8,15 +8,15 @@ const PLAN_DURATIONS = {
 };
 
 const PLAN_TITLES = {
-  '1w': '1 Week Pass ($0.10)',
-  '1m': '1 Month Pro ($1.00)',
-  '1y': '1 Year Enterprise ($10.00)'
+  '1w': '1 Week Pass ($0.50)',
+  '1m': '1 Month Pro ($2.50)',
+  '1y': '1 Year Enterprise ($15.00)'
 };
 
 const PLAN_INFO = {
-  '1w': { days: 7, nameKm: 'កញ្ចប់សាកល្បង ១ សប្តាហ៍ ($0.10)', nameEn: '1 Week Pass ($0.10)' },
-  '1m': { days: 30, nameKm: 'កញ្ចប់អាជីវកម្ម ១ ខែ ($1.00)', nameEn: '1 Month Pro ($1.00)' },
-  '1y': { days: 365, nameKm: 'កញ្ចប់សហគ្រាស ១ ឆ្នាំ ($10.00)', nameEn: '1 Year Enterprise ($10.00)' }
+  '1w': { days: 7, nameKm: 'កញ្ចប់សាកល្បង ១ សប្តាហ៍ ($0.50)', nameEn: '1 Week Pass ($0.50)' },
+  '1m': { days: 30, nameKm: 'កញ្ចប់អាជីវកម្ម ១ ខែ ($2.50)', nameEn: '1 Month Pro ($2.50)' },
+  '1y': { days: 365, nameKm: 'កញ្ចប់សហគ្រាស ១ ឆ្នាំ ($15.00)', nameEn: '1 Year Enterprise ($15.00)' }
 };
 
 function getDurationDays(planKey = '1w') {
