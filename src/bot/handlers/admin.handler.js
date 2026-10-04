@@ -144,22 +144,23 @@ async function renderAdminDashboard(bot, chatId, messageId = null) {
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton('👥 Merchants List', 'admin_view_users', 'users', 'primary'),
-        makeButton('🔑 API Keys List', 'admin_view_keys', 'keys', 'primary')
+        makeButton('🔑 Generate / Configure Key', 'admin_wiz_start_prompt', 'keys', 'success'),
+        makeButton('👥 Merchants List', 'admin_view_users', 'users', 'primary')
       ],
       [
-        makeButton('💳 Transactions', 'admin_view_orders', 'orders', 'primary'),
-        makeButton('🛡️ DDoS Firewall', 'admin_view_firewall', 'security', 'primary')
+        makeButton('🔑 API Keys List', 'admin_view_keys', 'keys', 'primary'),
+        makeButton('💳 Transactions', 'admin_view_orders', 'orders', 'primary')
       ],
       [
-        makeButton(stats.isMaint ? '🟢 Disable Maintenance' : '🔴 Enable Maintenance', 'admin_toggle_maint', 'refresh', stats.isMaint ? 'success' : 'danger'),
-        makeButton('💾 Export DB Backup', 'admin_export_backup', 'docs', 'primary')
+        makeButton('🛡️ DDoS Firewall', 'admin_view_firewall', 'security', 'primary'),
+        makeButton(stats.isMaint ? '🟢 Disable Maintenance' : '🔴 Enable Maintenance', 'admin_toggle_maint', 'refresh', stats.isMaint ? 'success' : 'danger')
       ],
       [
-        makeButton('📢 Broadcast Help', 'admin_broadcast_help', 'announcement', 'primary'),
+        makeButton('💾 Export DB Backup', 'admin_export_backup', 'docs', 'primary'),
         makeButton('🔄 Refresh Telemetry', 'admin_refresh_stats', 'refresh', 'success')
       ],
       [
+        makeButton('📢 Broadcast Help', 'admin_broadcast_help', 'announcement', 'primary'),
         makeButton('📖 Master Commands Cheat-Sheet', 'admin_view_commands', 'docs', 'secondary')
       ]
     ]
@@ -608,7 +609,7 @@ async function handleAdminMarkPaid(bot, chatId, tranId) {
 }
 
 /**
- * Looks up detailed profile of a user
+ * Looks up detailed profile of a user with interactive key & rail configuration controls
  */
 async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
   if (!queryStr) {
@@ -624,6 +625,18 @@ async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
   }
 
   const userKeys = db.getUserApiKeys(user.telegramId);
+  const activeKey = userKeys && userKeys.length > 0 ? userKeys[0] : null;
+  const countdown = activeKey ? apiKeyService.getExpiryCountdown(activeKey, 'en') : { text: 'No Key Generated' };
+
+  const userProv = String(user.provider || activeKey?.provider || '').toLowerCase();
+  const isBakongOnly = (userProv.includes('bakong') && !userProv.includes('aba') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user.bakongId || user.merchantId) && !user.usdLink && !user.khrLink);
+  const isAbaOnly = (userProv.includes('aba') && !userProv.includes('bakong') && !userProv.includes('bundle') && !userProv.includes('dual')) || ((user.usdLink || user.khrLink) && !user.bakongId && !user.merchantId);
+
+  let railBadge = '🟣 Dual Suite (Bakong + ABA)';
+  if (isBakongOnly) railBadge = '🔴 NBC Bakong KHQR Only';
+  else if (isAbaOnly) railBadge = '🔵 ABA PayWay Only';
+  if (!user.provider && !activeKey?.provider) railBadge = '⏳ Not Configured Yet';
+
   const userOrders = db.getUserOrders(user.telegramId);
 
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Telegram User';
@@ -649,15 +662,22 @@ async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
     `• <b>Direct Profile:</b> ${profileDisplay}\n` +
     `• <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || 'Not Set')}</code>\n` +
     `• <b>Account Status:</b> <code>${badge}</code>\n` +
-    `• <b>Subscription:</b> <code>${user.subscription?.status || 'INACTIVE'}</code> (Plan: <code>${user.subscription?.plan || 'None'}</code>)\n` +
-    `• <b>Registered Date:</b> <code>${user.createdAt || 'N/A'}</code>\n` +
-    `• <b>API Keys Count:</b> <code>${userKeys.length}</code>\n` +
-    `• <b>Orders Count:</b> <code>${userOrders.length}</code>\n\n` +
-    `<b>Commands Quick-Tap:</b>\n` +
-    `• <code>/dm ${user.telegramId} Hello</code>\n` +
-    `• <code>/activate ${user.telegramId} 365</code>\n` +
-    `• <code>/addkey ${user.telegramId} StoreName</code>\n` +
-    `• <code>/${isBanned ? 'unban' : 'ban'} ${user.telegramId}</code>`;
+    `• <b>Payment Rail:</b> <b>${railBadge}</b>\n` +
+    `• <b>Bakong ID:</b> <code>${user.bakongId || '⚠️ Not Set'}</code>\n` +
+    `• <b>ABA USD Link:</b> <code>${user.usdLink || '⚠️ Not Set'}</code>\n` +
+    `• <b>ABA KHR Link:</b> <code>${user.khrLink || '⚠️ Not Set'}</code>\n` +
+    `• <b>Phone:</b> <code>${user.phone || 'N/A'}</code>\n\n` +
+    `🔑 <b>ACTIVE PRODUCTION API KEY:</b>\n` +
+    `• <b>Key:</b> <code>${activeKey?.apiKey || 'No Active Key'}</code>\n` +
+    `• <b>Secret:</b> <code>${activeKey?.secret ? (activeKey.secret.substring(0, 16) + '...') : 'N/A'}</code>\n` +
+    `• <b>Validity:</b> <b>${countdown.text}</b> (Expires: <code>${activeKey?.expiresAt ? activeKey.expiresAt.slice(0, 10) : 'N/A'}</code>)\n` +
+    `• <b>Total Keys:</b> <code>${userKeys.length}</code> | <b>Orders:</b> <code>${userOrders.length}</code>\n\n` +
+    `⚡ <b>Master Admin Commands:</b>\n` +
+    `• <code>/genkey ${user.telegramId} [bakong|aba|bundle] [days]</code>\n` +
+    `• <code>/setdays ${user.telegramId} 30</code> | <code>/setrail ${user.telegramId} bakong</code>\n` +
+    `• <code>/setbakong ${user.telegramId} merchant@aclb</code>\n` +
+    `• <code>/setaba ${user.telegramId} https://link.payway...</code>\n` +
+    `• <code>/dm ${user.telegramId} Message</code> | <code>/deliverkey ${user.telegramId}</code>`;
 
   const keyboardRows = [];
   if (user.username) {
@@ -666,13 +686,19 @@ async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
     ]);
   }
   keyboardRows.push([
-    makeButton('⚡ Activate 1 Year', `admin_act_1y_${user.telegramId}`, 'success', 'primary'),
-    makeButton('🔑 Issue API Key', `admin_gen_key_${user.telegramId}`, 'keys', 'primary')
+    makeButton('🔑 Generate / Configure Key', `admin_wiz_key_${user.telegramId}`, 'keys', 'primary'),
+    makeButton('⏳ Set Days / Validity', `admin_pick_days_${user.telegramId}`, 'telemetry', 'primary')
   ]);
   keyboardRows.push([
-    makeButton(isBanned ? '✅ Unban User' : '🚫 Ban User', `admin_toggle_ban_${user.telegramId}`, 'refresh', isBanned ? 'success' : 'danger')
+    makeButton('🔄 Switch Rail', `admin_pick_rail_${user.telegramId}`, 'refresh', 'secondary'),
+    makeButton('🏦 Set Bank Details', `admin_edit_bank_${user.telegramId}`, 'clearing', 'secondary')
   ]);
   keyboardRows.push([
+    makeButton('📤 Deliver Key to User', `admin_deliver_key_${user.telegramId}`, 'announcement', 'success'),
+    makeButton('⚡ Quick 1-Year Pass', `admin_act_1y_${user.telegramId}`, 'success', 'primary')
+  ]);
+  keyboardRows.push([
+    makeButton(isBanned ? '✅ Unban User' : '🚫 Ban User', `admin_toggle_ban_${user.telegramId}`, 'refresh', isBanned ? 'success' : 'danger'),
     makeButton('« Back to Members List', 'admin_view_users', 'arrow_left', 'secondary')
   ]);
 
@@ -686,6 +712,576 @@ async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
     link_preview_options: { is_disabled: true },
     reply_markup: keyboard
   });
+}
+
+/**
+ * Prompts admin to pick a user or start key generator wizard
+ */
+async function handleAdminKeyWizardStartPrompt(bot, chatId, messageId = null) {
+  const users = db.getAllUsers();
+  const recent = users.slice(-10).reverse();
+
+  let text =
+    `🔑 <b>ADMIN KEY GENERATOR & RAIL CONFIGURATION WIZARD</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
+    `You can configure or generate a production API key for any merchant, set their payment rail (Bakong Only, ABA Only, or Dual Suite), and set their validity days!\n\n` +
+    `<b>Option A: Tap a merchant below to launch interactive wizard</b>\n` +
+    `<b>Option B: Use fast command:</b>\n` +
+    `<code>/genkey &lt;telegramId&gt; [rail: bakong|aba|bundle] [days] [StoreName]</code>\n\n` +
+    `<b>Quick Command Examples:</b>\n` +
+    `• <code>/genkey 123456789</code> <i>(Interactive wizard)</i>\n` +
+    `• <code>/genkey 123456789 bakong 30 MyCoffee</code> <i>(Bakong Only, 30 Days)</i>\n` +
+    `• <code>/genkey 123456789 aba 365 SuperStore</code> <i>(ABA Only, 365 Days)</i>\n` +
+    `• <code>/genkey 123456789 bundle 365 MegaMall</code> <i>(Dual Suite, 1 Year)</i>\n\n` +
+    `<i>Tap a merchant below to configure their key:</i>`;
+
+  const keyboardRows = [];
+  const pickButtons = recent.slice(0, 8).map(u => {
+    const label = u.firstName || u.username || String(u.telegramId);
+    return makeButton(`🔑 ${label.substring(0, 13)}`, `admin_wiz_key_${u.telegramId}`, 'keys', 'primary');
+  });
+
+  for (let i = 0; i < pickButtons.length; i += 2) {
+    keyboardRows.push(pickButtons.slice(i, i + 2));
+  }
+  keyboardRows.push([
+    makeButton('👥 View Full Merchants List', 'admin_view_users', 'users', 'secondary'),
+    makeButton('« Back to Control Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')
+  ]);
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboardRows }
+  });
+}
+
+/**
+ * Step 1: Select payment rail for target user
+ */
+async function handleAdminKeyWizardStep1(bot, chatId, targetId, messageId = null) {
+  const user = db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' };
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+
+  const text =
+    `🔑 <b>STEP 1: SELECT PAYMENT RAIL FOR MERCHANT</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `👤 <b>Target Merchant:</b> <b>${formatter.escapeHtml(name)}</b>\n` +
+    `🆔 <b>Telegram ID:</b> <code>${targetId}</code>\n\n` +
+    `<i>Select what payment rail this merchant should use:</i>\n\n` +
+    `• 🔴 <b>NBC Bakong Only:</b>\n` +
+    `  National KHQR QR standard. Customer payments deposit into the merchant's registered Bakong account. Clears ABA links.\n\n` +
+    `• 🔵 <b>ABA PayWay Gateway Only:</b>\n` +
+    `  ABA PayWay direct gateway. Customer payments deposit via their ABA KHR/USD payment links. Clears Bakong ID.\n\n` +
+    `• 🟣 <b>Dual Suite (Bakong + ABA):</b>\n` +
+    `  Universal automated clearing for both Bakong KHQR and ABA PayWay USD ($) and KHR (៛).\n\n` +
+    `<i>Tap your choice below to proceed to validity duration:</i>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton('🔴 NBC Bakong Only ❯', `admin_wstep_rail_bakong_${targetId}`, 'clearing', 'primary')
+      ],
+      [
+        makeButton('🔵 ABA PayWay Only ❯', `admin_wstep_rail_aba_${targetId}`, 'brand', 'primary')
+      ],
+      [
+        makeButton('🟣 Dual Suite (Bakong + ABA) ❯', `admin_wstep_rail_bundle_${targetId}`, 'crown', 'success')
+      ],
+      [
+        makeButton('« Cancel & Return to Profile', `admin_inspect_${targetId}`, 'arrow_left', 'secondary')
+      ]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
+}
+
+/**
+ * Step 2: Select duration / validity in days
+ */
+async function handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId = null) {
+  const user = db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' };
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+
+  let railName = 'Dual Suite (Bakong + ABA)';
+  if (rail === 'bakong') railName = 'NBC Bakong National KHQR';
+  if (rail === 'aba') railName = 'ABA PayWay Gateway';
+
+  const text =
+    `⏳ <b>STEP 2: SET KEY VALIDITY DURATION (DAYS)</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `👤 <b>Merchant:</b> <b>${formatter.escapeHtml(name)}</b> (<code>${targetId}</code>)\n` +
+    `🏦 <b>Chosen Rail:</b> <code>${railName}</code>\n\n` +
+    `<i>Choose how many days this API Key should remain active:</i>\n` +
+    `<i>(You can extend or modify duration anytime with <code>/setdays</code>)</i>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton('7 Days Trial ($0.10)', `admin_wstep_days_7_${targetId}_${rail}`, 'telemetry', 'primary'),
+        makeButton('30 Days Standard ($1.00)', `admin_wstep_days_30_${targetId}_${rail}`, 'brand', 'primary')
+      ],
+      [
+        makeButton('90 Days Quarter ($3.00)', `admin_wstep_days_90_${targetId}_${rail}`, 'telemetry', 'primary'),
+        makeButton('180 Days Half-Year ($5.00)', `admin_wstep_days_180_${targetId}_${rail}`, 'brand', 'primary')
+      ],
+      [
+        makeButton('365 Days Enterprise ($10.00)', `admin_wstep_days_365_${targetId}_${rail}`, 'crown', 'success'),
+        makeButton('♾️ Permanent (9999 Days)', `admin_wstep_days_9999_${targetId}_${rail}`, 'verified', 'secondary')
+      ],
+      [
+        makeButton('« Back to Rail Selection', `admin_wiz_key_${targetId}`, 'arrow_left', 'secondary')
+      ]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
+}
+
+/**
+ * Step 3: Review and confirm key generation
+ */
+async function handleAdminKeyWizardStep3(bot, chatId, targetId, rail, days, messageId = null) {
+  const user = db.getUser(targetId) || { telegramId: targetId, firstName: 'Merchant' };
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+
+  let railName = 'Dual Suite (Bakong + ABA)';
+  if (rail === 'bakong') railName = 'NBC Bakong National KHQR';
+  if (rail === 'aba') railName = 'ABA PayWay Gateway';
+
+  const durationDays = parseInt(days, 10) || 30;
+  const expiryDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const bakongDisplay = rail === 'aba' ? '<i>N/A (ABA Only Rail)</i>' : (user.bakongId ? `<code>${user.bakongId}</code>` : '⚠️ <i>Not Set Yet (Configure with /setbakong)</i>');
+  const usdDisplay = rail === 'bakong' ? '<i>N/A (Bakong Only Rail)</i>' : (user.usdLink ? `<code>${user.usdLink.substring(0, 32)}...</code>` : '⚠️ <i>Not Set Yet (Configure with /setaba)</i>');
+  const khrDisplay = rail === 'bakong' ? '<i>N/A (Bakong Only Rail)</i>' : (user.khrLink ? `<code>${user.khrLink.substring(0, 32)}...</code>` : '⚠️ <i>Not Set Yet (Configure with /setaba)</i>');
+
+  const text =
+    `📋 <b>STEP 3: REVIEW & CONFIRM KEY PROVISIONING</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `• 👤 <b>Target Merchant:</b> <b>${formatter.escapeHtml(name)}</b>\n` +
+    `• 🆔 <b>Telegram ID:</b> <code>${targetId}</code>\n` +
+    `• 🏦 <b>Payment Rail:</b> <b>${railName}</b>\n` +
+    `• ⏳ <b>Validity Duration:</b> <b>${durationDays} Days</b> (Expires: <code>${expiryDate}</code>)\n` +
+    `• 🏪 <b>Store Name:</b> <code>${formatter.escapeHtml(user.merchantName || `${user.firstName || 'Merchant'}'s Store`)}</code>\n` +
+    `• 🔴 <b>Bakong Account:</b> ${bakongDisplay}\n` +
+    `• 🔵 <b>ABA USD Link:</b> ${usdDisplay}\n` +
+    `• 🔵 <b>ABA KHR Link:</b> ${khrDisplay}\n\n` +
+    `⚡ <b>When you tap confirm below:</b>\n` +
+    `1. Live API Key & Webhook Secret will be generated and activated.\n` +
+    `2. User subscription will be set to <code>[ ACTIVE ]</code> with auto-expiry.\n` +
+    `3. An official credentials card with documentation & PDF button will be delivered directly to the user's Telegram DM!`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton('✅ Confirm, Generate & Deliver Key ❯', `admin_wstep_confirm_${targetId}_${rail}_${days}`, 'keys', 'success')
+      ],
+      [
+        makeButton('🏦 Set Bank Accounts First', `admin_edit_bank_${targetId}`, 'clearing', 'secondary')
+      ],
+      [
+        makeButton('« Change Duration', `admin_wstep_rail_${rail}_${targetId}`, 'arrow_left', 'secondary'),
+        makeButton('❌ Cancel', `admin_inspect_${targetId}`, 'close', 'danger')
+      ]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
+}
+
+/**
+ * Executes key creation, notifies user via DM, and reports back to Admin
+ */
+async function handleAdminKeyWizardExecute(bot, chatId, targetId, rail, days, messageId = null) {
+  const durationDays = parseInt(days, 10) || 365;
+  const result = apiKeyService.configureAndIssueAdminKey(targetId, {
+    rail,
+    durationDays
+  });
+
+  const { user, key } = result;
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${targetId}`;
+
+  // Deliver credentials receipt to merchant in Telegram DM
+  let delivered = false;
+  let deliveryNote = '';
+  try {
+    const { issueUserCredentialsReceipt } = require('./wizard.handler');
+    const userObj = {
+      id: targetId,
+      first_name: user.firstName || 'Merchant',
+      username: user.username || ''
+    };
+    await issueUserCredentialsReceipt(bot, targetId, null, userObj, true);
+    delivered = true;
+    deliveryNote = '✅ Delivered to user\'s Telegram DM';
+  } catch (err) {
+    deliveryNote = `⚠️ DM delivery note: ${err.message}`;
+  }
+
+  const text =
+    `🎉 <b>API KEY CONFIGURED & PROVISIONED SUCCESSFULLY!</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `• 👤 <b>Merchant:</b> <b>${formatter.escapeHtml(name)}</b>\n` +
+    `• 🆔 <b>Telegram ID:</b> <code>${targetId}</code>\n` +
+    `• 🏦 <b>Payment Rail:</b> <code>${key.provider}</code>\n` +
+    `• ⏳ <b>Validity Duration:</b> <b>${durationDays} Days</b>\n` +
+    `• 📅 <b>Expires At:</b> <code>${(key.expiresAt || '').slice(0, 10)}</code>\n` +
+    `• 🏪 <b>Store Name:</b> <code>${formatter.escapeHtml(key.merchantName || 'Store')}</code>\n` +
+    `• 🔴 <b>Bakong ID:</b> <code>${key.bakongId || 'None'}</code>\n` +
+    `• 🔵 <b>ABA USD Link:</b> <code>${key.usdLink ? (key.usdLink.substring(0, 32) + '...') : 'None'}</code>\n` +
+    `• 🔵 <b>ABA KHR Link:</b> <code>${key.khrLink ? (key.khrLink.substring(0, 32) + '...') : 'None'}</code>\n\n` +
+    `🔑 <b>PRODUCTION API KEY:</b>\n` +
+    `<code>${key.apiKey}</code>\n\n` +
+    `🛡️ <b>WEBHOOK SECRET:</b>\n` +
+    `<code>${key.secret}</code>\n\n` +
+    `📤 <b>Merchant Delivery Status:</b> ${deliveryNote}`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton('👤 View User Profile', `admin_inspect_${targetId}`, 'users', 'primary'),
+        makeButton('📤 Re-send Credentials', `admin_deliver_key_${targetId}`, 'announcement', 'secondary')
+      ],
+      [
+        makeButton('« Back to Members List', 'admin_view_users', 'arrow_left', 'secondary')
+      ]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
+}
+
+/**
+ * Quick days picker
+ */
+async function handleAdminPickDays(bot, chatId, targetId, messageId = null) {
+  const user = db.getUser(targetId) || { telegramId: targetId };
+  const keys = db.getUserApiKeys(targetId);
+  const activeKey = keys && keys.length > 0 ? keys[0] : null;
+
+  const text =
+    `⏳ <b>SET VALIDITY DURATION (DAYS) FOR USER ${targetId}</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `Current Plan: <code>${activeKey?.plan || 'None'}</code> (${activeKey?.durationDays || 'N/A'} Days)\n` +
+    `Current Expiry: <code>${activeKey?.expiresAt ? activeKey.expiresAt.slice(0, 10) : 'N/A'}</code>\n\n` +
+    `<i>Tap a button below to immediately set the key duration:</i>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        makeButton('7 Days ($0.10)', `admin_do_set_days_7_${targetId}`, 'telemetry', 'primary'),
+        makeButton('14 Days (2 Weeks)', `admin_do_set_days_14_${targetId}`, 'telemetry', 'primary')
+      ],
+      [
+        makeButton('30 Days ($1.00)', `admin_do_set_days_30_${targetId}`, 'brand', 'primary'),
+        makeButton('60 Days (2 Months)', `admin_do_set_days_60_${targetId}`, 'brand', 'primary')
+      ],
+      [
+        makeButton('90 Days ($3.00)', `admin_do_set_days_90_${targetId}`, 'brand', 'primary'),
+        makeButton('180 Days ($5.00)', `admin_do_set_days_180_${targetId}`, 'brand', 'primary')
+      ],
+      [
+        makeButton('365 Days 1-Year ($10.00)', `admin_do_set_days_365_${targetId}`, 'crown', 'success'),
+        makeButton('♾️ Permanent (9999 Days)', `admin_do_set_days_9999_${targetId}`, 'verified', 'secondary')
+      ],
+      [
+        makeButton('« Back to User Profile', `admin_inspect_${targetId}`, 'arrow_left', 'secondary')
+      ]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
+}
+
+/**
+ * Handles setting days from quick picker
+ */
+async function handleAdminDoSetDays(bot, chatId, targetId, days, messageId = null) {
+  const result = apiKeyService.setKeyDuration(targetId, days);
+  await bot.sendMessage(chatId, `✅ <b>Set key validity to ${days} days for user <code>${targetId}</code>! New Expiry: ${result.expiresAt.slice(0, 10)}</b>`, { parse_mode: 'HTML' });
+  return await handleAdminUserLookup(bot, chatId, targetId, messageId);
+}
+
+/**
+ * Quick rail switcher
+ */
+async function handleAdminPickRail(bot, chatId, targetId, messageId = null) {
+  const user = db.getUser(targetId) || { telegramId: targetId };
+
+  const text =
+    `🔄 <b>SWITCH PAYMENT RAIL FOR USER ${targetId}</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `Current Rail: <code>${user.provider || 'Not Configured'}</code>\n\n` +
+    `<i>Tap a rail below to immediately switch this user and their active key:</i>\n\n` +
+    `• <b>Bakong Only:</b> Only NBC Bakong KHQR. Clears ABA links.\n` +
+    `• <b>ABA Only:</b> Only ABA PayWay Gateway. Clears Bakong ID.\n` +
+    `• <b>Dual Suite:</b> Both Bakong KHQR & ABA PayWay dual clearing.`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [makeButton('🔴 Switch to Bakong Only', `admin_do_set_rail_bakong_${targetId}`, 'clearing', 'primary')],
+      [makeButton('🔵 Switch to ABA Only', `admin_do_set_rail_aba_${targetId}`, 'brand', 'primary')],
+      [makeButton('🟣 Switch to Dual Suite (Bakong + ABA)', `admin_do_set_rail_bundle_${targetId}`, 'crown', 'success')],
+      [makeButton('« Back to User Profile', `admin_inspect_${targetId}`, 'arrow_left', 'secondary')]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
+}
+
+/**
+ * Handles setting rail from quick picker
+ */
+async function handleAdminDoSetRail(bot, chatId, targetId, rail, messageId = null) {
+  const result = apiKeyService.setMerchantRail(targetId, rail);
+  await bot.sendMessage(chatId, `✅ <b>Switched user <code>${targetId}</code> to ${result.key.provider}!</b>`, { parse_mode: 'HTML' });
+  return await handleAdminUserLookup(bot, chatId, targetId, messageId);
+}
+
+/**
+ * Displays bank details setup commands for admin
+ */
+async function handleAdminEditBankPrompt(bot, chatId, targetId, messageId = null) {
+  const user = db.getUser(targetId) || { telegramId: targetId };
+
+  const text =
+    `🏦 <b>SET BANK DETAILS FOR MERCHANT ${targetId}</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `• <b>Current Store:</b> <code>${formatter.escapeHtml(user.merchantName || 'Not Set')}</code>\n` +
+    `• <b>Bakong ID:</b> <code>${user.bakongId || 'Not Set'}</code>\n` +
+    `• <b>ABA USD Link:</b> <code>${user.usdLink || 'Not Set'}</code>\n` +
+    `• <b>ABA KHR Link:</b> <code>${user.khrLink || 'Not Set'}</code>\n` +
+    `• <b>Phone:</b> <code>${user.phone || 'Not Set'}</code>\n\n` +
+    `<b>Send any of these commands to set credentials:</b>\n\n` +
+    `• <b>Set Bakong ID & Store Name:</b>\n` +
+    `<code>/setbakong ${targetId} yourname@aclb StoreName</code>\n\n` +
+    `• <b>Set ABA PayWay Links:</b>\n` +
+    `<code>/setaba ${targetId} https://link.payway.com.kh/ABAPAYusd https://link.payway.com.kh/ABAPAYkhr</code>\n\n` +
+    `• <b>Set Store Display Name:</b>\n` +
+    `<code>/setstore ${targetId} My New Store</code>\n\n` +
+    `• <b>Set Phone Number:</b>\n` +
+    `<code>/setphone ${targetId} 012345678</code>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [makeButton('« Back to User Profile', `admin_inspect_${targetId}`, 'arrow_left', 'secondary')]
+    ]
+  };
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard
+  });
+}
+
+/**
+ * Re-delivers credentials receipt to user DM
+ */
+async function handleAdminDeliverKeyToUser(bot, chatId, targetId) {
+  const user = db.getUser(targetId);
+  if (!user) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ User <code>${targetId}</code> not found in database.`, { parse_mode: 'HTML' });
+  }
+
+  try {
+    const { issueUserCredentialsReceipt } = require('./wizard.handler');
+    const userObj = {
+      id: targetId,
+      first_name: user.firstName || 'Merchant',
+      username: user.username || ''
+    };
+    await issueUserCredentialsReceipt(bot, targetId, null, userObj, true);
+    return safeSender.sendMessage(bot, chatId, `✅ <b>Credentials receipt delivered to user <code>${targetId}</code> in private chat!</b>`, { parse_mode: 'HTML' });
+  } catch (err) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Failed to deliver credentials to <code>${targetId}</code>:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+}
+
+/**
+ * Command: /genkey <telegramId> [rail: bakong|aba|bundle] [days] [storeName]
+ */
+async function handleAdminGenKeyCommand(bot, chatId, args) {
+  const parts = String(args || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return safeSender.sendMessage(
+      bot,
+      chatId,
+      `⚠️ <b>Usage:</b>\n` +
+      `• <code>/genkey &lt;telegramId&gt;</code> <i>(Opens interactive wizard)</i>\n` +
+      `• <code>/genkey &lt;telegramId&gt; &lt;bakong|aba|bundle&gt; [days] [StoreName]</code>\n\n` +
+      `<b>Examples:</b>\n` +
+      `• <code>/genkey 8665505824</code>\n` +
+      `• <code>/genkey 8665505824 bakong 30 CoffeeShop</code>\n` +
+      `• <code>/genkey 8665505824 aba 365 SuperMart</code>\n` +
+      `• <code>/genkey 8665505824 bundle 365 MegaMall</code>`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  const targetId = parts[0].replace('@', '');
+  const railArg = parts[1];
+  const daysArg = parts[2];
+  const storeName = parts.slice(3).join(' ') || null;
+
+  if (!railArg) {
+    // If only targetId is given, open step 1 interactive wizard
+    return await handleAdminKeyWizardStep1(bot, chatId, targetId);
+  }
+
+  const normRail = ['bakong', 'aba', 'bundle'].includes(railArg.toLowerCase())
+    ? railArg.toLowerCase()
+    : 'bundle';
+  const durationDays = parseInt(daysArg, 10) || 365;
+
+  const result = apiKeyService.configureAndIssueAdminKey(targetId, {
+    rail: normRail,
+    durationDays,
+    merchantName: storeName
+  });
+
+  // Deliver to user
+  let delivered = false;
+  try {
+    const { issueUserCredentialsReceipt } = require('./wizard.handler');
+    const userObj = {
+      id: targetId,
+      first_name: result.user.firstName || 'Merchant',
+      username: result.user.username || ''
+    };
+    await issueUserCredentialsReceipt(bot, targetId, null, userObj, true);
+    delivered = true;
+  } catch (_) {}
+
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>API Key Generated & Configured!</b>\n` +
+    `• Target User: <code>${targetId}</code>\n` +
+    `• Rail: <code>${result.key.provider}</code>\n` +
+    `• Validity: <code>${durationDays} Days</code> (Expires: <code>${result.key.expiresAt.slice(0, 10)}</code>)\n` +
+    `• Store: <code>${formatter.escapeHtml(result.key.merchantName || 'Store')}</code>\n` +
+    `• Key: <code>${result.key.apiKey}</code>\n` +
+    `• Secret: <code>${result.key.secret}</code>\n\n` +
+    `<i>${delivered ? 'Credentials receipt delivered to user\'s Telegram DM.' : 'Could not deliver DM (user has not started bot in private chat).'}</i>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Command: /setrail <telegramId> <bakong|aba|bundle>
+ */
+async function handleAdminSetRailCommand(bot, chatId, targetId, rail) {
+  if (!targetId || !rail) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/setrail &lt;telegramId&gt; &lt;bakong|aba|bundle&gt;</code>`, { parse_mode: 'HTML' });
+  }
+  const normRail = String(rail).toLowerCase().trim();
+  if (!['bakong', 'aba', 'bundle'].includes(normRail)) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ Invalid rail: <code>${rail}</code>. Must be <code>bakong</code>, <code>aba</code>, or <code>bundle</code>.`, { parse_mode: 'HTML' });
+  }
+  const res = apiKeyService.setMerchantRail(targetId, normRail);
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>Payment rail for user <code>${targetId}</code> switched to:</b> <code>${res.key.provider}</code>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Command: /setdays <telegramId> <days>
+ */
+async function handleAdminSetDaysCommand(bot, chatId, targetId, days) {
+  if (!targetId || !days) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/setdays &lt;telegramId&gt; &lt;numberOfDays&gt;</code> (e.g. <code>/setdays 123456789 30</code>)`, { parse_mode: 'HTML' });
+  }
+  const duration = parseInt(days, 10);
+  if (!duration || duration <= 0) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ Invalid number of days: <code>${days}</code>`, { parse_mode: 'HTML' });
+  }
+  const res = apiKeyService.setKeyDuration(targetId, duration);
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>Key duration for user <code>${targetId}</code> set to ${duration} days!</b>\n• New Expiry: <code>${res.expiresAt.slice(0, 10)}</code>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Command: /setbakong <telegramId> <bakongAccountId> [storeName]
+ */
+async function handleAdminSetBakongCommand(bot, chatId, targetId, bakongId, storeName = null) {
+  if (!targetId || !bakongId) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/setbakong &lt;telegramId&gt; &lt;bakongAccountId&gt; [StoreName]</code>\nExample: <code>/setbakong 8665505824 merchant@aclb "My Store"</code>`, { parse_mode: 'HTML' });
+  }
+  const res = apiKeyService.setMerchantBankCredentials(targetId, {
+    bakongId: String(bakongId).trim(),
+    merchantName: storeName ? String(storeName).trim() : null
+  });
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>Bakong Account updated for user <code>${targetId}</code>:</b>\n• Bakong ID: <code>${res.user.bakongId}</code>\n` +
+    (res.user.merchantName ? `• Store: <code>${formatter.escapeHtml(res.user.merchantName)}</code>` : ''),
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Command: /setaba <telegramId> <usdLink> [khrLink]
+ */
+async function handleAdminSetAbaCommand(bot, chatId, targetId, usdLink, khrLink = null) {
+  if (!targetId || !usdLink) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/setaba &lt;telegramId&gt; &lt;usdLink&gt; [khrLink]</code>\nExample: <code>/setaba 8665505824 https://link.payway.com.kh/ABAPAYusd https://link.payway.com.kh/ABAPAYkhr</code>`, { parse_mode: 'HTML' });
+  }
+  const res = apiKeyService.setMerchantBankCredentials(targetId, {
+    usdLink: String(usdLink).trim(),
+    khrLink: khrLink ? String(khrLink).trim() : null
+  });
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>ABA PayWay Links updated for user <code>${targetId}</code>:</b>\n• USD Link: <code>${res.user.usdLink}</code>\n• KHR Link: <code>${res.user.khrLink || 'None'}</code>`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+/**
+ * Command: /setstore <telegramId> <storeName>
+ */
+async function handleAdminSetStoreCommand(bot, chatId, targetId, storeName) {
+  if (!targetId || !storeName) {
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/setstore &lt;telegramId&gt; &lt;storeName&gt;</code>`, { parse_mode: 'HTML' });
+  }
+  const res = apiKeyService.setMerchantBankCredentials(targetId, {
+    merchantName: String(storeName).trim()
+  });
+  return safeSender.sendMessage(
+    bot,
+    chatId,
+    `✅ <b>Store Name updated for user <code>${targetId}</code>:</b> <code>${formatter.escapeHtml(res.user.merchantName)}</code>`,
+    { parse_mode: 'HTML' }
+  );
 }
 
 /**
@@ -869,7 +1465,15 @@ async function renderAdminCommandsList(bot, chatId, messageId = null) {
     `🛡️ <b>SECURITY & ANNOUNCEMENTS:</b>\n` +
     `• <code>/unbanip &lt;ip&gt;</code> - Unban IP from firewall\n` +
     `• <code>/broadcast &lt;text&gt;</code> - Send message to all users\n` +
-    `• <code>/adminhelp</code> - Show this cheat-sheet`;
+    `• <code>/adminhelp</code> - Show this cheat-sheet\n\n` +
+    `🔑 <b>ADMIN KEY CONFIGURATION & RAILS:</b>\n` +
+    `• <code>/genkey &lt;id&gt; [rail] [days] [store]</code> - Generate/configure key & rail\n` +
+    `• <code>/setrail &lt;id&gt; &lt;bakong|aba|bundle&gt;</code> - Switch merchant payment rail\n` +
+    `• <code>/setdays &lt;id&gt; &lt;days&gt;</code> - Set key validity duration in days\n` +
+    `• <code>/setbakong &lt;id&gt; &lt;bakongId&gt; [store]</code> - Set merchant Bakong Account ID\n` +
+    `• <code>/setaba &lt;id&gt; &lt;usdLink&gt; [khrLink]</code> - Set merchant ABA PayWay links\n` +
+    `• <code>/setstore &lt;id&gt; &lt;storeName&gt;</code> - Set merchant store display name\n` +
+    `• <code>/deliverkey &lt;id&gt;</code> - Re-deliver credentials receipt to user DM`;
 
   const keyboard = {
     inline_keyboard: [
@@ -913,5 +1517,23 @@ module.exports = {
   handleAdminDm,
   handleAdminUnbanIp,
   handleAdminBroadcast,
-  renderAdminCommandsList
+  renderAdminCommandsList,
+  // New Admin Key Generation & Configuration Wizard
+  handleAdminKeyWizardStartPrompt,
+  handleAdminKeyWizardStep1,
+  handleAdminKeyWizardStep2,
+  handleAdminKeyWizardStep3,
+  handleAdminKeyWizardExecute,
+  handleAdminPickDays,
+  handleAdminDoSetDays,
+  handleAdminPickRail,
+  handleAdminDoSetRail,
+  handleAdminEditBankPrompt,
+  handleAdminDeliverKeyToUser,
+  handleAdminGenKeyCommand,
+  handleAdminSetRailCommand,
+  handleAdminSetDaysCommand,
+  handleAdminSetBakongCommand,
+  handleAdminSetAbaCommand,
+  handleAdminSetStoreCommand
 };

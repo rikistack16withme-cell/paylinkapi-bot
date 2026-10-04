@@ -404,26 +404,249 @@ class ApiKeyService {
   }
 
   generateManualKey(telegramId, { merchantName = 'Admin Store', provider = 'NBC Bakong KHQR & ABA PayWay Dual Rail', durationDays = 365, plan = '1y' } = {}) {
-    const tId = String(telegramId);
-    const now = new Date();
-    const keyData = {
-      id: `key_${tId}_${Date.now()}`,
-      telegramId: tId,
-      provider,
-      tier: 'Master Admin VIP Rail',
-      apiKey: `plk_live_${tId}_${crypto.randomBytes(4).toString('hex')}`,
-      secret: `whsec_${crypto.randomBytes(8).toString('hex')}`,
-      status: 'ACTIVE',
-      isMock: false,
+    return this.configureAndIssueAdminKey(telegramId, {
       merchantName,
-      plan,
+      provider,
       durationDays,
-      createdAt: now.toISOString(),
-      expiresAt: calculateExpiryDate(now, durationDays),
-      expiryWarningSent: false,
-      expiredNoticeSent: false
+      plan
+    }).key;
+  }
+
+  /**
+   * Master Admin: Configures rail, credentials, days, and issues/updates production key
+   */
+  configureAndIssueAdminKey(telegramId, {
+    rail = 'bundle', // 'bakong', 'aba', 'bundle'
+    durationDays = 365,
+    plan = null,
+    merchantName = null,
+    bakongId = null,
+    usdLink = null,
+    khrLink = null,
+    phone = null,
+    tier = 'Master Admin VIP Rail'
+  } = {}) {
+    const tId = String(telegramId);
+    let user = db.getUser(tId) || {
+      telegramId: tId,
+      username: '',
+      firstName: 'Merchant',
+      lastName: '',
+      createdAt: new Date().toISOString()
     };
-    return db.saveApiKey(keyData);
+
+    const normRail = String(rail || 'bundle').toLowerCase().trim();
+    const days = parseInt(durationDays, 10) || 365;
+    const planKey = plan || (days >= 365 ? '1y' : (days >= 30 ? '1m' : '1w'));
+
+    let providerTitle = 'Dual Suite (Bakong + ABA)';
+    let providerKey = 'bundle';
+
+    if (normRail.includes('bakong') && !normRail.includes('aba') && !normRail.includes('bundle') && !normRail.includes('dual')) {
+      providerTitle = 'Bakong KHQR';
+      providerKey = 'bakong';
+      user.provider = providerTitle;
+      user.providerKey = providerKey;
+      if (bakongId) {
+        user.bakongId = String(bakongId).trim();
+        user.merchantId = user.bakongId;
+      }
+      user.usdLink = null;
+      user.khrLink = null;
+    } else if (normRail.includes('aba') && !normRail.includes('bakong') && !normRail.includes('bundle') && !normRail.includes('dual')) {
+      providerTitle = 'ABA PayWay Gateway';
+      providerKey = 'aba';
+      user.provider = providerTitle;
+      user.providerKey = providerKey;
+      if (usdLink) user.usdLink = String(usdLink).trim();
+      if (khrLink) user.khrLink = String(khrLink).trim();
+      user.bakongId = null;
+      user.merchantId = null;
+    } else {
+      providerTitle = 'Dual Suite (Bakong + ABA)';
+      providerKey = 'bundle';
+      user.provider = providerTitle;
+      user.providerKey = providerKey;
+      if (bakongId) {
+        user.bakongId = String(bakongId).trim();
+        user.merchantId = user.bakongId;
+      }
+      if (usdLink) user.usdLink = String(usdLink).trim();
+      if (khrLink) user.khrLink = String(khrLink).trim();
+    }
+
+    if (merchantName) user.merchantName = String(merchantName).trim();
+    if (phone) user.phone = String(phone).trim();
+
+    user.status = 'ACTIVE';
+    user.approved = true;
+    user.subscription = {
+      status: 'ACTIVE',
+      plan: planKey,
+      durationDays: days,
+      activatedAt: new Date().toISOString(),
+      expiresAt: calculateExpiryDate(new Date(), days),
+      activatedBy: 'MASTER_ADMIN'
+    };
+
+    db.saveUser(user);
+
+    // Synchronize or create key
+    const existingKeys = db.getUserApiKeys(tId);
+    let targetKey = existingKeys && existingKeys.length > 0 ? existingKeys[0] : null;
+    const now = new Date();
+    const expiryDate = calculateExpiryDate(now, days);
+    let isNew = false;
+
+    if (targetKey) {
+      targetKey.provider = providerTitle;
+      targetKey.tier = tier;
+      targetKey.merchantName = user.merchantName || targetKey.merchantName || 'Merchant Store';
+      targetKey.bakongId = user.bakongId;
+      targetKey.merchantId = user.merchantId;
+      targetKey.usdLink = user.usdLink;
+      targetKey.khrLink = user.khrLink;
+      targetKey.phone = user.phone;
+      targetKey.plan = planKey;
+      targetKey.durationDays = days;
+      targetKey.status = 'ACTIVE';
+      targetKey.expiresAt = expiryDate;
+      targetKey.expiryWarningSent = false;
+      targetKey.expiredNoticeSent = false;
+      targetKey.updatedAt = now.toISOString();
+      db.saveApiKey(targetKey);
+    } else {
+      isNew = true;
+      targetKey = {
+        id: `key_${tId}`,
+        telegramId: tId,
+        provider: providerTitle,
+        tier,
+        apiKey: `plk_live_${tId}_${crypto.randomBytes(4).toString('hex')}`,
+        secret: `whsec_${crypto.randomBytes(8).toString('hex')}`,
+        status: 'ACTIVE',
+        isMock: false,
+        merchantName: user.merchantName || 'Merchant Store',
+        bakongId: user.bakongId,
+        merchantId: user.merchantId,
+        usdLink: user.usdLink,
+        khrLink: user.khrLink,
+        phone: user.phone,
+        plan: planKey,
+        durationDays: days,
+        createdAt: now.toISOString(),
+        expiresAt: expiryDate,
+        expiryWarningSent: false,
+        expiredNoticeSent: false
+      };
+      db.saveApiKey(targetKey);
+    }
+
+    return { user, key: targetKey, isNew, rail: providerKey };
+  }
+
+  /**
+   * Master Admin: Set key validity in days and update expiry
+   */
+  setKeyDuration(telegramId, days = 30) {
+    const tId = String(telegramId);
+    const durationDays = parseInt(days, 10) || 30;
+    const planKey = durationDays >= 365 ? '1y' : (durationDays >= 30 ? '1m' : '1w');
+    const now = new Date();
+    const expiryDate = calculateExpiryDate(now, durationDays);
+
+    let user = db.getUser(tId);
+    if (user) {
+      user.status = 'ACTIVE';
+      user.subscription = {
+        ...(user.subscription || {}),
+        status: 'ACTIVE',
+        plan: planKey,
+        durationDays,
+        expiresAt: expiryDate
+      };
+      db.saveUser(user);
+    }
+
+    const keys = db.getUserApiKeys(tId);
+    let key = keys && keys.length > 0 ? keys[0] : null;
+    if (key) {
+      key.status = 'ACTIVE';
+      key.plan = planKey;
+      key.durationDays = durationDays;
+      key.expiresAt = expiryDate;
+      key.expiryWarningSent = false;
+      key.expiredNoticeSent = false;
+      db.saveApiKey(key);
+    } else {
+      const res = this.configureAndIssueAdminKey(tId, { durationDays });
+      key = res.key;
+      user = res.user;
+    }
+
+    return { user, key, durationDays, expiresAt: expiryDate };
+  }
+
+  /**
+   * Master Admin: Switch user's payment rail (bakong, aba, bundle)
+   */
+  setMerchantRail(telegramId, rail = 'bundle') {
+    return this.configureAndIssueAdminKey(telegramId, { rail });
+  }
+
+  /**
+   * Master Admin: Set custom bank credentials for merchant
+   */
+  setMerchantBankCredentials(telegramId, { bakongId = null, usdLink = null, khrLink = null, merchantName = null, phone = null } = {}) {
+    const tId = String(telegramId);
+    let user = db.getUser(tId);
+    if (!user) {
+      user = { telegramId: tId, firstName: 'Merchant', createdAt: new Date().toISOString() };
+    }
+
+    if (bakongId !== null && bakongId !== undefined) {
+      user.bakongId = bakongId ? String(bakongId).trim() : null;
+      user.merchantId = user.bakongId;
+    }
+    if (usdLink !== null && usdLink !== undefined) {
+      user.usdLink = usdLink ? String(usdLink).trim() : null;
+    }
+    if (khrLink !== null && khrLink !== undefined) {
+      user.khrLink = khrLink ? String(khrLink).trim() : null;
+    }
+    if (merchantName) {
+      user.merchantName = String(merchantName).trim();
+    }
+    if (phone !== null && phone !== undefined) {
+      user.phone = phone ? String(phone).trim() : null;
+    }
+
+    db.saveUser(user);
+
+    // Also update existing active key
+    const keys = db.getUserApiKeys(tId);
+    let key = keys && keys.length > 0 ? keys[0] : null;
+    if (key) {
+      if (bakongId !== null && bakongId !== undefined) {
+        key.bakongId = user.bakongId;
+        key.merchantId = user.merchantId;
+      }
+      if (usdLink !== null && usdLink !== undefined) {
+        key.usdLink = user.usdLink;
+      }
+      if (khrLink !== null && khrLink !== undefined) {
+        key.khrLink = user.khrLink;
+      }
+      if (merchantName) {
+        key.merchantName = user.merchantName;
+      }
+      if (phone !== null && phone !== undefined) {
+        key.phone = user.phone;
+      }
+      db.saveApiKey(key);
+    }
+
+    return { user, key };
   }
 }
 

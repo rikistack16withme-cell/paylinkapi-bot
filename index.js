@@ -350,6 +350,55 @@ bot.on('message', async (msg) => {
       return await adminHandler.handleAdminUnban(bot, chatId, targetId);
     }
 
+    if (cmdText.startsWith('/genkey') || cmdText.startsWith('/generatekey')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const args = cmdText.split(/\s+/).slice(1);
+      return await adminHandler.handleAdminGenKeyCommand(bot, chatId, args);
+    }
+
+    if (cmdText.startsWith('/setrail') || cmdText.startsWith('/rail')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const parts = cmdText.split(/\s+/).slice(1);
+      return await adminHandler.handleAdminSetRailCommand(bot, chatId, parts[0], parts[1]);
+    }
+
+    if (cmdText.startsWith('/setdays') || cmdText.startsWith('/setday') || cmdText.startsWith('/extend')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const parts = cmdText.split(/\s+/).slice(1);
+      return await adminHandler.handleAdminSetDaysCommand(bot, chatId, parts[0], parts[1]);
+    }
+
+    if (cmdText.startsWith('/setbakong')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const parts = cmdText.split(/\s+/).slice(1);
+      return await adminHandler.handleAdminSetBakongCommand(bot, chatId, parts[0], parts[1], parts.slice(2).join(' '));
+    }
+
+    if (cmdText.startsWith('/setaba')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const parts = cmdText.split(/\s+/).slice(1);
+      return await adminHandler.handleAdminSetAbaCommand(bot, chatId, parts[0], parts[1], parts[2]);
+    }
+
+    if (cmdText.startsWith('/setstore') || cmdText.startsWith('/setname')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const parts = cmdText.split(/\s+/).slice(1);
+      return await adminHandler.handleAdminSetStoreCommand(bot, chatId, parts[0], parts.slice(1).join(' '));
+    }
+
+    if (cmdText.startsWith('/deliverkey') || cmdText.startsWith('/sendkey')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const targetId = cmdText.split(/\s+/)[1];
+      return await adminHandler.handleAdminDeliverKeyToUser(bot, chatId, targetId);
+    }
+
     if (cmdText.startsWith('/addkey')) {
       middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
@@ -707,10 +756,53 @@ bot.on('callback_query', async (query) => {
         await adminHandler.handleAdminManualActivate(bot, chatId, targetId, 'VIP 1 Year License', 365);
         return await adminHandler.handleAdminUserLookup(bot, chatId, targetId, messageId);
       }
-      if (data && data.startsWith('admin_gen_key_')) {
-        const targetId = data.replace('admin_gen_key_', '');
-        await adminHandler.handleAdminAddKey(bot, chatId, targetId, 'Merchant Store');
-        return await adminHandler.handleAdminUserLookup(bot, chatId, targetId, messageId);
+      if (data === 'admin_wiz_start_prompt') {
+        return await adminHandler.handleAdminKeyWizardStartPrompt(bot, chatId, messageId);
+      }
+      if (data && (data.startsWith('admin_wiz_key_') || data.startsWith('admin_gen_key_'))) {
+        const targetId = data.replace(/^admin_(wiz|gen)_key_/, '');
+        return await adminHandler.handleAdminKeyWizardStep1(bot, chatId, targetId, messageId);
+      }
+      if (data && data.startsWith('admin_wstep_rail_')) {
+        const rest = data.replace('admin_wstep_rail_', '');
+        const [targetId, rail] = rest.split('_');
+        return await adminHandler.handleAdminKeyWizardStep2(bot, chatId, targetId, rail, messageId);
+      }
+      if (data && data.startsWith('admin_wstep_days_')) {
+        const rest = data.replace('admin_wstep_days_', '');
+        const [targetId, rail, days] = rest.split('_');
+        return await adminHandler.handleAdminKeyWizardStep3(bot, chatId, targetId, rail, days, messageId);
+      }
+      if (data && data.startsWith('admin_wstep_confirm_')) {
+        const rest = data.replace('admin_wstep_confirm_', '');
+        const [targetId, rail, days] = rest.split('_');
+        return await adminHandler.handleAdminKeyWizardExecute(bot, chatId, targetId, rail, days, messageId);
+      }
+      if (data && data.startsWith('admin_pick_days_')) {
+        const targetId = data.replace('admin_pick_days_', '');
+        return await adminHandler.handleAdminPickDays(bot, chatId, targetId, messageId);
+      }
+      if (data && data.startsWith('admin_do_set_days_')) {
+        const rest = data.replace('admin_do_set_days_', '');
+        const [targetId, days] = rest.split('_');
+        return await adminHandler.handleAdminDoSetDays(bot, chatId, targetId, days, messageId);
+      }
+      if (data && data.startsWith('admin_pick_rail_')) {
+        const targetId = data.replace('admin_pick_rail_', '');
+        return await adminHandler.handleAdminPickRail(bot, chatId, targetId, messageId);
+      }
+      if (data && data.startsWith('admin_do_set_rail_')) {
+        const rest = data.replace('admin_do_set_rail_', '');
+        const [targetId, rail] = rest.split('_');
+        return await adminHandler.handleAdminDoSetRail(bot, chatId, targetId, rail, messageId);
+      }
+      if (data && data.startsWith('admin_edit_bank_')) {
+        const targetId = data.replace('admin_edit_bank_', '');
+        return await adminHandler.handleAdminEditBankPrompt(bot, chatId, targetId, messageId);
+      }
+      if (data && data.startsWith('admin_deliver_key_')) {
+        const targetId = data.replace('admin_deliver_key_', '');
+        return await adminHandler.handleAdminDeliverKeyToUser(bot, chatId, targetId);
       }
       if (data && data.startsWith('admin_toggle_ban_')) {
         const targetId = data.replace('admin_toggle_ban_', '');
