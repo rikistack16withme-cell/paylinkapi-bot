@@ -1182,5 +1182,123 @@ router.get(['/user/download-pdf', '/user/pdf-guide', '/download-pdf'], async (re
   }
 });
 
+/**
+ * Web Admin Key Generator API: Generates standalone or merchant production keys on demand
+ */
+router.post('/admin/generate-key', async (req, res) => {
+  try {
+    const {
+      targetId = 'standalone',
+      rail = 'bundle',
+      durationDays = 365,
+      bakongId = null,
+      usdLink = null,
+      khrLink = null,
+      merchantName = null,
+      phone = null
+    } = req.body;
+
+    const days = parseInt(durationDays, 10) || 365;
+    const isStandalone = !targetId || targetId === 'standalone' || String(targetId).startsWith('standalone');
+
+    const result = apiKeyService.configureAndIssueAdminKey(isStandalone ? 'standalone' : targetId, {
+      rail,
+      durationDays: days,
+      bakongId: bakongId ? String(bakongId).trim() : null,
+      usdLink: usdLink ? String(usdLink).trim() : null,
+      khrLink: khrLink ? String(khrLink).trim() : null,
+      merchantName: merchantName ? String(merchantName).trim() : (isStandalone ? 'VIP Production Store' : null),
+      phone: phone ? String(phone).trim() : null
+    });
+
+    const { key } = result;
+    const tunnelService = require('../services/tunnel.service');
+    const baseUrl = tunnelService.getPublicUrl() || process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com';
+
+    // Broadcast instant alert to Admin Group
+    try {
+      const { sendAdminAlert } = require('../services/notification.service');
+      sendAdminAlert(
+        `🔑 <b>[WEB KEY GENERATOR • KEY ISSUED]</b>\n` +
+        `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+        `• <b>Mode:</b> <code>${isStandalone ? 'Standalone Production Key' : `User ${targetId}`}</code>\n` +
+        `• 🏦 <b>Rail:</b> <code>${key.provider}</code>\n` +
+        `• ⏳ <b>Duration:</b> <b>${days} Days</b> (Expires: ${(key.expiresAt || '').slice(0, 10)})\n` +
+        `• 🏪 <b>Store:</b> <code>${key.merchantName || 'Store'}</code>\n` +
+        (key.bakongId ? `• 🔴 <b>Bakong:</b> <code>${key.bakongId}</code>\n` : '') +
+        (key.usdLink ? `• 🔵 <b>ABA USD:</b> <code>${key.usdLink}</code>\n` : '') +
+        (key.khrLink ? `• 🔵 <b>ABA KHR:</b> <code>${key.khrLink}</code>\n` : '') +
+        `\n🔑 <b>API KEY:</b>\n<code>${key.apiKey}</code>\n\n` +
+        `🛡️ <b>SECRET:</b>\n<code>${key.secret}</code>\n\n` +
+        `🌐 <b>Portal:</b> <code>${baseUrl}/admin/genkey</code>`
+      ).catch(() => {});
+    } catch (_) {}
+
+    // If assigned to a real Telegram user, notify via DM
+    if (!isStandalone && /^\d+$/.test(String(targetId))) {
+      try {
+        const { sendPaymentSuccessNotification } = require('../services/notification.service');
+        await sendPaymentSuccessNotification(targetId, {
+          plan: days >= 365 ? '1y' : (days >= 30 ? '1m' : '1w'),
+          planTitle: `Admin Granted License (${days} Days)`,
+          amountFormatted: 'Free Admin Provision',
+          tranId: `ADMIN-${Date.now()}`,
+          apiKey: key.apiKey,
+          secret: key.secret,
+          key
+        });
+      } catch (_) {}
+    }
+
+    return res.json({
+      success: true,
+      key: {
+        apiKey: key.apiKey,
+        secret: key.secret,
+        provider: key.provider,
+        providerKey: key.providerKey || rail,
+        expiresAt: key.expiresAt,
+        durationDays: days,
+        merchantName: key.merchantName,
+        bakongId: key.bakongId,
+        usdLink: key.usdLink,
+        khrLink: key.khrLink,
+        phone: key.phone,
+        targetId: isStandalone ? 'standalone' : targetId,
+        isStandalone
+      },
+      baseUrl
+    });
+  } catch (err) {
+    console.error('Error in /api/admin/generate-key:', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Failed to generate API key'
+    });
+  }
+});
+
+/**
+ * Lists registered merchants for the Web Key Generator selector
+ */
+router.get('/admin/merchants-list', async (req, res) => {
+  try {
+    const users = db.getAllUsers() || [];
+    const sanitized = users.map(u => ({
+      telegramId: u.telegramId,
+      name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || String(u.telegramId),
+      username: u.username,
+      merchantName: u.merchantName,
+      bakongId: u.bakongId || u.merchantId,
+      usdLink: u.usdLink,
+      khrLink: u.khrLink,
+      provider: u.provider
+    }));
+    return res.json({ success: true, users: sanitized });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.setTelegramBot = setTelegramBot;
 module.exports = router;

@@ -369,6 +369,13 @@ bot.on('message', async (msg) => {
       return await adminHandler.handleAdminGenKeyCommand(bot, chatId, args);
     }
 
+    if (cmdText === '/set' || cmdText.startsWith('/set ') || cmdText.startsWith('/set@')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      if (!isMaster) return;
+      const rawArg = cmdText.replace(/^\/set(@\w+)?\s*/, '').trim();
+      return await adminHandler.handleAdminSetCommand(bot, chatId, rawArg);
+    }
+
     if (cmdText.startsWith('/setrail') || cmdText.startsWith('/rail')) {
       middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
@@ -785,6 +792,12 @@ bot.on('callback_query', async (query) => {
       }
       if (data === 'admin_wiz_start_prompt') {
         return await adminHandler.handleAdminKeyWizardStartPrompt(bot, chatId, messageId);
+      }
+      if (data === 'admin_gen_instant_standalone') {
+        return await adminHandler.handleAdminInstantStandaloneKey(bot, chatId, messageId);
+      }
+      if (data === 'admin_wiz_pick_merchant_list') {
+        return await adminHandler.handleAdminPickMerchantList(bot, chatId, messageId);
       }
       if (data && (data.startsWith('admin_wiz_key_') || data.startsWith('admin_gen_key_'))) {
         const targetId = data.replace(/^admin_(wiz|gen)_key_/, '');

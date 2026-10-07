@@ -17,6 +17,7 @@ const {
   DEFAULT_MERCHANT_LINK_USD,
   DEFAULT_MERCHANT_LINK_KHR
 } = require('../../controllers/abaPaywayController');
+const tunnelService = require('../../services/tunnel.service');
 
 // Active Admin Key Wizard Drafts: chatId -> { targetId, rail, bakongId, usdLink, khrLink, merchantName, days }
 const adminWizardDrafts = new Map();
@@ -727,47 +728,255 @@ async function handleAdminUserLookup(bot, chatId, queryStr, messageId = null) {
 }
 
 /**
- * Prompts admin to pick a user or start key generator wizard
+ * Sends Admin Web Key Generator Portal link & 1-tap instant generation options
  */
-async function handleAdminKeyWizardStartPrompt(bot, chatId, messageId = null) {
-  const users = db.getAllUsers();
-  const recent = users.slice(-10).reverse();
+async function handleAdminKeyWizardStartPrompt(bot, chatId, messageId = null, prefillData = {}) {
+  const baseUrl = tunnelService.getPublicUrl() || process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com';
+  let webUrl = `${baseUrl}/admin/genkey`;
+  const params = [];
+  if (prefillData.abaLink) params.push(`aba_link=${encodeURIComponent(prefillData.abaLink)}`);
+  if (prefillData.bakongId) params.push(`bakong_id=${encodeURIComponent(prefillData.bakongId)}`);
+  if (prefillData.targetId) params.push(`tg_id=${encodeURIComponent(prefillData.targetId)}`);
+  if (prefillData.rail) params.push(`rail=${encodeURIComponent(prefillData.rail)}`);
+  if (prefillData.days) params.push(`days=${encodeURIComponent(prefillData.days)}`);
+  if (prefillData.name) params.push(`name=${encodeURIComponent(prefillData.name)}`);
+  if (params.length > 0) {
+    webUrl += `?${params.join('&')}`;
+  }
 
   let text =
-    `🔑 <b>ADMIN KEY GENERATOR & RAIL CONFIGURATION WIZARD</b>\n` +
+    `🌐 <b>ADMIN KEY GENERATOR &amp; CONFIGURATION PORTAL</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
-    `You can generate a standalone production API key on-demand (no user required) OR configure a key for any registered merchant!\n\n` +
-    `• <b>Option 1 (Fast Standalone Key):</b> Tap <code>[ ⚡ Generate Key Without User ]</code> below.\n` +
-    `• <b>Option 2 (Pick Registered Merchant):</b> Tap any merchant name below.\n` +
-    `• <b>Option 3 (Slash Command):</b>\n` +
-    `  <code>/genkey</code> <i>(Interactive wizard)</i>\n` +
-    `  <code>/genkey standalone [rail] [days] [name]</code>\n` +
-    `  <code>/genkey &lt;telegramId&gt; [rail] [days] [name]</code>\n\n` +
-    `<i>Tap a button below to begin:</i>`;
+    `You can generate and configure production API keys directly via our web portal without typing bot commands:\n\n` +
+    `🔗 <b>DIRECT WEB KEY GENERATOR LINK:</b>\n` +
+    `<code>${webUrl}</code>\n\n` +
+    `⚡ <b>Web Portal Features:</b>\n` +
+    `• <b>1-Click Key Generation:</b> Paste ABA PayWay link or Bakong ID\n` +
+    `• <b>Custom Validity:</b> Select 7 Days, 30 Days, or 365 Days\n` +
+    `• <b>Instant Display:</b> Production API Key &amp; Webhook Secret\n` +
+    `• <b>Studio Testing:</b> Direct integration test launcher\n\n` +
+    `<i>Tap a button below to open the link or generate a key instantly:</i>`;
 
   const keyboardRows = [
     [
-      makeButton('⚡ Generate Key Without User (Instant Key) ❯', 'admin_wiz_key_standalone', 'crown', 'success')
+      {
+        text: '🌐 Open Web Key Generator ❯',
+        url: webUrl
+      }
+    ],
+    [
+      makeButton('⚡ Generate Key Instantly (1-Tap)', 'admin_gen_instant_standalone', 'crown', 'success')
+    ],
+    [
+      makeButton('👥 Pick Registered Merchant', 'admin_wiz_pick_merchant_list', 'users', 'primary')
+    ],
+    [
+      makeButton('« Back to Control Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')
     ]
   ];
 
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    disable_web_page_preview: false,
+    reply_markup: { inline_keyboard: keyboardRows }
+  });
+}
+
+/**
+ * 1-Tap Instant Standalone Key Generation directly from Telegram
+ */
+async function handleAdminInstantStandaloneKey(bot, chatId, messageId = null) {
+  const result = apiKeyService.configureAndIssueAdminKey('standalone', {
+    rail: 'bundle',
+    durationDays: 365,
+    merchantName: 'VIP Standalone Store'
+  });
+  const { key } = result;
+  const baseUrl = tunnelService.getPublicUrl() || process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com';
+
+  const text =
+    `🎉 <b>INSTANT STANDALONE API KEY GENERATED!</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+    `• ⚡ <b>Type:</b> <code>Standalone Key (Instant Production)</code>\n` +
+    `• 🏦 <b>Payment Rail:</b> <code>${key.provider}</code>\n` +
+    `• ⏳ <b>Validity:</b> <b>365 Days (1 Year)</b>\n` +
+    `• 📅 <b>Expires At:</b> <code>${(key.expiresAt || '').slice(0, 10)}</code>\n` +
+    `• 🏪 <b>Store Name:</b> <code>${formatter.escapeHtml(key.merchantName || 'Store')}</code>\n\n` +
+    `🔑 <b>PRODUCTION API KEY (TAP TO COPY):</b>\n` +
+    `<code>${key.apiKey}</code>\n\n` +
+    `🛡️ <b>WEBHOOK SECRET:</b>\n` +
+    `<code>${key.secret}</code>\n\n` +
+    `🌐 <b>Manage on Web Generator:</b>\n` +
+    `<code>${baseUrl}/admin/genkey</code>`;
+
+  const keyboardRows = [
+    [
+      {
+        text: '🌐 Open Web Key Generator',
+        url: `${baseUrl}/admin/genkey`
+      },
+      {
+        text: '🧪 Test in Studio',
+        url: `${baseUrl}/test?key=${encodeURIComponent(key.apiKey)}`
+      }
+    ],
+    [
+      makeButton('⚡ Generate Another Key', 'admin_gen_instant_standalone', 'crown', 'primary'),
+      makeButton('« Back to Control Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')
+    ]
+  ];
+
+  return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboardRows }
+  });
+}
+
+/**
+ * Pick from registered merchants to pre-fill key generator
+ */
+async function handleAdminPickMerchantList(bot, chatId, messageId = null) {
+  const users = db.getAllUsers();
+  const recent = users.slice(-10).reverse();
+  const baseUrl = tunnelService.getPublicUrl() || process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com';
+
+  let text =
+    `👥 <b>SELECT MERCHANT TO CONFIGURE KEY:</b>\n` +
+    `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
+    `Tap any registered merchant below to open the Web Key Generator pre-filled with their details:\n`;
+
+  const keyboardRows = [];
   const pickButtons = recent.slice(0, 8).map(u => {
     const label = u.firstName || u.username || String(u.telegramId);
-    return makeButton(`👤 ${label.substring(0, 13)}`, `admin_wiz_key_${u.telegramId}`, 'keys', 'primary');
+    return {
+      text: `👤 ${label.substring(0, 13)}`,
+      url: `${baseUrl}/admin/genkey?tg_id=${u.telegramId}&name=${encodeURIComponent(u.firstName || u.merchantName || '')}`
+    };
   });
 
   for (let i = 0; i < pickButtons.length; i += 2) {
     keyboardRows.push(pickButtons.slice(i, i + 2));
   }
   keyboardRows.push([
-    makeButton('👥 View Full Merchants List', 'admin_view_users', 'users', 'secondary'),
-    makeButton('« Back to Control Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')
+    makeButton('⚡ Generate Standalone Key (No User)', 'admin_gen_instant_standalone', 'crown', 'success')
+  ]);
+  keyboardRows.push([
+    makeButton('« Back to Key Generator', 'admin_wiz_start_prompt', 'arrow_left', 'secondary')
   ]);
 
   return await safeSender.replaceOrSend(bot, chatId, messageId, text, {
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboardRows }
   });
+}
+
+/**
+ * Handles /set <url_or_id> command directly
+ */
+async function handleAdminSetCommand(bot, chatId, rawArg = '') {
+  const arg = String(rawArg || '').trim();
+  const baseUrl = tunnelService.getPublicUrl() || process.env.RENDER_EXTERNAL_URL || 'https://paylinkapi-bot.onrender.com';
+
+  if (!arg) {
+    return await handleAdminKeyWizardStartPrompt(bot, chatId);
+  }
+
+  // Check if it's an ABA PayWay link
+  if (arg.includes('payway.com.kh') || arg.startsWith('http://') || arg.startsWith('https://')) {
+    const keyResult = apiKeyService.configureAndIssueAdminKey('standalone', {
+      rail: 'bundle',
+      durationDays: 365,
+      usdLink: arg,
+      merchantName: 'ABA PayWay Store'
+    });
+    const { key } = keyResult;
+    const webUrl = `${baseUrl}/admin/genkey?aba_link=${encodeURIComponent(arg)}`;
+
+    const text =
+      `🎉 <b>ABA PAYWAY PRODUCTION API KEY GENERATED!</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+      `• 🔵 <b>ABA PayWay Link:</b> <code>${arg}</code>\n` +
+      `• 🏦 <b>Payment Rail:</b> <code>Dual Suite (Bakong KHQR + ABA PayWay)</code>\n` +
+      `• ⏳ <b>Validity:</b> <b>365 Days (1 Year)</b>\n` +
+      `• 📅 <b>Expires At:</b> <code>${(key.expiresAt || '').slice(0, 10)}</code>\n\n` +
+      `🔑 <b>PRODUCTION API KEY (TAP TO COPY):</b>\n` +
+      `<code>${key.apiKey}</code>\n\n` +
+      `🛡️ <b>WEBHOOK SECRET:</b>\n` +
+      `<code>${key.secret}</code>\n\n` +
+      `🌐 <b>Web Key Generator Link:</b>\n` +
+      `<code>${webUrl}</code>`;
+
+    const keyboardRows = [
+      [
+        {
+          text: '🌐 Open Web Key Generator',
+          url: webUrl
+        },
+        {
+          text: '🧪 Test Key in Studio',
+          url: `${baseUrl}/test?key=${encodeURIComponent(key.apiKey)}`
+        }
+      ],
+      [
+        makeButton('« Back to Control Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')
+      ]
+    ];
+
+    return await safeSender.sendMessage(bot, chatId, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboardRows }
+    });
+  }
+
+  // Check if it's a Bakong Account ID (@aclb, etc.)
+  if (arg.includes('@') || /^\+?855\d+|^0\d{8,9}$/.test(arg)) {
+    const keyResult = apiKeyService.configureAndIssueAdminKey('standalone', {
+      rail: 'bakong',
+      durationDays: 365,
+      bakongId: arg,
+      merchantName: 'Bakong Store'
+    });
+    const { key } = keyResult;
+    const webUrl = `${baseUrl}/admin/genkey?bakong_id=${encodeURIComponent(arg)}`;
+
+    const text =
+      `🎉 <b>BAKONG KHQR PRODUCTION API KEY GENERATED!</b>\n` +
+      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
+      `• 🔴 <b>Bakong Account:</b> <code>${arg}</code>\n` +
+      `• 🏦 <b>Payment Rail:</b> <code>NBC Bakong National KHQR</code>\n` +
+      `• ⏳ <b>Validity:</b> <b>365 Days (1 Year)</b>\n` +
+      `• 📅 <b>Expires At:</b> <code>${(key.expiresAt || '').slice(0, 10)}</code>\n\n` +
+      `🔑 <b>PRODUCTION API KEY (TAP TO COPY):</b>\n` +
+      `<code>${key.apiKey}</code>\n\n` +
+      `🛡️ <b>WEBHOOK SECRET:</b>\n` +
+      `<code>${key.secret}</code>\n\n` +
+      `🌐 <b>Web Key Generator Link:</b>\n` +
+      `<code>${webUrl}</code>`;
+
+    const keyboardRows = [
+      [
+        {
+          text: '🌐 Open Web Key Generator',
+          url: webUrl
+        },
+        {
+          text: '🧪 Test Key in Studio',
+          url: `${baseUrl}/test?key=${encodeURIComponent(key.apiKey)}`
+        }
+      ],
+      [
+        makeButton('« Back to Control Hub', 'admin_refresh_stats', 'arrow_left', 'secondary')
+      ]
+    ];
+
+    return await safeSender.sendMessage(bot, chatId, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboardRows }
+    });
+  }
+
+  // Fallback: send prefilled web link
+  return await handleAdminKeyWizardStartPrompt(bot, chatId, null, { name: arg });
 }
 
 /**
@@ -1660,6 +1869,11 @@ async function handleAdminGenKeyCommand(bot, chatId, args) {
     return await handleAdminKeyWizardStartPrompt(bot, chatId);
   }
 
+  // Check if first arg is an ABA PayWay link or URL
+  if (parts[0].includes('payway.com.kh') || parts[0].startsWith('http://') || parts[0].startsWith('https://')) {
+    return await handleAdminSetCommand(bot, chatId, parts[0]);
+  }
+
   const firstArg = parts[0].toLowerCase();
   if (['standalone', 'quick', 'new', 'bakong', 'aba', 'bundle'].includes(firstArg)) {
     if (parts.length === 1 && ['standalone', 'quick', 'new'].includes(firstArg)) {
@@ -2080,6 +2294,9 @@ module.exports = {
   renderAdminCommandsList,
   // New Admin Key Generation & Configuration Wizard
   handleAdminKeyWizardStartPrompt,
+  handleAdminInstantStandaloneKey,
+  handleAdminPickMerchantList,
+  handleAdminSetCommand,
   handleAdminKeyWizardStep1,
   handleAdminKeyWizardStartRailInput,
   handleAdminKeyWizardStepBank,
