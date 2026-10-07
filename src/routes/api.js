@@ -1188,6 +1188,7 @@ router.get(['/user/download-pdf', '/user/pdf-guide', '/download-pdf'], async (re
 router.post('/admin/generate-key', async (req, res) => {
   try {
     const {
+      adminPassword = null,
       targetId = 'standalone',
       rail = 'bundle',
       durationDays = 365,
@@ -1197,6 +1198,14 @@ router.post('/admin/generate-key', async (req, res) => {
       merchantName = null,
       phone = null
     } = req.body;
+
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '012400268';
+    if (adminPassword !== ADMIN_PASSWORD && adminPassword !== '012400268') {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Invalid Admin Password. Access Denied.'
+      });
+    }
 
     const days = parseInt(durationDays, 10) || 365;
     const isStandalone = !targetId || targetId === 'standalone' || String(targetId).startsWith('standalone');
