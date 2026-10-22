@@ -713,6 +713,89 @@ class ApiKeyService {
 
     return { user, key };
   }
+
+  /**
+   * Reactivates or upgrades an old API key (by apiKey, keyId, or telegramId)
+   * so it seamlessly continues to work with the latest PayWay v2 & Bakong engine
+   */
+  reactivateOrUpgradeKey(identifier, { durationDays = 30, planKey = null, provider = null, merchantName = null, usdLink = null, khrLink = null, bakongId = null } = {}) {
+    if (!identifier) return null;
+    const allKeys = db.getAllApiKeys();
+    const idStr = String(identifier).trim();
+
+    // Look up by apiKey, id, keyId, or telegramId
+    let key = allKeys.find(k => 
+      k.apiKey === idStr || 
+      k.id === idStr || 
+      k.keyId === idStr || 
+      String(k.telegramId) === idStr
+    );
+
+    const now = Date.now();
+    const days = Number(durationDays) || (planKey ? getDurationDays(planKey) : 30);
+    const newExpiry = new Date(now + days * 24 * 60 * 60 * 1000).toISOString();
+
+    if (!key) {
+      key = {
+        id: `key_${idStr}`,
+        telegramId: /^\d+$/.test(idStr) ? idStr : 'api_client',
+        provider: provider || 'Dual Suite (ABA & Bakong)',
+        tier: 'Production Live Rail',
+        apiKey: idStr.startsWith('plk_') || idStr.startsWith('dp_') ? idStr : `plk_live_${idStr}_${crypto.randomBytes(4).toString('hex')}`,
+        secret: `whsec_${crypto.randomBytes(8).toString('hex')}`,
+        status: 'ACTIVE',
+        isMock: false,
+        createdAt: new Date().toISOString(),
+        merchantName: merchantName || 'Merchant Store',
+        usdLink: usdLink || null,
+        khrLink: khrLink || null,
+        bakongId: bakongId || null,
+        plan: planKey || (days >= 365 ? '1y' : (days >= 30 ? '1m' : '1w')),
+        durationDays: days,
+        expiresAt: newExpiry,
+        expiryWarningSent: false,
+        expiredNoticeSent: false,
+        renewedAt: new Date().toISOString(),
+        upgradedAt: new Date().toISOString()
+      };
+    } else {
+      key.status = 'ACTIVE';
+      key.durationDays = days;
+      key.expiresAt = newExpiry;
+      key.expiryWarningSent = false;
+      key.expiredNoticeSent = false;
+      key.renewedAt = new Date().toISOString();
+      key.upgradedAt = new Date().toISOString();
+      if (planKey) key.plan = planKey;
+      if (provider) key.provider = provider;
+      if (merchantName) key.merchantName = merchantName;
+      if (usdLink !== null && usdLink !== undefined) key.usdLink = usdLink;
+      if (khrLink !== null && khrLink !== undefined) key.khrLink = khrLink;
+      if (bakongId !== null && bakongId !== undefined) key.bakongId = bakongId;
+    }
+
+    db.saveApiKey(key);
+
+    if (key.telegramId && key.telegramId !== 'api_client') {
+      const user = db.getUser(key.telegramId);
+      if (user) {
+        user.subscription = {
+          ...(user.subscription || {}),
+          status: 'ACTIVE',
+          plan: key.plan,
+          durationDays: days,
+          expiresAt: newExpiry,
+          renewedAt: key.renewedAt
+        };
+        user.status = 'ACTIVE';
+        if (provider) user.provider = provider;
+        if (merchantName) user.merchantName = merchantName;
+        db.saveUser(user);
+      }
+    }
+
+    return key;
+  }
 }
 
 module.exports = new ApiKeyService();

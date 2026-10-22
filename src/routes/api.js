@@ -199,6 +199,65 @@ router.get(['/keys/status', '/keys/expiry'], (req, res) => {
   });
 });
 
+// 0.4 Key Reactivation, Renewal & Migration Endpoint (Active for all old keys)
+router.post(['/keys/reactivate', '/keys/renew', '/keys/upgrade'], async (req, res) => {
+  try {
+    const payload = req.body || {};
+    let apiKey = payload.apiKey || payload.api_key || payload.keyId || payload.key || payload.telegramId || req.query.api_key || req.query.apiKey;
+    const authHeader = req.headers['authorization'] || '';
+    if (!apiKey && authHeader.startsWith('Bearer ')) {
+      apiKey = authHeader.slice(7).trim();
+    }
+    if (!apiKey && req.headers['x-api-key']) {
+      apiKey = String(req.headers['x-api-key']).trim();
+    }
+
+    if (!apiKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'MISSING_API_KEY',
+        message: 'Please provide apiKey, keyId, or telegramId to reactivate.'
+      });
+    }
+
+    const durationDays = Number(payload.durationDays) || (payload.plan === '1y' ? 365 : (payload.plan === '1m' ? 30 : 7));
+    const updatedKey = apiKeyService.reactivateOrUpgradeKey(apiKey, {
+      durationDays,
+      planKey: payload.planKey || payload.plan,
+      provider: payload.provider,
+      merchantName: payload.merchantName,
+      usdLink: payload.usdLink,
+      khrLink: payload.khrLink,
+      bakongId: payload.bakongId
+    });
+
+    if (!updatedKey) {
+      return res.status(404).json({
+        success: false,
+        error: 'KEY_NOT_FOUND',
+        message: `API Key ${apiKey} could not be found or reactivated.`
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `API Key successfully reactivated and upgraded to latest engine! Valid for ${durationDays} days.`,
+      key: {
+        id: updatedKey.id,
+        apiKey: updatedKey.apiKey,
+        secret: updatedKey.secret,
+        provider: updatedKey.provider,
+        status: updatedKey.status,
+        plan: updatedKey.plan,
+        expiresAt: updatedKey.expiresAt,
+        renewedAt: updatedKey.renewedAt
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 0.3 Admin Key Expiration Tool (for instant testing of expiry behavior)
 router.all('/admin/expire-key', (req, res) => {
   let apiKey = req.query.api_key || req.query.apiKey || req.body?.apiKey || req.body?.api_key;

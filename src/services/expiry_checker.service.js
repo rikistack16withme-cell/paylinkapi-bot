@@ -58,6 +58,15 @@ class ExpiryCheckerService {
     const allKeys = db.getAllApiKeys();
     if (!allKeys || allKeys.length === 0) return;
 
+function isRealTelegramUser(telegramId) {
+  if (!telegramId) return false;
+  const s = String(telegramId).trim();
+  if (s.startsWith('test_') || s.includes('merchant_test') || s === 'api_client') return false;
+  if (!/^\d{6,12}$/.test(s)) return false;
+  if (s === '9876543210' || s === '5555555555' || s === '999999999') return false;
+  return true;
+}
+
     const now = Date.now();
 
     for (const key of allKeys) {
@@ -65,18 +74,25 @@ class ExpiryCheckerService {
 
       const expiryTime = new Date(key.expiresAt).getTime();
       const diffMs = expiryTime - now;
+      const isReal = isRealTelegramUser(key.telegramId);
 
       // 1. Auto-Expiration & Revocation Check (Time expired)
       if (diffMs <= 0) {
         if (key.status !== 'EXPIRED') {
           key.status = 'EXPIRED';
-          logger.warn(`[EXPIRY REVOKED] API Key ${key.id} (Owner: ${key.telegramId}) has EXPIRED. Marked INACTIVE.`);
+          if (isReal) {
+            logger.warn(`[EXPIRY REVOKED] API Key ${key.id} (Owner: ${key.telegramId}) has EXPIRED. Marked INACTIVE.`);
 
-          // Send deactivation notification to user
-          if (!key.expiredNoticeSent && this.bot) {
-            await this.sendExpiredNotice(key).catch(err => {
-              logger.warn(`Could not dispatch expired notice to ${key.telegramId}:`, err.message);
-            });
+            // Send deactivation notification to real user
+            if (!key.expiredNoticeSent && this.bot) {
+              await this.sendExpiredNotice(key).catch(err => {
+                if (!err.message?.includes('chat not found') && !err.message?.includes('bot was blocked')) {
+                  logger.warn(`Could not dispatch expired notice to ${key.telegramId}:`, err.message);
+                }
+              });
+              key.expiredNoticeSent = true;
+            }
+          } else {
             key.expiredNoticeSent = true;
           }
 
@@ -88,11 +104,12 @@ class ExpiryCheckerService {
       // 2. 1-Day Advance Warning Check (Less than 24 hours remaining)
       if (diffMs <= 24 * 60 * 60 * 1000 && key.status === 'ACTIVE') {
         if (!key.expiryWarningSent) {
-          logger.info(`[EXPIRY WARNING] Key ${key.id} expires in < 24 hours. Dispatching alert to ${key.telegramId}...`);
-
-          if (this.bot) {
+          if (isReal && this.bot) {
+            logger.info(`[EXPIRY WARNING] Key ${key.id} expires in < 24 hours. Dispatching alert to ${key.telegramId}...`);
             await this.sendOneDayWarning(key, diffMs).catch(err => {
-              logger.warn(`Could not dispatch 1-day warning to ${key.telegramId}:`, err.message);
+              if (!err.message?.includes('chat not found') && !err.message?.includes('bot was blocked')) {
+                logger.warn(`Could not dispatch 1-day warning to ${key.telegramId}:`, err.message);
+              }
             });
           }
 

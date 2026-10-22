@@ -402,35 +402,48 @@ async function handleAdminExportBackup(bot, chatId) {
  */
 async function handleAdminManualActivate(bot, chatId, targetId, plan = 'VIP Pro License', days = 365) {
   if (!targetId) {
-    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/activate &lt;telegramId&gt; [days] [planName]</code>`, { parse_mode: 'HTML' });
+    return safeSender.sendMessage(bot, chatId, `⚠️ <b>Usage:</b> <code>/activate &lt;telegramId | apiKey&gt; [days] [planName]</code>`, { parse_mode: 'HTML' });
   }
 
-  const user = userService.activateUser(targetId, plan, Number(days) || 365);
-  const keys = apiKeyService.getOrCreateUserKeys(targetId);
-  const activeKey = keys[0]?.apiKey || '';
+  const numDays = Number(days) || 365;
+  const upgradedKey = apiKeyService.reactivateOrUpgradeKey(targetId, { durationDays: numDays, planKey: plan });
+  const realTelegramId = (upgradedKey && upgradedKey.telegramId !== 'api_client') ? upgradedKey.telegramId : targetId;
+
+  if (realTelegramId && !String(realTelegramId).startsWith('plk_') && !String(realTelegramId).startsWith('dp_')) {
+    userService.activateUser(realTelegramId, plan, numDays);
+  }
+
+  const activeKey = upgradedKey?.apiKey || '';
+  const expiryDate = upgradedKey?.expiresAt ? upgradedKey.expiresAt.slice(0, 10) : 'Active';
 
   // Notify the user in their private chat
-  try {
-    await bot.sendMessage(
-      targetId,
-      `🎉 <b>CONGRATULATIONS! ACCOUNT ACTIVATED</b>\n` +
-      `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
-      `Your account has been officially activated by Master Administrator!\n\n` +
-      `• <b>License Plan:</b> <code>${plan}</code>\n` +
-      `• <b>Duration:</b> <code>${days} Days</code>\n` +
-      `• <b>Production API Key:</b>\n<code>${activeKey}</code>\n\n` +
-      `<i>Tap /start or /connect to open your developer console!</i>`,
-      { parse_mode: 'HTML' }
-    );
-  } catch (_) {}
+  if (realTelegramId && !String(realTelegramId).startsWith('plk_') && !String(realTelegramId).startsWith('dp_')) {
+    try {
+      await bot.sendMessage(
+        realTelegramId,
+        `🎉 <b>CONGRATULATIONS! ACCOUNT ACTIVATED</b>\n` +
+        `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n` +
+        `Your account has been officially activated & upgraded to the latest PayWay v2 engine!\n\n` +
+        `• <b>License Plan:</b> <code>${plan}</code>\n` +
+        `• <b>Duration:</b> <code>${numDays} Days</code>\n` +
+        `• <b>Expires At:</b> <code>${expiryDate}</code>\n` +
+        `• <b>Production API Key:</b>\n<code>${activeKey}</code>\n\n` +
+        `<i>Tap /start or /connect to open your developer console!</i>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (_) {}
+  }
 
   return safeSender.sendMessage(
     bot,
     chatId,
-    `✅ <b>User ${targetId} Activated Successfully!</b>\n` +
+    `✅ <b>API Key / User Activated & Upgraded Successfully!</b>\n` +
+    `• Target: <code>${targetId}</code>\n` +
+    `• Owner: <code>${realTelegramId}</code>\n` +
     `• Plan: <code>${plan}</code>\n` +
-    `• Days: <code>${days}</code>\n` +
-    `• Key: <code>${activeKey}</code>`,
+    `• Duration: <code>${numDays} Days</code>\n` +
+    `• Expires: <code>${expiryDate}</code>\n` +
+    `• Active Key:\n<code>${activeKey}</code>`,
     { parse_mode: 'HTML' }
   );
 }

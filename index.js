@@ -3,6 +3,8 @@ const dns = require('node:dns');
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
+// 0.1 Enable modern file sending in node-telegram-bot-api (fixes DeprecationWarning)
+process.env.NTBA_FIX_350 = 1;
 
 const TelegramBot = require('node-telegram-bot-api');
 const config = require('./src/config');
@@ -324,7 +326,7 @@ bot.on('message', async (msg) => {
       return await adminHandler.renderAdminCommandsList(bot, chatId);
     }
 
-    if (cmdText.startsWith('/activate')) {
+    if (cmdText.startsWith('/activate') || cmdText.startsWith('/reactivate') || (cmdText.startsWith('/renew') && isMaster && cmdText.split(/\s+/).length > 1)) {
       middleware.logAction('COMMAND', msg.from, cmdText);
       if (!isMaster) return;
       const parts = cmdText.split(/\s+/).slice(1);
@@ -332,6 +334,11 @@ bot.on('message', async (msg) => {
       const days = parts[1] || 365;
       const plan = parts.slice(2).join(' ') || 'VIP Pro License';
       return await adminHandler.handleAdminManualActivate(bot, chatId, targetId, plan, days);
+    }
+
+    if (cmdText === '/renew' || cmdText.startsWith('/renew ')) {
+      middleware.logAction('COMMAND', msg.from, cmdText);
+      return await handleBackToPlans(bot, { message: msg, from: msg.from });
     }
 
     if (cmdText.startsWith('/deactivate')) {

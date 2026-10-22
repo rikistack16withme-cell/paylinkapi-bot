@@ -48,7 +48,21 @@ function computeStatusHash(clientId, deviceId, requestTime) {
   return sha512(raw);
 }
 
-async function extractAbaData(merchantLink) {
+const abaDataCache = new Map();
+const ABA_CACHE_TTL_MS = 15 * 60 * 1000; // 15-minute high speed cache
+
+async function extractAbaData(merchantLink, forceFresh = false) {
+  if (!forceFresh && abaDataCache.has(merchantLink)) {
+    const cached = abaDataCache.get(merchantLink);
+    if (Date.now() - cached.cachedAt < ABA_CACHE_TTL_MS) {
+      return {
+        abaData: cached.abaData,
+        requestTime: generateRequestTime(),
+        fromCache: true
+      };
+    }
+  }
+
   let lastErr = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -103,11 +117,13 @@ async function extractAbaData(merchantLink) {
       }
 
       if (abaData) {
+        abaDataCache.set(merchantLink, { abaData, requestTime, cachedAt: Date.now() });
         return { abaData, requestTime, html };
       }
 
       const fallback = merchantLink.match(/ABAPAY[A-Za-z0-9]+/);
       if (fallback) {
+        abaDataCache.set(merchantLink, { abaData: fallback[0], requestTime: requestTime || generateRequestTime(), cachedAt: Date.now() });
         return { abaData: fallback[0], requestTime: requestTime || generateRequestTime(), html };
       }
     } catch (err) {
@@ -159,13 +175,15 @@ async function generateAbaQrCore({
   const amtNum = parseFloat(amount) || 1.00;
   const amtStr = curr === 'KHR' ? String(Math.round(amtNum)) : amtNum.toFixed(2);
 
-  // Step 1: Scrape aba_data and initial request_time from merchant checkout link
-  const { abaData, requestTime } = await extractAbaData(merchantLink);
+  // Step 1: Scrape aba_data and initial request_time from merchant checkout link (Ultra-fast cached)
+  let extracted = await extractAbaData(merchantLink);
+  let abaData = extracted.abaData;
+  let requestTime = extracted.requestTime;
 
-  const additionalFields = JSON.stringify({ amount: amtStr });
-  const hash1 = sha512(requestTime + abaData + additionalFields);
+  let additionalFields = JSON.stringify({ amount: amtStr });
+  let hash1 = sha512(requestTime + abaData + additionalFields);
 
-  const reqBody1 = {
+  let reqBody1 = {
     additional_fields: additionalFields,
     request_time: requestTime,
     aba_data: abaData,
@@ -186,7 +204,22 @@ async function generateAbaQrCore({
   };
 
   const listUrl = 'https://link.payway.com.kh/api/pw-app/v1/payment/gateway/list-payment-options';
-  const step1Res = await callAbaApiWithRetry(listUrl, reqBody1, headers1);
+  let step1Res = await callAbaApiWithRetry(listUrl, reqBody1, headers1);
+
+  // If cache was stale, auto-refresh fresh data and retry Step 1
+  if ((!step1Res || !step1Res.token || !step1Res.aba_data) && extracted.fromCache) {
+    extracted = await extractAbaData(merchantLink, true);
+    abaData = extracted.abaData;
+    requestTime = extracted.requestTime;
+    hash1 = sha512(requestTime + abaData + additionalFields);
+    reqBody1 = {
+      additional_fields: additionalFields,
+      request_time: requestTime,
+      aba_data: abaData,
+      hash: hash1
+    };
+    step1Res = await callAbaApiWithRetry(listUrl, reqBody1, headers1);
+  }
 
   if (!step1Res || !step1Res.token || !step1Res.aba_data) {
     const errCode = step1Res?.status?.code || 'ERR';
