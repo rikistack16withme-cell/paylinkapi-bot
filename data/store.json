@@ -10,6 +10,15 @@
       "lastActive": "2026-09-23T05:04:24.258Z",
       "updatedAt": "2026-09-23T05:04:24.258Z"
     },
+    "999999999": {
+      "telegramId": 999999999,
+      "username": "test_dev",
+      "firstName": "Test",
+      "lastName": "Developer",
+      "status": "ACTIVE",
+      "updatedAt": "2026-10-22T16:34:18.044Z",
+      "createdAt": "2026-10-22T16:34:18.044Z"
+    },
     "8665505824": {
       "telegramId": "8665505824",
       "username": "",
@@ -43,7 +52,7 @@
         "notifications": true
       },
       "createdAt": "2026-09-14T18:16:50.883Z",
-      "updatedAt": "2026-09-22T15:16:19.372Z",
+      "updatedAt": "2026-10-22T16:32:41.498Z",
       "provider": "Bakong KHQR",
       "providerKey": "bakong",
       "khrLink": null,
@@ -54,7 +63,11 @@
       "phone": "0977416126",
       "subscription": {
         "status": "ACTIVE",
-        "activatedAt": "2026-09-22T15:10:17.125Z"
+        "activatedAt": "2026-09-22T15:10:17.125Z",
+        "plan": "1m",
+        "durationDays": 30,
+        "expiresAt": "2026-11-21T16:32:41.497Z",
+        "renewedAt": "2026-10-22T16:32:41.497Z"
       }
     },
     "5555555555": {
@@ -253,25 +266,84 @@
       },
       "createdAt": "2026-09-26T07:03:53.009Z",
       "isMock": true
+    },
+    "1792686475018263": {
+      "id": "1792686475018263",
+      "status": "PENDING",
+      "telegramId": "7283817695",
+      "provider": "Bakong KHQR",
+      "bank": "BAKONG",
+      "currency": "USD",
+      "amount": 1,
+      "amountFormatted": "1.00",
+      "plan": null,
+      "details": {
+        "tranId": "1792686475018263",
+        "qrString": "00020101021229150011ryjinn@aclb520459995303840540115802KH5904riki6010Phnom Penh625201161792686475018263021009774161260304riki0706POS-019934001317926864750190113179277287501863044B7B",
+        "md5": "6f944bb1e8b0c24506f89e1e809ee427",
+        "deepLink": "bakong://qr?data=00020101021229150011ryjinn%40aclb520459995303840540115802KH5904riki6010Phnom%20Penh625201161792686475018263021009774161260304riki0706POS-019934001317926864750190113179277287501863044B7B",
+        "bank": "BAKONG"
+      },
+      "createdAt": "2026-10-22T16:27:55.021Z",
+      "isMock": true
+    },
+    "179268648772628": {
+      "id": "179268648772628",
+      "status": "PENDING",
+      "telegramId": "7283817695",
+      "provider": "ABA PayWay Gateway",
+      "bank": "ABA",
+      "currency": "USD",
+      "amount": 1,
+      "amountFormatted": "1.00",
+      "plan": null,
+      "details": {
+        "tranId": "179268648772628",
+        "clientId": "2203138-523639-33033623",
+        "requestTime": "20261022162807",
+        "token": "ef5b0868a54c29e74ac9a60000f81dbf",
+        "merchantLink": "https://link.payway.com.kh/ABAPAY86523639G",
+        "qrString": "00020101021230510016abaakhppxxx@abaa01151260330112334330208ABA Bank52048220530384054041.005802KH5914HUT SOKSITCHEY6010PHNOM PENH626068560010PAYWAY@ABA0115523639-330336230209042203138030110501199670013179268648763201131792688287632672100170013F1BF016411FDA6804PLIK63044CB2",
+        "md5": "cb78d1bd65a85c148720120c919fe254",
+        "deepLink": "abamobilebank://ababank.com?type=payway&qrcode=00020101021230510016abaakhppxxx%40abaa01151260330112334330208ABA%20Bank52048220530384054041.005802KH5914HUT%20SOKSITCHEY6010PHNOM%20PENH626068560010PAYWAY%40ABA0115523639-330336230209042203138030110501199670013179268648763201131792688287632672100170013F1BF016411FDA6804PLIK63044CB2",
+        "bank": "ABA"
+      },
+      "createdAt": "2026-10-22T16:28:05.674Z",
+      "isMock": true
+    },
+    "#TEST-1001": {
+      "id": "#TEST-1001",
+      "status": "PENDING_INTEGRATION",
+      "telegramId": "999999999",
+      "provider": "Bakong KHQR",
+      "currency": "USD",
+      "isMock": true,
+      "createdAt": "2026-10-22T16:34:18.045Z"
     }
   },
   "apiKeys": {
     "key_7283817695": {
       "id": "key_7283817695",
+      "isMock": true,
+      "createdAt": "2026-09-22T15:09:42.040Z",
       "telegramId": "7283817695",
       "provider": "Bakong KHQR",
       "tier": "Production Live Rail (Phase 2)",
       "apiKey": "dp_live_7283817695_1fc2742f",
       "secret": "whsec_52ec9025080b6c24",
       "status": "ACTIVE",
-      "isMock": true,
       "khrLink": null,
       "usdLink": null,
       "merchantName": "riki",
-      "createdAt": "2026-09-22T15:09:42.040Z",
       "merchantId": "ryjinn@aclb",
       "bakongId": "ryjinn@aclb",
-      "phone": "0977416126"
+      "phone": "0977416126",
+      "plan": "1m",
+      "durationDays": 30,
+      "expiresAt": "2026-11-21T16:32:41.497Z",
+      "expiryWarningSent": false,
+      "expiredNoticeSent": false,
+      "renewedAt": "2026-10-22T16:32:41.497Z"
     },
     "key_9876543210": {
       "id": "key_9876543210",

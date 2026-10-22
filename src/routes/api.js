@@ -57,7 +57,10 @@ function authenticateApiKey(req, res, next) {
 
     if (req.body && !req.body.merchantLink) {
       const curr = String(req.body.currency || 'USD').toUpperCase();
-      req.body.merchantLink = (curr === 'KHR') ? authResult.khrLink : authResult.usdLink;
+      const userLink = (curr === 'KHR') ? authResult.khrLink : authResult.usdLink;
+      if (userLink) {
+        req.body.merchantLink = userLink;
+      }
     }
   }
 
@@ -487,15 +490,15 @@ router.post(['/payment/generate-qr', '/qr/generate', '/payment/create'], authent
     } else {
       // ABA PayWay Flow
       const merchantLink = currency === 'KHR'
-        ? (payload.merchantLink || req.auth?.khrLink)
-        : (payload.merchantLink || req.auth?.usdLink);
+        ? (payload.merchantLink || req.auth?.khrLink || DEFAULT_MERCHANT_LINK_KHR)
+        : (payload.merchantLink || req.auth?.usdLink || DEFAULT_MERCHANT_LINK_USD);
 
       if (!merchantLink) {
         return res.status(400).json({
           success: false,
           bank: 'ABA',
           code: 'ABA_MERCHANT_NOT_CONFIGURED',
-          error: `No ABA PayWay ${currency} checkout link configured for this API Key. Please configure your ABA link or provide merchantLink in request body.`
+          error: `No ABA PayWay ${currency} checkout link configured. Please configure your ABA link or provide merchantLink in request body.`
         });
       }
 

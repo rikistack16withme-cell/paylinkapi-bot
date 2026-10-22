@@ -35,53 +35,84 @@ function generateDeviceId(length = 10) {
   return result;
 }
 
-function computeHash(data) {
-  const sortedKeys = Object.keys(data).sort();
-  const sortedObj = {};
-  for (const k of sortedKeys) {
-    sortedObj[k] = data[k];
-  }
-  const sortedJson = JSON.stringify(sortedObj);
-  return crypto.createHash('sha512').update(sortedJson, 'utf8').digest('hex');
+function sha512(str) {
+  return crypto.createHash('sha512').update(String(str), 'utf8').digest('hex');
+}
+
+function hmacSha512(str, key) {
+  return crypto.createHmac('sha512', String(key)).update(String(str), 'utf8').digest('hex');
 }
 
 function computeStatusHash(clientId, deviceId, requestTime) {
   const raw = `${clientId}${deviceId}${requestTime}`;
-  return crypto.createHash('sha512').update(raw, 'utf8').digest('hex');
+  return sha512(raw);
 }
 
 async function extractAbaData(merchantLink) {
   let lastErr = null;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const headers = { 'User-Agent': getRandomUserAgent() };
+      const headers = {
+        'User-Agent': getRandomUserAgent(),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      };
       const resp = await fetch(merchantLink, { headers, signal: AbortSignal.timeout(18000) });
       if (!resp.ok) {
         throw new Error(`Failed to fetch ABA merchant link (HTTP ${resp.status})`);
       }
       const html = await resp.text();
 
-  const patterns = [
-    /aba_data\s*=\s*["']([^"']+)["']/,
-    /"aba_data"\s*:\s*"([^"]+)"/,
-    /'aba_data'\s*:\s*'([^']+)'/,
-    /data-aba-data=["']([^"']+)["']/
-  ];
+      let abaData = null;
+      let requestTime = null;
 
-  for (const p of patterns) {
-    const match = html.match(p);
-    if (match) {
-      return match[1].replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-    }
-  }
+      // Primary extraction: Extract Nuxt payload from window.__NUXT__
+      const nuxtMatch = html.match(/<script(?![^>]*src)[^>]*>(window\.__NUXT__[\s\S]*?)<\/script>/);
+      if (nuxtMatch) {
+        try {
+          const vm = require('node:vm');
+          const sandbox = { window: {} };
+          vm.createContext(sandbox);
+          vm.runInContext(nuxtMatch[1], sandbox);
+          const nuxt = sandbox.window.__NUXT__;
+          abaData = nuxt?.data?.[0]?.data?.aba_data || nuxt?.state?.checkout?.paymentLinkData?.aba_data;
+          requestTime = nuxt?.state?.request_time;
+        } catch (e) {}
+      }
+
+      // Regex fallback for aba_data
+      if (!abaData) {
+        const patterns = [
+          /aba_data\s*=\s*["']([^"']+)["']/,
+          /"aba_data"\s*:\s*"([^"]+)"/,
+          /'aba_data'\s*:\s*'([^']+)'/,
+          /data-aba-data=["']([^"']+)["']/
+        ];
+        for (const p of patterns) {
+          const match = html.match(p);
+          if (match) {
+            abaData = match[1].replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+            break;
+          }
+        }
+      }
+
+      // Regex fallback for request_time
+      if (!requestTime) {
+        const reqTimeMatch = html.match(/"request_time"\s*:\s*"([^"]+)"/);
+        requestTime = reqTimeMatch ? reqTimeMatch[1] : generateRequestTime();
+      }
+
+      if (abaData) {
+        return { abaData, requestTime, html };
+      }
 
       const fallback = merchantLink.match(/ABAPAY[A-Za-z0-9]+/);
       if (fallback) {
-        return fallback[0];
+        return { abaData: fallback[0], requestTime: requestTime || generateRequestTime(), html };
       }
     } catch (err) {
       lastErr = err;
-      if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000));
     }
   }
 
@@ -98,11 +129,11 @@ async function callAbaApiWithRetry(url, payload, headers, maxRetries = 3) {
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(20000)
       });
-      const data = await resp.json();
+      const data = await resp.json().catch(() => null);
       if (typeof data === 'object' && data !== null) {
         return data;
       }
-      lastError = new Error(`Unexpected non-object response from ABA Gateway`);
+      lastError = new Error(`Unexpected non-object response from ABA Gateway (HTTP ${resp.status})`);
     } catch (err) {
       lastError = err;
       if (attempt < maxRetries) {
@@ -114,7 +145,7 @@ async function callAbaApiWithRetry(url, payload, headers, maxRetries = 3) {
 }
 
 /**
- * Core function to generate real ABA PayWay QR Code
+ * Core function to generate real ABA PayWay KHQR Code (PayWay v2 Protocol)
  */
 async function generateAbaQrCore({
   amount = 1.00,
@@ -128,23 +159,24 @@ async function generateAbaQrCore({
   const amtNum = parseFloat(amount) || 1.00;
   const amtStr = curr === 'KHR' ? String(Math.round(amtNum)) : amtNum.toFixed(2);
 
-  // Step 1: Scrape aba_data
-  const abaData = await extractAbaData(merchantLink);
-  const requestTime = generateRequestTime();
+  // Step 1: Scrape aba_data and initial request_time from merchant checkout link
+  const { abaData, requestTime } = await extractAbaData(merchantLink);
 
-  // Step 2: Build Step 1 Request Body
-  const reqBody = {
-    additional_fields: JSON.stringify({ amount: amtStr }),
+  const additionalFields = JSON.stringify({ amount: amtStr });
+  const hash1 = sha512(requestTime + abaData + additionalFields);
+
+  const reqBody1 = {
+    additional_fields: additionalFields,
     request_time: requestTime,
-    aba_data: abaData
+    aba_data: abaData,
+    hash: hash1
   };
-  reqBody.hash = computeHash(reqBody);
 
   const parsedUrl = new URL(merchantLink);
   const origin = `${parsedUrl.protocol}//${parsedUrl.host}`;
 
-  const headers = {
-    'Host': 'pwapp.ababank.com',
+  const headers1 = {
+    'Host': 'link.payway.com.kh',
     'Language': 'en',
     'Content-Type': 'application/json',
     'Accept': 'application/json, text/plain, */*',
@@ -153,44 +185,49 @@ async function generateAbaQrCore({
     'User-Agent': getRandomUserAgent()
   };
 
-  const listUrl = `${ABA_BASE_URL}/pw-app/v1/payment/gateway/list-payment-options`;
+  const listUrl = 'https://link.payway.com.kh/api/pw-app/v1/payment/gateway/list-payment-options';
+  const step1Res = await callAbaApiWithRetry(listUrl, reqBody1, headers1);
 
-  // Step 3: API Call 1 - Get Option Hash
-  const step1Res = await callAbaApiWithRetry(listUrl, reqBody, headers);
-  const statusHash = step1Res.status;
-  if (!statusHash) {
-    throw new Error(`ABA Gateway Step 1 failed: ${JSON.stringify(step1Res)}`);
+  if (!step1Res || !step1Res.token || !step1Res.aba_data) {
+    const errCode = step1Res?.status?.code || 'ERR';
+    const errMsg = step1Res?.status?.message || JSON.stringify(step1Res);
+    throw new Error(`ABA Gateway Step 1 failed (${errCode}: ${errMsg})`);
   }
 
-  if (typeof statusHash === 'object') {
-    const code = statusHash.code;
-    const msg = statusHash.message;
-    if (code && code !== '00') {
-      throw new Error(`ABA Gateway Step 1 error: code=${code}, message=${msg}`);
-    }
-    throw new Error(`Unexpected response format in Step 1`);
-  }
+  const token = step1Res.token;
+  const newAbaData = step1Res.aba_data;
 
-  reqBody.hash = statusHash;
+  // Step 2: Request real dynamic KHQR Code from /abapay-khqr/request-qr
+  const qrEndpoint = 'https://link.payway.com.kh/api/pw-app/v1/payment/gateway/abapay-khqr/request-qr';
+  const hash2 = hmacSha512(requestTime + newAbaData, token);
 
-  // Step 4: API Call 2 - Get QR String, Token, and Transaction ID
-  const step2Res = await callAbaApiWithRetry(listUrl, reqBody, headers);
-  let tranId = null;
-  if (step2Res.status && typeof step2Res.status === 'object') {
-    const code = step2Res.status.code;
-    const msg = step2Res.status.message;
-    if (code && code !== '00') {
-      throw new Error(`ABA Gateway Step 2 error: code=${code}, message=${msg}`);
-    }
-    tranId = String(step2Res.status.tran_id || '');
-  }
+  const reqBody2 = {
+    request_time: requestTime,
+    aba_data: newAbaData,
+    hash: hash2
+  };
+
+  const headers2 = {
+    'Host': 'link.payway.com.kh',
+    'Language': 'en',
+    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/plain, */*',
+    'token': token,
+    'Origin': origin,
+    'Referer': merchantLink,
+    'User-Agent': getRandomUserAgent()
+  };
+
+  const step2Res = await callAbaApiWithRetry(qrEndpoint, reqBody2, headers2);
 
   const qrString = step2Res.qr_string;
-  const clientId = step2Res.client_id;
-  const token = step2Res.token;
+  const clientId = step2Res.client_id || step1Res.client_id;
+  const tranId = String(step2Res.status?.tran_id || step1Res.status?.tran_id || `DPL-${Date.now()}`);
 
-  if (!qrString || !tranId) {
-    throw new Error(`ABA Gateway failed to return QR string or tran_id: ${JSON.stringify(step2Res)}`);
+  if (!qrString) {
+    const errCode = step2Res?.status?.code || 'ERR';
+    const errMsg = step2Res?.status?.message || JSON.stringify(step2Res);
+    throw new Error(`ABA Gateway failed to return QR string (${errCode}: ${errMsg})`);
   }
 
   const md5Hash = crypto.createHash('md5').update(qrString).digest('hex');
@@ -227,23 +264,22 @@ async function checkAbaPaymentCore({
   token,
   merchantLink = DEFAULT_MERCHANT_LINK_USD
 } = {}) {
-  if (!tranId || !clientId || !requestTime || !token) {
+  if (!clientId || !requestTime || !token) {
     return {
       success: false,
       paid: false,
       status: 'ERROR',
-      error: 'Missing required credentials (tranId, clientId, requestTime, token)'
+      error: 'Missing required credentials (clientId, requestTime, token)'
     };
   }
 
   const deviceId = generateDeviceId(10);
-  const hashVal = computeStatusHash(clientId, deviceId, requestTime);
+  const hashVal = sha512(String(clientId) + deviceId + String(requestTime));
 
   const payload = {
-    tran_id: String(tranId),
+    client_id: String(clientId),
     device_id: deviceId,
     request_time: String(requestTime),
-    client_id: String(clientId),
     hash: hashVal
   };
 
@@ -257,7 +293,7 @@ async function checkAbaPaymentCore({
     'token': String(token)
   };
 
-  const url = `${ABA_BASE_URL}/pw-app/v1/payment-link/check-payment-status`;
+  const url = 'https://link.payway.com.kh/api/pw-app/v1/payment-link/check-payment-status';
   const resp = await fetch(url, {
     method: 'POST',
     headers,
@@ -265,16 +301,32 @@ async function checkAbaPaymentCore({
     signal: AbortSignal.timeout(15000)
   });
 
+  const data = await resp.json().catch(() => null);
+
+  // ABA has a 300-500ms database write latency right after QR code generation.
+  // Code 35 ("Transaction not found") indicates the transaction has not propagated yet, so it is PENDING.
+  if (data?.status?.code === '35') {
+    return {
+      success: true,
+      paid: false,
+      status: 'PENDING',
+      rawAction: 'request_qr',
+      tranId,
+      bank: 'ABA',
+      rawResponse: data
+    };
+  }
+
   if (!resp.ok) {
     return {
       success: false,
       paid: false,
       status: 'ERROR',
-      error: `HTTP ${resp.status}`
+      error: `HTTP ${resp.status}`,
+      rawResponse: data
     };
   }
 
-  const data = await resp.json();
   const action = String(data?.data?.action || '').toLowerCase();
 
   if (['approved', 'success', 'paid'].includes(action)) {
@@ -297,7 +349,7 @@ async function checkAbaPaymentCore({
       bank: 'ABA',
       rawResponse: data
     };
-  } else if (action === 'pending') {
+  } else if (['request_qr', 'pending', 'unpaid', 'rqpay'].includes(action)) {
     return {
       success: true,
       paid: false,
@@ -307,23 +359,14 @@ async function checkAbaPaymentCore({
       bank: 'ABA',
       rawResponse: data
     };
-  } else if (['request_qr', 'unpaid'].includes(action)) {
-    return {
-      success: true,
-      paid: false,
-      status: 'UNPAID',
-      rawAction: action,
-      tranId,
-      bank: 'ABA',
-      rawResponse: data
-    };
   } else {
     return {
       success: true,
       paid: false,
-      status: 'UNKNOWN',
+      status: 'PENDING',
       rawAction: action,
       tranId,
+      bank: 'ABA',
       rawResponse: data
     };
   }
@@ -391,12 +434,12 @@ async function generateAbaQr(req, res) {
       });
     }
 
-    const merchantLink = payload.merchantLink || (curr === 'KHR' ? req.auth?.khrLink : req.auth?.usdLink);
+    const merchantLink = payload.merchantLink || (curr === 'KHR' ? (req.auth?.khrLink || DEFAULT_MERCHANT_LINK_KHR) : (req.auth?.usdLink || DEFAULT_MERCHANT_LINK_USD));
     if (!merchantLink) {
       return res.status(400).json({
         success: false,
         bank: 'ABA',
-        error: `No ABA PayWay ${curr} checkout link configured for this API Key. Please configure your ABA link or provide merchantLink in request body.`
+        error: `No ABA PayWay ${curr} checkout link configured. Please configure your ABA link or provide merchantLink in request body.`
       });
     }
 
@@ -464,8 +507,8 @@ async function checkAbaPayment(req, res) {
     let tx = null;
     if (tranId) {
       tx = orderService.getPaymentTransaction(tranId);
-      if (tx && tx.details) {
-        payload = { ...tx.details, ...payload, tranId };
+      if (tx) {
+        payload = { ...tx, ...(tx.details || {}), ...payload, tranId };
       }
     }
 
@@ -510,14 +553,16 @@ async function checkAbaPayment(req, res) {
       // 2. Dispatch settlement notification directly to merchant Telegram chat
       if (!wasAlreadyPaid || isTestSimulated) {
         try {
-          if (tx && tx.plan && (String(tx.plan).includes('Pass') || String(tx.plan).includes('Pro') || String(tx.plan).includes('Enterprise') || tx.planKey)) {
+          if (tx && (tx.plan || tx.planKey || (tx.details && tx.details.planKey))) {
+            const planKey = tx.planKey || (tx.details && tx.details.planKey) || (String(tx.plan).includes('Year') || String(tx.plan).includes('Enterprise') ? '1y' : (String(tx.plan).includes('Month') || String(tx.plan).includes('Pro') ? '1m' : '1w'));
+            apiKeyService.renewApiKeySubscription(targetTelegramId, planKey);
             const userKeys = apiKeyService.getOrCreateUserKeys(targetTelegramId);
             const activeKey = userKeys[0]?.apiKey || `plk_live_${targetTelegramId}_active`;
             const activeSecret = userKeys[0]?.secret || `whsec_${targetTelegramId}_active`;
             await sendPaymentSuccessNotification(targetTelegramId, {
               apiKey: activeKey,
               secret: activeSecret,
-              plan: tx.plan,
+              plan: tx.plan || planKey,
               tranId: activeTranId,
               amount: tx.amount || 0.10,
               amountFormatted: tx.amountFormatted || '400',
