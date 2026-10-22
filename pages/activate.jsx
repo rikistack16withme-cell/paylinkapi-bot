@@ -19,22 +19,13 @@ import {
   Sliders,
   CheckCircle2,
   Clock,
+  User,
   AlertCircle,
   FileText,
+  Terminal,
   Search,
-  DollarSign,
-  Layers,
-  ChevronRight
+  DollarSign
 } from 'lucide-react';
-
-const DURATION_PRESETS = [
-  { days: 7, label: '7 Days', desc: 'Trial / Sandbox', badge: 'Fast Test' },
-  { days: 30, label: '30 Days', desc: '1 Month Standard', badge: 'Popular' },
-  { days: 90, label: '90 Days', desc: '3 Months Quarter', badge: 'Value' },
-  { days: 180, label: '180 Days', desc: '6 Months Half-Year', badge: 'Pro' },
-  { days: 365, label: '365 Days', desc: '1 Year License', badge: 'VIP' },
-  { days: 9999, label: 'Permanent', desc: 'Lifetime Active', badge: 'Enterprise' }
-];
 
 export default function ActivateKeyPortal() {
   const router = useRouter();
@@ -44,7 +35,6 @@ export default function ActivateKeyPortal() {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isInspecting, setIsInspecting] = useState(false);
   const [inspectResult, setInspectResult] = useState(null);
-  const [inspectError, setInspectError] = useState('');
 
   // Configuration State
   const [rail, setRail] = useState('bundle'); // 'bundle', 'bakong', 'aba'
@@ -57,21 +47,22 @@ export default function ActivateKeyPortal() {
   // Duration State
   const [durationDays, setDurationDays] = useState(30);
   const [isCustomDays, setIsCustomDays] = useState(false);
-  const [customDaysInput, setCustomDaysInput] = useState('');
+  const [customDays, setCustomDays] = useState('');
 
   // Submission & Result State
   const [isActivating, setIsActivating] = useState(false);
-  const [activatedResult, setActivatedResult] = useState(null);
-  const [actionError, setActionError] = useState('');
+  const [activatedKey, setActivatedKey] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedCurl, setCopiedCurl] = useState(false);
 
   // Initialize from Query Params
   useEffect(() => {
     const initialKey = queryKey || queryApiKey || '';
     if (initialKey) {
       setApiKeyInput(initialKey);
-      inspectApiKey(initialKey);
+      inspectKey(initialKey);
     }
     if (queryDays) {
       const d = parseInt(queryDays, 10);
@@ -79,7 +70,7 @@ export default function ActivateKeyPortal() {
         setDurationDays(d);
         if (![7, 30, 90, 180, 365, 9999].includes(d)) {
           setIsCustomDays(true);
-          setCustomDaysInput(String(d));
+          setCustomDays(String(d));
         }
       }
     }
@@ -89,12 +80,12 @@ export default function ActivateKeyPortal() {
   }, [queryKey, queryApiKey, queryDays, queryRail]);
 
   // Inspect existing API Key details from API
-  const inspectApiKey = async (keyToInspect) => {
+  const inspectKey = async (keyToInspect) => {
     const targetKey = (keyToInspect || apiKeyInput).trim();
     if (!targetKey) return;
 
     setIsInspecting(true);
-    setInspectError('');
+    setErrorMessage('');
 
     try {
       const res = await fetch(`/api/keys/status?api_key=${encodeURIComponent(targetKey)}`);
@@ -128,40 +119,26 @@ export default function ActivateKeyPortal() {
         }
       } else {
         setInspectResult(null);
-        // If not found in DB, it's totally fine (migrated / new standalone key)
       }
     } catch (_) {
-      // Offline or network error
+      // Ignore network errors
     } finally {
       setIsInspecting(false);
     }
   };
 
-  // Calculate target expiry date preview
-  const calculateExpiryPreview = () => {
-    const days = isCustomDays ? (parseInt(customDaysInput, 10) || 30) : durationDays;
-    if (days >= 9999) return '♾️ Permanent (No Expiration)';
-    const date = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    }) + ` (+${days} days)`;
-  };
-
   // Submit Activation Request
   const handleActivate = async (e) => {
     if (e) e.preventDefault();
-    setActionError('');
+    setErrorMessage('');
 
     const targetKey = apiKeyInput.trim();
     if (!targetKey) {
-      setActionError('សូមបញ្ចូល API Key របស់អ្នក (Please enter your API Key).');
+      setErrorMessage('Please enter an API Key to activate or reconfigure.');
       return;
     }
 
-    const finalDays = isCustomDays ? (parseInt(customDaysInput, 10) || 30) : durationDays;
+    const finalDays = isCustomDays ? (parseInt(customDays, 10) || 30) : durationDays;
 
     let resolvedProvider = 'Dual Suite (ABA & Bakong)';
     let finalBakong = null;
@@ -215,7 +192,7 @@ export default function ActivateKeyPortal() {
       const data = await res.json();
 
       if (data && data.success && data.key) {
-        setActivatedResult(data.key);
+        setActivatedKey(data.key);
         try {
           confetti({
             particleCount: 70,
@@ -224,10 +201,10 @@ export default function ActivateKeyPortal() {
           });
         } catch (_) {}
       } else {
-        setActionError(data.message || data.error || 'Failed to activate key. Please try again.');
+        setErrorMessage(data.message || data.error || 'Failed to activate key. Please try again.');
       }
     } catch (err) {
-      setActionError(`Network connection error: ${err.message}`);
+      setErrorMessage(`Network connection error: ${err.message}`);
     } finally {
       setIsActivating(false);
     }
@@ -239,596 +216,863 @@ export default function ActivateKeyPortal() {
       if (type === 'key') {
         setCopiedKey(true);
         setTimeout(() => setCopiedKey(false), 2000);
-      } else {
+      } else if (type === 'secret') {
         setCopiedSecret(true);
         setTimeout(() => setCopiedSecret(false), 2000);
+      } else if (type === 'curl') {
+        setCopiedCurl(true);
+        setTimeout(() => setCopiedCurl(false), 2000);
       }
     }
   };
 
+  const curlExample = activatedKey
+    ? `curl -X POST https://paylinkapi-bot.onrender.com/api/v1/payment/create \\
+  -H "Authorization: Bearer ${activatedKey.apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"amount": 1.00, "currency": "USD"}'`
+    : '';
+
   return (
     <>
       <Head>
-        <title>Key Activation & Configuration Portal • PayLinkAPI</title>
-        <meta name="description" content="Reactivate, customize payment rails, and set expiration duration for your PayLinkAPI key." />
+        <title>PaylinkApi — Key Activation &amp; Renewal Portal</title>
+        <meta name="description" content="Activate old keys, upgrade to v2 engine, and customize payment rails and expiration days." />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <link rel="icon" type="image/png" href="/logo.png" />
       </Head>
 
-      <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col justify-between selection:bg-blue-500 selection:text-white pb-12">
-        {/* Background glow effects */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/15 rounded-full blur-[128px]" />
-          <div className="absolute top-1/3 -right-40 w-96 h-96 bg-purple-600/15 rounded-full blur-[128px]" />
-          <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-emerald-600/10 rounded-full blur-[128px]" />
-        </div>
-
-        {/* Top Navbar */}
-        <header className="relative z-10 border-b border-slate-800/80 bg-[#070b14]/80 backdrop-blur-md px-4 lg:px-8 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push('/')}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Zap className="w-5 h-5 text-white" />
+      <div className="app-container" style={{ maxWidth: '640px', margin: '0 auto', minHeight: '100vh' }}>
+        
+        {/* Header matching genkey.jsx */}
+        <header className="app-header">
+          <div className="brand-group" onClick={() => router.push('/')} style={{ cursor: 'pointer' }}>
+            <div className="brand-logo-mark">
+              <img src="/logo.png" alt="PaylinkApi" className="brand-logo-img" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold tracking-tight text-white text-base">PayLinkAPI</span>
-                <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  Key Portal
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">Universal Payment Gateway Infrastructure</p>
+            <div className="brand-info">
+              <span className="brand-name">PaylinkApi</span>
+              <span className="brand-tagline">KEY ACTIVATION &amp; RENEWAL PORTAL</span>
             </div>
           </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => router.push('/test')}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all flex items-center gap-1.5 border border-slate-700/60"
-            >
-              <CreditCard className="w-3.5 h-3.5 text-blue-400" />
-              <span>Test Pay</span>
-            </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="status-badge" style={{ borderColor: '#10b981', color: '#059669' }}>
+              <span className="status-dot" style={{ background: '#10b981' }}></span>
+              <span>Online v2</span>
+            </div>
             <a
               href="https://t.me/PayLinkAPI_bot"
               target="_blank"
               rel="noreferrer"
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-all flex items-center gap-1.5 shadow-md shadow-blue-600/20"
+              style={{
+                padding: '6px 12px',
+                borderRadius: '9999px',
+                background: '#002d56',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
             >
-              <Bot className="w-3.5 h-3.5" />
-              <span>Telegram Bot</span>
+              <Bot size={14} />
+              Telegram Bot
             </a>
           </div>
         </header>
 
-        {/* Main Content */}
-        <main className="relative z-10 max-w-4xl w-full mx-auto px-4 py-8 flex-1">
-          {/* Header Section */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider mb-3">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>API Key Activation & Customization Suite</span>
+        {/* Success Card (Shown after activation) */}
+        {activatedKey ? (
+          <div style={{
+            width: '100%',
+            background: '#ffffff',
+            borderRadius: '24px',
+            padding: '28px',
+            border: '2px solid #10b981',
+            boxShadow: '0 16px 40px rgba(16, 185, 129, 0.12)',
+            marginBottom: '24px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                background: '#dcfce7',
+                color: '#10b981',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <CheckCircle2 size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  KEY ត្រូវបានបើកដំណើរការជោគជ័យ!
+                </h3>
+                <span style={{ fontSize: '12px', color: '#059669', fontWeight: 700 }}>
+                  ✓ LIVE ACTIVE • High-Speed PayWay v2 &amp; KHQR Engine
+                </span>
+              </div>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white mb-2">
-              បើកដំណើរការ & កំណត់ KEY លើ WEB
-            </h1>
-            <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-              Activate old keys, upgrade to v2 high-speed engine (~200ms), and configure Bakong KHQR, ABA PayWay, and expiration validity.
+
+            {/* API Key Box */}
+            <div style={{ marginBottom: '14px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                Production Live API Key:
+              </span>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '12px',
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                color: '#002d56',
+                fontWeight: 700,
+                wordBreak: 'break-all'
+              }}>
+                <span>{activatedKey.apiKey}</span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(activatedKey.apiKey, 'key')}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    background: copiedKey ? '#10b981' : '#002d56',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    flexShrink: 0,
+                    marginLeft: '8px'
+                  }}
+                >
+                  {copiedKey ? <Check size={12} /> : <Copy size={12} />}
+                  {copiedKey ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            {/* Secret Box */}
+            <div style={{ marginBottom: '16px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                Client Secret:
+              </span>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '12px',
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                color: '#475569',
+                fontWeight: 600,
+                wordBreak: 'break-all'
+              }}>
+                <span>{activatedKey.secret || 'whsec_live_default'}</span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(activatedKey.secret || 'whsec_live_default', 'secret')}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    background: copiedSecret ? '#10b981' : '#f1f5f9',
+                    color: copiedSecret ? '#ffffff' : '#002d56',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    flexShrink: 0,
+                    marginLeft: '8px'
+                  }}
+                >
+                  {copiedSecret ? <Check size={12} /> : <Copy size={12} />}
+                  {copiedSecret ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            {/* Telemetry Summary */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '10px',
+              padding: '14px',
+              background: '#f8fafc',
+              borderRadius: '14px',
+              border: '1px solid #e2e8f0',
+              marginBottom: '18px',
+              fontSize: '12px'
+            }}>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Payment Rail:</span>
+                <strong style={{ color: '#0f172a' }}>{activatedKey.provider}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Validity:</span>
+                <strong style={{ color: '#059669' }}>
+                  {activatedKey.durationDays >= 9999 ? 'Permanent' : `${activatedKey.durationDays} Days`}
+                </strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Store Name:</span>
+                <strong style={{ color: '#0f172a' }}>{activatedKey.merchantName || 'Store'}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Expires On:</span>
+                <strong style={{ color: '#0f172a' }}>{(activatedKey.expiresAt || '').slice(0, 10)}</strong>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <a
+                  href={`/test?key=${encodeURIComponent(activatedKey.apiKey)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: '#002d56',
+                    color: '#ffffff',
+                    textAlign: 'center',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <CreditCard size={16} />
+                  Test Payment
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(curlExample, 'curl')}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: copiedCurl ? '#10b981' : '#f8fafc',
+                    color: copiedCurl ? '#ffffff' : '#002d56',
+                    border: '1px solid #cbd5e1',
+                    textAlign: 'center',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Terminal size={16} />
+                  {copiedCurl ? 'cURL Copied!' : 'Copy cURL'}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActivatedKey(null);
+                  setApiKeyInput('');
+                  setInspectResult(null);
+                }}
+                style={{
+                  padding: '10px',
+                  borderRadius: '12px',
+                  background: 'transparent',
+                  color: '#64748b',
+                  border: '1px solid #e2e8f0',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <RefreshCw size={14} />
+                Activate Another Key
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Activation Form matching genkey.jsx */}
+        <form onSubmit={handleActivate} style={{
+          width: '100%',
+          background: '#ffffff',
+          borderRadius: '24px',
+          padding: '28px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 12px 36px rgba(0, 45, 86, 0.08)'
+        }}>
+          
+          <div style={{ marginBottom: '20px' }}>
+            <h2 className="card-title" style={{ fontSize: '20px', fontWeight: 800, color: '#002d56', marginBottom: '4px' }}>
+              បើកដំណើរការ &amp; កំណត់ KEY លើ WEB
+            </h2>
+            <p className="card-desc" style={{ fontSize: '13px', color: '#64748b' }}>
+              Reactivate old keys, upgrade to v2 engine (~200ms), and configure Bakong KHQR, ABA PayWay, and expiration duration.
             </p>
           </div>
 
-          {/* Success Result View */}
-          {activatedResult ? (
-            <div className="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl shadow-emerald-500/10 relative overflow-hidden animate-fadeIn">
-              <div className="absolute -top-24 -right-24 w-60 h-60 bg-emerald-500/10 rounded-full blur-3xl" />
+          {/* Section 1: API Key Input & Inspection */}
+          <div style={{ marginBottom: '22px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
+              1. Enter API Key to Activate / Reconfigure
+            </label>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="text"
+                required
+                placeholder="Paste API Key (e.g. plk_live_xxxxxxxxxxxx or dp_live_xxxxxxxxxxxx)"
+                value={apiKeyInput}
+                onChange={(e) => {
+                  setApiKeyInput(e.target.value);
+                  if (inspectResult) setInspectResult(null);
+                }}
+                onBlur={() => inspectKey(apiKeyInput)}
+                style={{
+                  width: '100%',
+                  padding: '12px 90px 12px 14px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '13px',
+                  fontFamily: 'monospace',
+                  color: '#0f172a',
+                  background: '#f8fafc'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => inspectKey(apiKeyInput)}
+                disabled={isInspecting || !apiKeyInput.trim()}
+                style={{
+                  position: 'absolute',
+                  right: '6px',
+                  padding: '7px 12px',
+                  borderRadius: '8px',
+                  background: '#002d56',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: isInspecting ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                {isInspecting ? <RefreshCw size={12} className="animate-spin" /> : <Search size={12} />}
+                Inspect
+              </button>
+            </div>
 
-              <div className="flex items-center gap-3.5 mb-6 pb-6 border-b border-slate-800">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <CheckCircle2 className="w-6 h-6" />
+            {inspectResult ? (
+              <div style={{
+                marginTop: '10px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '8px',
+                fontSize: '11px'
+              }}>
+                <div>
+                  <span style={{ color: '#166534', display: 'block' }}>Status</span>
+                  <strong style={{ color: inspectResult.isExpired ? '#dc2626' : '#15803d' }}>
+                    {inspectResult.status || (inspectResult.isExpired ? 'EXPIRED' : 'ACTIVE')}
+                  </strong>
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    KEY ត្រូវបានបើកដំណើរការជោគជ័យ!
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      LIVE ACTIVE
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Your key is now live with high-speed response (~200ms) and verified Cambodian payment rails.
-                  </p>
+                  <span style={{ color: '#166534', display: 'block' }}>Current Rail</span>
+                  <strong style={{ color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                    {inspectResult.provider || 'Universal'}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: '#166534', display: 'block' }}>Store Name</span>
+                  <strong style={{ color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                    {inspectResult.merchantName || 'Store'}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: '#166534', display: 'block' }}>Expires On</span>
+                  <strong style={{ color: '#0f172a' }}>
+                    {inspectResult.expiresAt ? inspectResult.expiresAt.slice(0, 10) : 'N/A'}
+                  </strong>
                 </div>
               </div>
+            ) : null}
+          </div>
 
-              {/* API Key Box */}
-              <div className="mb-4">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                  Production API Key
-                </label>
-                <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl p-3 font-mono text-sm text-blue-400">
-                  <span className="flex-1 break-all select-all">{activatedResult.apiKey}</span>
-                  <button
-                    onClick={() => copyToClipboard(activatedResult.apiKey, 'key')}
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors flex items-center gap-1 text-xs"
-                  >
-                    {copiedKey ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedKey ? 'Copied' : 'Copy'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Webhook Secret Box */}
-              <div className="mb-6">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                  Client Webhook Secret
-                </label>
-                <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl p-3 font-mono text-sm text-purple-400">
-                  <span className="flex-1 break-all select-all">{activatedResult.secret || 'whsec_live_default'}</span>
-                  <button
-                    onClick={() => copyToClipboard(activatedResult.secret || 'whsec_live_default', 'secret')}
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors flex items-center gap-1 text-xs"
-                  >
-                    {copiedSecret ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedSecret ? 'Copied' : 'Copy'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Telemetry Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-                <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3.5">
-                  <span className="text-[11px] font-medium text-slate-400 block mb-1">Payment Rail</span>
-                  <span className="text-sm font-semibold text-white flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-blue-400" />
-                    {activatedResult.provider}
-                  </span>
-                </div>
-                <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3.5">
-                  <span className="text-[11px] font-medium text-slate-400 block mb-1">Store / Brand</span>
-                  <span className="text-sm font-semibold text-white truncate block">
-                    {activatedResult.merchantName || 'Merchant Store'}
-                  </span>
-                </div>
-                <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3.5">
-                  <span className="text-[11px] font-medium text-slate-400 block mb-1">Validity Duration</span>
-                  <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1.5">
-                    <Clock className="w-4 h-4" />
-                    {activatedResult.durationDays >= 9999 ? 'Permanent' : `${activatedResult.durationDays} Days`}
-                  </span>
-                </div>
-                <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3.5">
-                  <span className="text-[11px] font-medium text-slate-400 block mb-1">Expires At</span>
-                  <span className="text-sm font-semibold text-slate-200">
-                    {activatedResult.expiresAt ? new Date(activatedResult.expiresAt).toLocaleDateString() : 'Active'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Actions Footer */}
-              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-800">
-                <button
-                  onClick={() => router.push(`/test?api_key=${encodeURIComponent(activatedResult.apiKey)}`)}
-                  className="flex-1 min-w-[160px] py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/25"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>ធ្វើតេស្តបង់ប្រាក់ (Test Pay)</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setActivatedResult(null);
-                    setApiKeyInput('');
-                    setInspectResult(null);
-                  }}
-                  className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition-colors flex items-center gap-2 border border-slate-700"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Activate Another Key</span>
-                </button>
-                <a
-                  href="https://t.me/PayLinkAPI_bot"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition-colors flex items-center gap-2 border border-slate-700"
-                >
-                  <Bot className="w-4 h-4 text-blue-400" />
-                  <span>Telegram Dashboard</span>
-                </a>
-              </div>
-            </div>
-          ) : (
-            /* Activation Form */
-            <form onSubmit={handleActivate} className="space-y-6">
-              {/* Step 1: Input API Key */}
-              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 sm:p-6 backdrop-blur-xl shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center border border-blue-500/30">
-                      1
-                    </span>
-                    <h2 className="text-base font-bold text-white">បញ្ចូល API Key របស់អ្នក (Enter Your API Key)</h2>
+          {/* Section 2: Payment Rail Selection matching genkey.jsx */}
+          <div style={{ marginBottom: '22px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
+              2. Select Payment Rail for This Key
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
+              
+              {/* Dual Suite */}
+              <div
+                onClick={() => setRail('bundle')}
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  border: rail === 'bundle' ? '2px solid #8b5cf6' : '1px solid #e2e8f0',
+                  background: rail === 'bundle' ? 'rgba(139, 92, 246, 0.05)' : '#ffffff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: '#8b5cf6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff'
+                  }}>
+                    <Zap size={18} />
                   </div>
-                  {inspectResult && (
-                    <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      Key Found in System
-                    </span>
-                  )}
+                  <div>
+                    <h4 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                      🟣 Dual Suite (Bakong KHQR + ABA PayWay)
+                    </h4>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Universal Cambodian clearing for both Bakong KHQR &amp; ABA PayWay</span>
+                  </div>
                 </div>
+                {rail === 'bundle' ? <CheckCircle2 size={20} color="#8b5cf6" /> : null}
+              </div>
 
-                <div className="relative flex items-center">
-                  <Key className="absolute left-3.5 w-5 h-5 text-slate-500" />
-                  <input
-                    type="text"
-                    required
-                    value={apiKeyInput}
-                    onChange={(e) => {
-                      setApiKeyInput(e.target.value);
-                      if (inspectResult) setInspectResult(null);
-                    }}
-                    onBlur={() => inspectApiKey(apiKeyInput)}
-                    placeholder="e.g. plk_live_xxxxxxxxxxxx or dp_live_xxxxxxxxxxxx"
-                    className="w-full pl-11 pr-28 py-3 bg-slate-950/70 border border-slate-700 rounded-xl text-white font-mono text-sm placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                  />
+              {/* ABA PayWay Only */}
+              <div
+                onClick={() => setRail('aba')}
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  border: rail === 'aba' ? '2px solid #004f71' : '1px solid #e2e8f0',
+                  background: rail === 'aba' ? 'rgba(0, 79, 113, 0.05)' : '#ffffff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: '#002d56',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff'
+                  }}>
+                    <CreditCard size={18} />
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                      🔵 ABA PayWay Gateway Only
+                    </h4>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Direct ABA PayWay gateway links (USD, KHR, or Both)</span>
+                  </div>
+                </div>
+                {rail === 'aba' ? <CheckCircle2 size={20} color="#004f71" /> : null}
+              </div>
+
+              {/* Bakong KHQR Only */}
+              <div
+                onClick={() => setRail('bakong')}
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  border: rail === 'bakong' ? '2px solid #e11900' : '1px solid #e2e8f0',
+                  background: rail === 'bakong' ? 'rgba(225, 25, 0, 0.05)' : '#ffffff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: '#e11900',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff'
+                  }}>
+                    <Building2 size={18} />
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                      🔴 NBC Bakong KHQR Only
+                    </h4>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>National KHQR EMVCo QR code deposits into Bakong ID</span>
+                  </div>
+                </div>
+                {rail === 'bakong' ? <CheckCircle2 size={20} color="#e11900" /> : null}
+              </div>
+
+            </div>
+          </div>
+
+          {/* Section 3: Merchant Bank Setup & Customization */}
+          <div style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            padding: '16px',
+            marginBottom: '22px'
+          }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#0f172a', marginBottom: '12px' }}>
+              3. Merchant Bank Setup &amp; Customization
+            </label>
+
+            {/* Bakong Account ID (for Bakong & Dual) */}
+            {rail !== 'aba' ? (
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#e11900' }}>
+                    🔴 Bakong Account ID / Phone:
+                  </span>
                   <button
                     type="button"
-                    onClick={() => inspectApiKey(apiKeyInput)}
-                    disabled={isInspecting || !apiKeyInput.trim()}
-                    className="absolute right-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-xs font-medium text-slate-300 transition-colors flex items-center gap-1 border border-slate-700"
+                    onClick={() => setBakongId('soksitchey1@aclb')}
+                    style={{ background: 'none', border: 'none', color: '#004f71', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
                   >
-                    {isInspecting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                    <span>Inspect</span>
+                    Use Demo (soksitchey1@aclb)
                   </button>
                 </div>
-
-                {inspectResult && (
-                  <div className="mt-3.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <div>
-                      <span className="text-slate-500 block">Status</span>
-                      <span className={`font-semibold ${inspectResult.isExpired ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {inspectResult.status || (inspectResult.isExpired ? 'EXPIRED' : 'ACTIVE')}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Current Rail</span>
-                      <span className="font-semibold text-slate-200 truncate block">{inspectResult.provider || 'Universal'}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Current Store</span>
-                      <span className="font-semibold text-slate-200 truncate block">{inspectResult.merchantName || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Expires</span>
-                      <span className="font-semibold text-slate-200">{inspectResult.expiresAt ? new Date(inspectResult.expiresAt).toLocaleDateString() : 'N/A'}</span>
-                    </div>
-                  </div>
-                )}
+                <input
+                  type="text"
+                  placeholder="e.g. hut_soksitchey1@aclb or 0977416126"
+                  value={bakongId}
+                  onChange={(e) => setBakongId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '14px',
+                    color: '#0f172a',
+                    background: '#ffffff'
+                  }}
+                />
               </div>
+            ) : null}
 
-              {/* Step 2: Choose Payment Rail */}
-              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 sm:p-6 backdrop-blur-xl shadow-xl">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <span className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center border border-blue-500/30">
-                    2
-                  </span>
-                  <div>
-                    <h2 className="text-base font-bold text-white">ជ្រើសរើសប្រភេទប្រព័ន្ធទូទាត់ (Select Payment Rail)</h2>
-                    <p className="text-xs text-slate-400">Configure what payment methods this key supports.</p>
-                  </div>
-                </div>
+            {/* Merchant Custom Name ("merchan customice") */}
+            <div style={{ marginBottom: '12px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                🏪 ឈ្មោះហាងផ្ទាល់ខ្លួន (Custom Merchant / Store Display Name):
+              </span>
+              <input
+                type="text"
+                placeholder="e.g. Kai Coffee Shop, Riki Store"
+                value={merchantName}
+                onChange={(e) => setMerchantName(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '11px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '14px',
+                  color: '#0f172a',
+                  background: '#ffffff'
+                }}
+              />
+              <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '3px', display: 'block' }}>
+                ឈ្មោះនេះនឹងបង្ហាញលើវិក្កយបត្រ និង QR Code ពេលអតិថិជនស្កេនទូទាត់។
+              </span>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                  {/* Bakong Only */}
-                  <div
-                    onClick={() => setRail('bakong')}
-                    className={`cursor-pointer rounded-xl p-4 border transition-all relative ${
-                      rail === 'bakong'
-                        ? 'bg-red-950/30 border-red-500/60 shadow-lg shadow-red-500/10'
-                        : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-lg">🔴</span>
-                      {rail === 'bakong' && <CheckCircle2 className="w-4 h-4 text-red-400" />}
-                    </div>
-                    <div className="font-bold text-white text-sm">Bakong Only</div>
-                    <div className="text-xs text-slate-400 mt-1">National KHQR QR standard. Customer payments deposit into Bakong.</div>
-                  </div>
-
-                  {/* ABA PayWay Only */}
-                  <div
-                    onClick={() => setRail('aba')}
-                    className={`cursor-pointer rounded-xl p-4 border transition-all relative ${
-                      rail === 'aba'
-                        ? 'bg-blue-950/30 border-blue-500/60 shadow-lg shadow-blue-500/10'
-                        : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-lg">🔵</span>
-                      {rail === 'aba' && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
-                    </div>
-                    <div className="font-bold text-white text-sm">ABA PayWay Only</div>
-                    <div className="text-xs text-slate-400 mt-1">ABA PayWay checkout gateway. Supports USD, KHR, or Both.</div>
-                  </div>
-
-                  {/* Dual Suite */}
-                  <div
-                    onClick={() => setRail('bundle')}
-                    className={`cursor-pointer rounded-xl p-4 border transition-all relative ${
-                      rail === 'bundle'
-                        ? 'bg-purple-950/30 border-purple-500/60 shadow-lg shadow-purple-500/10'
-                        : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-lg">🟣</span>
-                      {rail === 'bundle' && <CheckCircle2 className="w-4 h-4 text-purple-400" />}
-                    </div>
-                    <div className="font-bold text-white text-sm">Dual Suite (All-In-One)</div>
-                    <div className="text-xs text-slate-400 mt-1">Universal Cambodian clearing: Bakong KHQR + ABA PayWay USD & KHR.</div>
-                  </div>
-                </div>
-
-                {/* Sub-inputs for chosen rail */}
-                <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-4 space-y-4">
-                  {/* Bakong ID Input (for Bakong & Dual) */}
-                  {(rail === 'bakong' || rail === 'bundle') && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-xs font-semibold text-slate-300">
-                          🔴 Bakong Account ID / Phone
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setBakongId('soksitchey1@aclb')}
-                          className="text-[11px] text-blue-400 hover:underline"
-                        >
-                          Use Demo (soksitchey1@aclb)
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        value={bakongId}
-                        onChange={(e) => setBakongId(e.target.value)}
-                        placeholder="e.g. soksitchey1@aclb or 0977416126"
-                        className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  )}
-
-                  {/* Store Name Customization ("merchan customice") */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      🏷️ ឈ្មោះហាងផ្ទាល់ខ្លួន (Custom Merchant / Store Name)
-                    </label>
-                    <input
-                      type="text"
-                      value={merchantName}
-                      onChange={(e) => setMerchantName(e.target.value)}
-                      placeholder="e.g. Kai Coffee Shop, Riki Tech Store"
-                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
-                    />
-                    <span className="text-[11px] text-slate-500 mt-1 block">
-                      ឈ្មោះនេះនឹងបង្ហាញលើវិក្កយបត្រ និង QR Code ពេលអតិថិជនស្កេនទូទាត់។
-                    </span>
-                  </div>
-
-                  {/* ABA Currency Mode & Links (for ABA & Dual) */}
-                  {(rail === 'aba' || rail === 'bundle') && (
-                    <div className="pt-2 border-t border-slate-800/80">
-                      <label className="block text-xs font-semibold text-slate-300 mb-2">
-                        🔵 ជម្រើសរូបិយប័ណ្ណ ABA PayWay (ABA Currency Option)
-                      </label>
-                      <div className="grid grid-cols-3 gap-2 mb-3">
-                        <button
-                          type="button"
-                          onClick={() => setAbaMode('usd')}
-                          className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all border ${
-                            abaMode === 'usd'
-                              ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/20'
-                              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
-                          }`}
-                        >
-                          💵 USD Only
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAbaMode('khr')}
-                          className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all border ${
-                            abaMode === 'khr'
-                              ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/20'
-                              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
-                          }`}
-                        >
-                          ៛ KHR (Riel) Only
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAbaMode('both')}
-                          className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all border ${
-                            abaMode === 'both'
-                              ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/20'
-                              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
-                          }`}
-                        >
-                          💵+៛ Both ($ & ៛)
-                        </button>
-                      </div>
-
-                      {/* USD Link Input */}
-                      {(abaMode === 'usd' || abaMode === 'both') && (
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-xs font-medium text-slate-300">
-                              💵 ABA PayWay USD Payment Link
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => setUsdLink('https://link.payway.com.kh/ABAPAYusdstandard')}
-                              className="text-[11px] text-blue-400 hover:underline"
-                            >
-                              Use Default
-                            </button>
-                          </div>
-                          <input
-                            type="url"
-                            value={usdLink}
-                            onChange={(e) => setUsdLink(e.target.value)}
-                            placeholder="https://link.payway.com.kh/ABAPAYxxxxxxx"
-                            className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                      )}
-
-                      {/* KHR Link Input */}
-                      {(abaMode === 'khr' || abaMode === 'both') && (
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-xs font-medium text-slate-300">
-                              ៛ ABA PayWay KHR (Riel) Payment Link
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => setKhrLink('https://link.payway.com.kh/ABAPAYkhrstandard')}
-                              className="text-[11px] text-blue-400 hover:underline"
-                            >
-                              Use Default
-                            </button>
-                          </div>
-                          <input
-                            type="url"
-                            value={khrLink}
-                            onChange={(e) => setKhrLink(e.target.value)}
-                            placeholder="https://link.payway.com.kh/ABAPAYxxxxxxx"
-                            className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Step 3: Set Expiry Duration ("set have many days for this key") */}
-              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 sm:p-6 backdrop-blur-xl shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center border border-blue-500/30">
-                      3
-                    </span>
-                    <div>
-                      <h2 className="text-base font-bold text-white">កំណត់ចំនួនថ្ងៃផុតកំណត់ (Set Expiry Duration)</h2>
-                      <p className="text-xs text-slate-400">Choose how many days this key will remain active.</p>
-                    </div>
-                  </div>
-                  <div className="text-right hidden sm:block">
-                    <span className="text-[11px] text-slate-400 block">Preview Expiry:</span>
-                    <span className="text-xs font-semibold text-emerald-400">{calculateExpiryPreview()}</span>
-                  </div>
-                </div>
-
-                {/* Duration Presets Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-4">
-                  {DURATION_PRESETS.map((preset) => {
-                    const isSelected = !isCustomDays && durationDays === preset.days;
+            {/* ABA Currency Options (for ABA & Dual) */}
+            {rail !== 'bakong' ? (
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#004f71', display: 'block', marginBottom: '6px' }}>
+                  🔵 ABA Currency Options:
+                </span>
+                
+                {/* 3 Pills: USD only, KHR only, Both */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '10px' }}>
+                  {[
+                    { mode: 'usd', label: '💵 USD Only' },
+                    { mode: 'khr', label: '៛ KHR Only' },
+                    { mode: 'both', label: '💵+៛ Both ($ & ៛)' }
+                  ].map(item => {
+                    const active = abaMode === item.mode;
                     return (
-                      <div
-                        key={preset.days}
-                        onClick={() => {
-                          setIsCustomDays(false);
-                          setDurationDays(preset.days);
+                      <button
+                        key={item.mode}
+                        type="button"
+                        onClick={() => setAbaMode(item.mode)}
+                        style={{
+                          padding: '8px 4px',
+                          borderRadius: '8px',
+                          border: active ? '2px solid #004f71' : '1px solid #cbd5e1',
+                          background: active ? '#004f71' : '#ffffff',
+                          color: active ? '#ffffff' : '#475569',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer'
                         }}
-                        className={`cursor-pointer rounded-xl p-3 border text-center transition-all relative ${
-                          isSelected
-                            ? 'bg-blue-600/20 border-blue-500 shadow-md shadow-blue-500/10'
-                            : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-                        }`}
                       >
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wider block mx-auto w-max mb-1.5 ${
-                          isSelected ? 'bg-blue-500/30 text-blue-300' : 'bg-slate-800 text-slate-400'
-                        }`}>
-                          {preset.badge}
-                        </span>
-                        <div className="font-bold text-sm text-white">{preset.label}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{preset.desc}</div>
-                      </div>
+                        {item.label}
+                      </button>
                     );
                   })}
                 </div>
 
-                {/* Custom Days Input Toggle */}
-                <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="customDaysCheck"
-                      checked={isCustomDays}
-                      onChange={(e) => {
-                        setIsCustomDays(e.target.checked);
-                        if (e.target.checked && !customDaysInput) setCustomDaysInput('45');
-                      }}
-                      className="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0 w-4 h-4 cursor-pointer"
-                    />
-                    <label htmlFor="customDaysCheck" className="text-xs text-slate-300 cursor-pointer">
-                      កំណត់ចំនួនថ្ងៃផ្ទាល់ខ្លួន (Custom Days Input)
-                    </label>
-                  </div>
-
-                  {isCustomDays && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="1"
-                        max="9999"
-                        value={customDaysInput}
-                        onChange={(e) => setCustomDaysInput(e.target.value)}
-                        placeholder="Enter days (e.g. 45)"
-                        className="w-36 px-3 py-1.5 bg-slate-950 border border-blue-500/60 rounded-lg text-white font-mono text-sm focus:outline-none"
-                      />
-                      <span className="text-xs text-slate-400">ថ្ងៃ (days)</span>
+                {/* USD Link Input */}
+                {abaMode === 'usd' || abaMode === 'both' ? (
+                  <div style={{ marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>
+                        💵 ABA PayWay USD Payment Link:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setUsdLink('https://link.payway.com.kh/ABAPAYusdstandard')}
+                        style={{ background: 'none', border: 'none', color: '#004f71', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        Use Default
+                      </button>
                     </div>
-                  )}
-                </div>
+                    <input
+                      type="url"
+                      placeholder="https://link.payway.com.kh/ABAPAYxxxxxxx"
+                      value={usdLink}
+                      onChange={(e) => setUsdLink(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        fontFamily: 'monospace',
+                        color: '#0f172a',
+                        background: '#ffffff'
+                      }}
+                    />
+                  </div>
+                ) : null}
+
+                {/* KHR Link Input */}
+                {abaMode === 'khr' || abaMode === 'both' ? (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>
+                        ៛ ABA PayWay KHR (Riel) Payment Link:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setKhrLink('https://link.payway.com.kh/ABAPAYkhrstandard')}
+                        style={{ background: 'none', border: 'none', color: '#004f71', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        Use Default
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      placeholder="https://link.payway.com.kh/ABAPAYxxxxxxx"
+                      value={khrLink}
+                      onChange={(e) => setKhrLink(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        fontFamily: 'monospace',
+                        color: '#0f172a',
+                        background: '#ffffff'
+                      }}
+                    />
+                  </div>
+                ) : null}
               </div>
+            ) : null}
+          </div>
 
-              {/* Error Message */}
-              {actionError && (
-                <div className="p-4 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-sm flex items-center gap-2.5">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  <span>{actionError}</span>
-                </div>
-              )}
+          {/* Section 4: Key Validity Duration matching genkey.jsx */}
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                4. Key Validity Duration (Expire Days)
+              </label>
+              <span style={{ fontSize: '12px', color: '#059669', fontWeight: 700 }}>
+                {isCustomDays
+                  ? `Custom: ${customDays || 30} Days`
+                  : (durationDays >= 9999 ? 'Permanent Active' : `${durationDays} Days Active`)}
+              </span>
+            </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isActivating || !apiKeyInput.trim()}
-                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-base transition-all flex items-center justify-center gap-2.5 shadow-xl shadow-blue-600/30 cursor-pointer"
-              >
-                {isActivating ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    <span>កំពុងបើកដំណើរការ Key... (Activating Key...)</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-5 h-5 text-yellow-300" />
-                    <span>បើកដំណើរការ Key ឥឡូវនេះ • ACTIVATE KEY NOW</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
-            </form>
-          )}
-        </main>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: isCustomDays ? '10px' : '0' }}>
+              {[
+                { label: '7 Days', val: 7 },
+                { label: '30 Days', val: 30 },
+                { label: '365 Days (1y)', val: 365 },
+                { label: 'Custom', val: 'custom' }
+              ].map(opt => {
+                const isSelected = opt.val === 'custom' ? isCustomDays : (!isCustomDays && durationDays === opt.val);
+                return (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => {
+                      if (opt.val === 'custom') {
+                        setIsCustomDays(true);
+                      } else {
+                        setIsCustomDays(false);
+                        setDurationDays(opt.val);
+                      }
+                    }}
+                    style={{
+                      padding: '10px 4px',
+                      borderRadius: '10px',
+                      border: isSelected ? '2px solid #004f71' : '1px solid #cbd5e1',
+                      background: isSelected ? '#004f71' : '#ffffff',
+                      color: isSelected ? '#ffffff' : '#0f172a',
+                      fontWeight: 800,
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {isCustomDays ? (
+              <input
+                type="number"
+                min="1"
+                max="9999"
+                placeholder="Enter duration in days (e.g. 60, 90, 180, 9999)"
+                value={customDays}
+                onChange={(e) => setCustomDays(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '11px 14px',
+                  borderRadius: '10px',
+                  border: '1.5px solid #004f71',
+                  marginTop: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#0f172a'
+                }}
+              />
+            ) : null}
+          </div>
+
+          {/* Error Alert */}
+          {errorMessage ? (
+            <div style={{
+              padding: '12px',
+              borderRadius: '12px',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              fontSize: '13px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <AlertCircle size={16} />
+              {errorMessage}
+            </div>
+          ) : null}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isActivating || !apiKeyInput.trim()}
+            style={{
+              width: '100%',
+              padding: '15px 20px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #002d56 0%, #004f71 100%)',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: 800,
+              fontSize: '16px',
+              cursor: isActivating ? 'not-allowed' : 'pointer',
+              opacity: isActivating ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: '0 6px 20px rgba(0, 45, 86, 0.25)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {isActivating ? (
+              <>
+                <RefreshCw size={18} className="animate-spin" />
+                Activating Key...
+              </>
+            ) : (
+              <>
+                <Zap size={18} />
+                Activate &amp; Reconfigure Key Now
+              </>
+            )}
+          </button>
+        </form>
 
         {/* Footer */}
-        <footer className="relative z-10 border-t border-slate-800/60 mt-12 py-6 px-4 text-center text-xs text-slate-500">
-          <p>© 2026 PayLinkAPI Gateway Engine. High-Speed Cambodian Financial Infrastructure.</p>
-          <div className="flex items-center justify-center gap-4 mt-2">
-            <button onClick={() => router.push('/test')} className="hover:text-slate-300">Test Pay</button>
+        <footer style={{ marginTop: '24px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
+          <p>© 2026 PaylinkApi Gateway Studio. Authentic Cambodian Payment Infrastructure.</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '6px' }}>
+            <button onClick={() => router.push('/test')} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}>Test Studio</button>
             <span>•</span>
-            <button onClick={() => router.push('/')} className="hover:text-slate-300">Registration</button>
+            <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}>Registration Portal</button>
             <span>•</span>
-            <a href="https://t.me/PayLinkAPI_bot" target="_blank" rel="noreferrer" className="hover:text-slate-300">Telegram Bot</a>
+            <a href="https://t.me/PayLinkAPI_bot" target="_blank" rel="noreferrer" style={{ color: '#64748b', textDecoration: 'none' }}>Telegram Bot</a>
           </div>
         </footer>
+
       </div>
     </>
   );
