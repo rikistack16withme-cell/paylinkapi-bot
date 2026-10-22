@@ -60,6 +60,7 @@ const safeSender = require('./src/utils/safe_sender');
 const { startApiServer } = require('./src/api/server');
 const tunnelService = require('./src/services/tunnel.service');
 const adminHandler = require('./src/bot/handlers/admin.handler');
+const keyWizardHandler = require('./src/bot/handlers/key_wizard.handler');
 const db = require('./src/database');
 const expiryCheckerService = require('./src/services/expiry_checker.service');
 const accessGateService = require('./src/services/access_gate.service');
@@ -280,6 +281,15 @@ bot.on('message', async (msg) => {
       }
     }
 
+    // Interactive Key Activation & Customization Wizard inputs (Bakong ID, Store Name, ABA Links)
+    if (text && (!cmdText.startsWith('/') || isWizardCmd)) {
+      const handledByKwiz = await keyWizardHandler.handleKeyWizardTextInput(bot, msg);
+      if (handledByKwiz) {
+        middleware.logAction('KEY_WIZARD_INPUT', msg.from, text);
+        return;
+      }
+    }
+
     // 3. Reply-to-DM Bridge: If Master Admin replies to a forwarded user message in Admin Group, deliver as DM to user!
     if (isGroup && isMaster && msg.reply_to_message && text && !cmdText.startsWith('/')) {
       const replyTo = msg.reply_to_message;
@@ -326,14 +336,17 @@ bot.on('message', async (msg) => {
       return await adminHandler.renderAdminCommandsList(bot, chatId);
     }
 
-    if (cmdText.startsWith('/activate') || cmdText.startsWith('/reactivate') || (cmdText.startsWith('/renew') && isMaster && cmdText.split(/\s+/).length > 1)) {
+    if (cmdText.startsWith('/activate') || cmdText.startsWith('/reactivate') || cmdText.startsWith('/upgradekey') || (cmdText.startsWith('/renew') && isMaster && cmdText.split(/\s+/).length > 1)) {
       middleware.logAction('COMMAND', msg.from, cmdText);
-      if (!isMaster) return;
       const parts = cmdText.split(/\s+/).slice(1);
-      const targetId = parts[0];
-      const days = parts[1] || 365;
-      const plan = parts.slice(2).join(' ') || 'VIP Pro License';
-      return await adminHandler.handleAdminManualActivate(bot, chatId, targetId, plan, days);
+      const arg = parts[0] || '';
+      // If master admin specifies a numeric user ID + duration, execute admin manual activation
+      if (isMaster && /^\d+$/.test(arg) && parts.length >= 2) {
+        const days = parts[1] || 365;
+        const plan = parts.slice(2).join(' ') || 'VIP Pro License';
+        return await adminHandler.handleAdminManualActivate(bot, chatId, arg, plan, days);
+      }
+      return await keyWizardHandler.startKeyActivationWizard(bot, chatId, msg.from.id, arg);
     }
 
     if (cmdText === '/renew' || cmdText.startsWith('/renew ')) {
@@ -630,6 +643,12 @@ bot.on('message', async (msg) => {
       return await handleCustomAmountInput(bot, msg);
     }
 
+    // Direct API Key sent in chat -> trigger Key Activation & Configuration Wizard
+    if (text && keyWizardHandler.isKeyActivationTrigger(text)) {
+      middleware.logAction('KEY_ACTIVATION_TRIGGER', msg.from, text);
+      return await keyWizardHandler.startKeyActivationWizard(bot, chatId, msg.from.id, text);
+    }
+
     // Interactive Wizard text inputs (Merchant ID, Phone Number, Links)
     const handledByWizard = await handleWizardTextInput(bot, msg);
     if (handledByWizard) {
@@ -679,6 +698,14 @@ bot.on('callback_query', async (query) => {
 
     // Always acknowledge callback query to dismiss loader in Telegram client
     await bot.answerCallbackQuery(query.id).catch(() => {});
+
+    // Key Activation Wizard callbacks
+    if (data === 'kwiz_prompt_key') {
+      return await keyWizardHandler.startKeyActivationWizard(bot, chatId, from?.id, '', messageId);
+    }
+    if (data && data.startsWith('kwiz_')) {
+      return await keyWizardHandler.handleKeyWizardCallback(bot, query);
+    }
 
     // Access Gate Request & Admin Approval callbacks
     if (data === 'gate_request_access') {

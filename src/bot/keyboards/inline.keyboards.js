@@ -128,6 +128,7 @@ const inlineKeyboards = {
     reply_markup: {
       inline_keyboard: [
         [makeButton(lang === 'km' ? '🔄 បន្តគម្រោង (Renew Subscription)' : '🔄 Renew Subscription', 'sub_back_plans', 'refresh', 'success')],
+        [makeButton(lang === 'km' ? '⚡ បើកដំណើរការ Key ចាស់ (Activate Old Key)' : '⚡ Activate / Reconfigure Key', 'kwiz_prompt_key', 'keys', 'primary')],
         [makeButton(i18n.t('btn_test_live_payment', lang), 'start_live_pay_test', 'rocket', 'primary')],
         [makeButton(i18n.t('btn_doc_pdf', lang), 'doc_download_pdf', 'docs', 'primary')],
         [makeButton(i18n.t('btn_get_payment_api', lang), 'nav_get_api', 'get_api', 'primary')],

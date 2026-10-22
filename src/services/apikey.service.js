@@ -769,9 +769,12 @@ class ApiKeyService {
       if (planKey) key.plan = planKey;
       if (provider) key.provider = provider;
       if (merchantName) key.merchantName = merchantName;
-      if (usdLink !== null && usdLink !== undefined) key.usdLink = usdLink;
-      if (khrLink !== null && khrLink !== undefined) key.khrLink = khrLink;
-      if (bakongId !== null && bakongId !== undefined) key.bakongId = bakongId;
+      if (usdLink !== undefined) key.usdLink = usdLink;
+      if (khrLink !== undefined) key.khrLink = khrLink;
+      if (bakongId !== undefined) {
+        key.bakongId = bakongId;
+        key.merchantId = bakongId;
+      }
     }
 
     db.saveApiKey(key);
@@ -790,6 +793,12 @@ class ApiKeyService {
         user.status = 'ACTIVE';
         if (provider) user.provider = provider;
         if (merchantName) user.merchantName = merchantName;
+        if (usdLink !== undefined) user.usdLink = usdLink;
+        if (khrLink !== undefined) user.khrLink = khrLink;
+        if (bakongId !== undefined) {
+          user.bakongId = bakongId;
+          user.merchantId = bakongId;
+        }
         db.saveUser(user);
       }
     }
