@@ -408,6 +408,9 @@ async function renderConfirmationCard(bot, chatId, draft, messageId = null, from
     }
   }
 
+  const curDays = draft.days || 30;
+  const daysLabel = curDays >= 9999 ? '♾️ អចិន្ត្រៃយ៍ (Permanent)' : `+${curDays} ថ្ងៃ`;
+
   const text =
     `📋 <b>ពិនិត្យទិន្នន័យមុនបើកដំណើរការ KEY (REVIEW DETAILS)</b>\n` +
     `<code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</code>\n` +
@@ -415,14 +418,24 @@ async function renderConfirmationCard(bot, chatId, draft, messageId = null, from
     `🏦 <b>ប្រព័ន្ធទូទាត់:</b> <b>${railTitle}</b>\n` +
     `🏷️ <b>ឈ្មោះហាង (Store Name):</b> <b>${draft.merchantName || 'Merchant Store'}</b>\n` +
     details +
-    `⏱️ <b>សុពលភាពថ្មី:</b> <code>+30 ថ្ងៃ (Active Live)</code>\n` +
+    `⏱️ <b>សុពលភាពថ្មី (Validity):</b> <code>${daysLabel} (Active Live)</code>\n` +
     `⚡ <b>ម៉ាស៊ីនដំណើរការ:</b> <code>PayWay v2 & KHQR Engine (High-Speed ~200ms)</code>\n\n` +
-    `<i>ចុចប៊ូតុងខាងក្រោមដើម្បីបញ្ជាក់ និងបើកដំណើរការ Key នេះភ្លាមៗ៖</i>`;
+    `<i>👇 ជ្រើសរើសចំនួនថ្ងៃសុពលភាព (Days until expire) ឬចុចបញ្ជាក់ភ្លាមៗ៖</i>`;
 
   const keyboard = {
     inline_keyboard: [
       [
-        makeButton('🚀 បញ្ជាក់ & បើកដំណើរការ Key (Activate Key) ❯', 'kwiz_confirm_activate', 'lightning', 'success')
+        makeButton(`🚀 បញ្ជាក់ & បើកដំណើរការ (${daysLabel}) ❯`, 'kwiz_confirm_activate', 'lightning', 'success')
+      ],
+      [
+        makeButton(curDays === 7 ? '🔘 7 ថ្ងៃ (Trial)' : '7 ថ្ងៃ', 'kwiz_days_7', 'telemetry', curDays === 7 ? 'primary' : 'secondary'),
+        makeButton(curDays === 30 ? '🔘 30 ថ្ងៃ (1 ខែ)' : '30 ថ្ងៃ', 'kwiz_days_30', 'brand', curDays === 30 ? 'primary' : 'secondary'),
+        makeButton(curDays === 90 ? '🔘 90 ថ្ងៃ' : '90 ថ្ងៃ', 'kwiz_days_90', 'telemetry', curDays === 90 ? 'primary' : 'secondary')
+      ],
+      [
+        makeButton(curDays === 180 ? '🔘 180 ថ្ងៃ' : '180 ថ្ងៃ', 'kwiz_days_180', 'brand', curDays === 180 ? 'primary' : 'secondary'),
+        makeButton(curDays === 365 ? '🔘 365 ថ្ងៃ (1 ឆ្នាំ)' : '365 ថ្ងៃ (1y)', 'kwiz_days_365', 'crown', curDays === 365 ? 'primary' : 'secondary'),
+        makeButton(curDays >= 9999 ? '🔘 ♾️ អចិន្ត្រៃយ៍' : '♾️ អចិន្ត្រៃយ៍', 'kwiz_days_9999', 'verified', curDays >= 9999 ? 'primary' : 'secondary')
       ],
       [
         makeButton('🔄 កំណត់ឡើងវិញ (Start Over)', 'kwiz_restart', 'refresh', 'secondary'),
@@ -700,6 +713,14 @@ async function handleKeyWizardCallback(bot, query) {
     }
     // If ABA only: prompt store name if not set
     return await promptMerchantNameInput(bot, chatId, draft, messageId, fromId);
+  }
+
+  // Duration days selection
+  if (data && data.startsWith('kwiz_days_')) {
+    const days = parseInt(data.replace('kwiz_days_', ''), 10) || 30;
+    draft.days = days;
+    keyWizardDrafts.set(cId, draft);
+    return await renderConfirmationCard(bot, chatId, draft, messageId, fromId);
   }
 
   // Confirm and Execute Activation

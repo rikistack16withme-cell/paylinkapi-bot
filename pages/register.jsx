@@ -421,6 +421,33 @@ export default function RegisterPortal() {
         </div>
       </header>
 
+      {/* Quick Link to Key Activation Page */}
+      <div 
+        onClick={() => router.push('/activate')}
+        style={{
+          width: '100%',
+          maxWidth: '560px',
+          padding: '10px 16px',
+          background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)',
+          border: '1px solid rgba(99, 102, 241, 0.25)',
+          borderRadius: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '14px',
+          cursor: 'pointer',
+          transition: 'all 0.2s'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '15px' }}>⚡</span>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>
+            មាន Key ចាស់រួចហើយ? ចុចទីនេះដើម្បី Activate & Reconfigure លើ Web ❯
+          </span>
+        </div>
+        <ChevronRight size={16} color="#6366f1" />
+      </div>
+
       {/* Stepper Navigation */}
       <nav className="stepper-nav" aria-label="Setup steps">
         <div className={`step-pill ${step === 1 ? 'active' : step > 1 ? 'completed' : ''}`}>

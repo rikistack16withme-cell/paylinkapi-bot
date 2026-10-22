@@ -302,6 +302,31 @@ export default function AdminKeyGenerator() {
           </div>
         </header>
 
+        {/* Quick Link to Activation Portal */}
+        <div
+          onClick={() => router.push('/activate')}
+          style={{
+            width: '100%',
+            padding: '10px 16px',
+            background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            borderRadius: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '15px' }}>⚡</span>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>
+              Want to Activate or Reconfigure an Existing Key? Open Activation Portal ❯
+            </span>
+          </div>
+          <ArrowRight size={15} color="#2563eb" />
+        </div>
+
         {/* ---------------------------------------------------- */}
         {/* PASSWORD LOCK SCREEN (Shown when not authenticated) */}
         {/* ---------------------------------------------------- */}
